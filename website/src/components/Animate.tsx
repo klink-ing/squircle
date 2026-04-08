@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { AnimatePresence, motion, useIsPresent, type MotionProps } from "framer-motion";
+import { AnimatePresence, motion, type MotionProps } from "framer-motion";
 
 interface SlideContext {
   step: number;
@@ -83,13 +83,15 @@ export function Animate({
   children: React.ReactNode;
 }) {
   const currentStep = useSlideStep();
-  const isPresent = useIsPresent();
-  const stepVisible = currentStep >= inStep && (outStep == null || currentStep < outStep);
-  const visible = isPresent && stepVisible;
+  const visible = currentStep >= inStep && (outStep == null || currentStep < outStep);
 
   return (
-    <AnimatePresence mode="popLayout">
-      {visible && <motion.div key={`animate-${inStep}`}>{children}</motion.div>}
+    <AnimatePresence propagate mode="popLayout">
+      {visible && (
+        <motion.div key={`animate-${inStep}`} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+          {children}
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }
