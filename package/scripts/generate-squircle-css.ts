@@ -9,15 +9,15 @@ import {
   correctedRadius,
   isComment,
   usesIntermediateVar,
+  SUPPORTS_RULE,
 } from "../src/variants";
-import { SUPPORTS_RULE } from "../src/variants";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const formula = correctedRadius("--value(--radius- *)");
+const value = "--value([--radius-*])";
+const formula = correctedRadius(value);
 
 function multiPropUtility(name: string, props: string[]) {
-  const fallbacks = props.map((p) => `  ${p}: --value(--radius-*);`).join("\n");
+  const fallbacks = props.map((p) => `  ${p}: ${value};`).join("\n");
   const corrected = props.map((p) => `    ${p}: var(--squircle-r);`).join("\n");
   return `\
 @utility ${name} {
@@ -33,7 +33,7 @@ ${corrected}
 function singlePropUtility(name: string, prop: string) {
   return `\
 @utility ${name} {
-  ${prop}: --value(--radius-*);
+  ${prop}: ${value};
   ${SUPPORTS_RULE} {
     ${prop}: ${formula};
     corner-shape: ${getCornerShape()};

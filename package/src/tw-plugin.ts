@@ -2,11 +2,11 @@ import plugin from "tailwindcss/plugin";
 import {
   DEFAULT_AMT,
   DEFAULT_AMOUNT_VAR_NAME,
+  SUPPORTS_RULE,
   correctedRadius,
   getCornerShape,
   usesIntermediateVar,
   variantEntries,
-  SUPPORTS_RULE,
 } from "./variants";
 
 export interface SquirclePluginOptions {
