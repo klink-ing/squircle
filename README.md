@@ -737,13 +737,14 @@ export { squirclePandaPreset as default, squirclePandaPreset };
 import * as stylex from "@stylexjs/stylex";
 //#region src/stylex.ts
 /**
-* StyleX squircle utilities.
+* StyleX squircle utilities — generated from this template by
+* `scripts/generate-stylex.ts`.
 *
-* Each entry is a *dynamic* style — a function that takes a `radius` (and an
-* optional superellipse `amt`) and produces a `borderRadius` + `cornerShape`
-* pair gated behind `@supports (corner-shape: superellipse(2))`. Browsers that
-* don't support `corner-shape` fall back to a plain rounded rectangle at the
-* same radius.
+* Each variant is a *dynamic* style — a function that takes a `radius` (and
+* an optional superellipse `amt`) and produces a `borderRadius` +
+* `cornerShape` pair gated behind `@supports (corner-shape: superellipse(2))`.
+* Browsers that don't support `corner-shape` fall back to a plain rounded
+* rectangle at the same radius.
 *
 * ```tsx
 * import * as stylex from '@stylexjs/stylex';
@@ -758,11 +759,24 @@ import * as stylex from "@stylexjs/stylex";
 * tune it. Unlike the Tailwind and Panda integrations, this preset does not
 * read `--squircle-amt`; StyleX's per-call parameter is the only knob.
 *
-* **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to receive
-* a fully-static object literal, and forbids destructuring, spreading, or
-* default values on dynamic-style function parameters. The whole 15-variant
-* table is therefore spelled out here verbatim. Keep it that way; tooling
-* relies on every variant being statically analyzable at this call site.
+* **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to
+* receive a fully-static object literal, and forbids destructuring,
+* spreading, or default values on dynamic-style function parameters. The
+* whole 15-variant table is therefore spelled out verbatim in the generated
+* output. Every entry in this template must remain statically analyzable at
+* its final call site.
+*
+* **How to modify**
+*
+* - To tweak a *variant's body* (the `borderRadius`/`cornerShape` block),
+*   edit `renderVariant` in `scripts/generate-stylex.ts`.
+* - To add or rename variants, edit `CAMEL_VARIANTS` and `VARIANTS` in
+*   `variants.ts`.
+* - To tweak the *file shell* (imports, docstring, the wrapping
+*   `stylex.create({ ... })` call), edit this template.
+*
+* Then run `tsx scripts/generate-stylex.ts` (or just `vp run build`) to
+* regenerate `stylex.ts`. Do not hand-edit `stylex.ts`.
 */
 const squircle = stylex.create({
 	all: (radius, amt) => ({
