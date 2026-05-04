@@ -9,7 +9,6 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 ## Contents
 
 <!-- BEGIN:toc -->
-
 - [Requirements](#requirements)
 - [Install & setup](#install--setup)
 - [Utilities](#utilities)
@@ -90,24 +89,30 @@ const twMerge = extendTailwindMerge(squircleMergeConfig, {
 
 ### Path C: Panda CSS preset
 
-For [Panda CSS](https://panda-css.com/) projects, register the preset in `panda.config.ts`:
+#### 1. Install Panda
+
+```bash
+npm install -D @pandacss/dev @klinking/squircle
+```
+
+If you don't have Panda set up yet, follow the [official quickstart](https://panda-css.com/docs/installation/cli) to initialize a `panda.config.ts` and your `styled-system/` codegen output.
+
+#### 2. Register the preset
 
 ```ts
+// panda.config.ts
 import { defineConfig } from "@pandacss/dev";
 import squirclePreset from "@klinking/squircle/panda";
 
 export default defineConfig({
   presets: ["@pandacss/dev/presets", squirclePreset()],
-  // ...
+  // ... your other config
 });
 ```
 
-Then use the utilities anywhere `css(...)` accepts properties:
+Re-run `panda codegen` so the new `squircle*` properties show up in the typed `css({ … })` and `cva({ … })` APIs.
 
-```tsx
-<div className={css({ squircle: "md", padding: "4" })} />
-<div className={css({ squircleTopLeft: "lg", squircleAmt: 3 })} />
-```
+#### 3. Use the utilities
 
 The naming follows Panda's own border-radius convention exactly — substitute `border` ↔ `squircle` and `rounded` ↔ `squircle` (the shorthand) and the table is identical to Panda's:
 
@@ -130,31 +135,194 @@ The naming follows Panda's own border-radius convention exactly — substitute `
 | `squircleEndEndRadius`      | `squircleEndEnd`      | end-end corner (logical)           |
 | `squircleAmount`            | `squircleAmt`         | superellipse exponent (default 2)  |
 
-All radius utilities resolve through your `radii` theme tokens, so `squircle: "md"` reads the same `--radii-md` your `borderRadius: "md"` does. The preset also registers a `_squircleSupported` condition (`@supports (corner-shape: superellipse(2))`) for one-off overrides.
+All radius utilities resolve through your `radii` theme tokens, so `squircle: "md"` reads the same `--radii-md` your `borderRadius: "md"` does:
 
-The preset accepts the same `amtVar` / `rVar` options as the Tailwind plugin if you need to rename the underlying CSS variables:
+```tsx
+import { css, cva } from "../styled-system/css";
 
-```ts
-squirclePreset({ amtVar: "--my-amt", rVar: "--my-r" });
+// All four corners, token radius
+<div className={css({ squircle: "md", padding: "4" })} />
+
+// Single corner with explicit superellipse amount
+<div className={css({ squircleTopLeft: "lg", squircleAmt: 3 })} />
+
+// Arbitrary value (any string Panda would accept for borderRadius)
+<div className={css({ squircle: "24px" })} />
+
+// Inside a recipe
+const button = cva({
+  base: { squircle: "md", paddingInline: "4" },
+  variants: { tone: { brand: { squircleAmt: 3 } } },
+});
 ```
 
-Panda is usage-driven — utilities only appear in the output for properties found in scanned source. If you want every variant emitted unconditionally, opt in via Panda's [`staticCss`](https://panda-css.com/docs/guides/static-css).
+The preset also registers a `_squircleSupported` condition mapped to `@supports (corner-shape: superellipse(2))`. Use it to layer on extra styles in the squircle branch only:
+
+```tsx
+<div
+  className={css({
+    squircle: "lg",
+    boxShadow: "sm",
+    _squircleSupported: { boxShadow: "0 0 0 1px rgb(0 0 0 / 0.1)" },
+  })}
+/>
+```
+
+#### 4. (Optional) customize CSS variable names
+
+If you've already standardized on different variable names — say your design system uses `--corner-amt` everywhere — pass them when calling the preset:
+
+```ts
+squirclePreset({
+  amtVar: "--corner-amt", // default: --squircle-amt
+  rVar: "--corner-r",     // default: --squircle-r
+});
+```
+
+The override flows through every transform: the `@supports` calc, the `cornerShape: superellipse(var(--corner-amt))`, and the `squircleAmount` utility's variable write.
+
+#### 5. (Optional) prefix the generated classes
+
+If you're running Panda alongside another utility framework (Tailwind, Mantine, etc.) and worried about class collisions, use Panda's own [`prefix`](https://panda-css.com/docs/concepts/extend) option in `panda.config.ts`. It applies to every Panda utility, this preset included:
+
+```ts
+export default defineConfig({
+  prefix: "pd",
+  presets: ["@pandacss/dev/presets", squirclePreset()],
+});
+```
+
+#### Notes
+
+- **Usage-driven extraction.** Panda only emits CSS for properties it finds in scanned source. If you want every `squircle*` variant in the output regardless of usage, opt them in via Panda's [`staticCss`](https://panda-css.com/docs/guides/static-css) config.
+- **Optional peer.** `@pandacss/dev` is an *optional* peer dependency on `@klinking/squircle` — installing the package without Panda doesn't pull Panda in.
 
 ### Path D: StyleX
 
-For [StyleX](https://stylexjs.com/) projects, import the dynamic-style helpers from `@klinking/squircle/stylex`:
+#### 1. Install StyleX
+
+```bash
+npm install @stylexjs/stylex @klinking/squircle
+npm install -D @stylexjs/babel-plugin
+```
+
+Wire `@stylexjs/babel-plugin` into your bundler the standard way ([Vite](https://stylexjs.com/docs/learn/installation/#using-vite), [Next.js](https://stylexjs.com/docs/learn/installation/#using-nextjs), etc.). One detail specific to consuming this package: `@klinking/squircle/stylex` ships a pre-compiled `dist/stylex/index.mjs` that *also* contains a `stylex.create({ … })` call, so the babel plugin must run on it too.
+
+For a Vite project, that means excluding the package from `optimizeDeps` and either `noExternal`-ing it (Vite SSR mode) or running babel on it via a small custom transform:
+
+```ts
+// vite.config.ts
+import babel from "@babel/core";
+import stylexPlugin from "@stylexjs/babel-plugin";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+
+const stylexBabelOpts = {
+  dev: true, // or false for prod
+  runtimeInjection: true,
+  unstable_moduleResolution: { type: "commonJS", rootDir: process.cwd() },
+};
+
+export default defineConfig({
+  plugins: [
+    react({
+      babel: { plugins: [[stylexPlugin, stylexBabelOpts]] },
+    }),
+    // Run the stylex plugin on @klinking/squircle/stylex too — the
+    // package ships a compiled file that still needs babel processing.
+    {
+      name: "stylex-external",
+      enforce: "pre",
+      async transform(code, id) {
+        if (!id.includes("@klinking/squircle/dist/stylex/index.mjs")) return;
+        const result = await babel.transformAsync(code, {
+          filename: id,
+          babelrc: false,
+          configFile: false,
+          plugins: [[stylexPlugin, stylexBabelOpts]],
+        });
+        return result?.code ? { code: result.code, map: result.map } : null;
+      },
+    },
+  ],
+  optimizeDeps: { exclude: ["@klinking/squircle"] },
+  ssr: { noExternal: ["@klinking/squircle"] },
+});
+```
+
+The website's [`astro.config.mjs`](website/astro.config.mjs) does this end-to-end if you'd like a complete reference.
+
+#### 2. Use the utilities
 
 ```tsx
 import * as stylex from "@stylexjs/stylex";
 import { squircle } from "@klinking/squircle/stylex";
 
+// All four corners
 <div {...stylex.props(squircle.all("1rem"))} />
+
+// Single corner with custom superellipse amount
 <div {...stylex.props(squircle.topLeft("1.5rem", 3))} />
+
+// Per-side
+<div {...stylex.props(squircle.top("0.75rem"))} />
+
+// Logical (inline-start/inline-end aware)
+<div {...stylex.props(squircle.startStart("0.5rem"))} />
 ```
 
-Each variant (`all`, `top`, `right`, …, `topLeft`, `endEnd`, …) is a function that takes a `radius` and an optional superellipse `amt`, then emits a `borderRadius` + `cornerShape` pair gated behind `@supports (corner-shape: superellipse(2))`. If `amt` is omitted, the default exponent `2` is used; unlike the Tailwind and Panda integrations, this preset does not read `--squircle-amt` — pass `amt` explicitly per call site to tune it.
+`squircle` exposes one entry per variant — same 15-name table as the Panda preset (`all`, `top`, `right`, `bottom`, `left`, `start`, `end`, `topLeft`, `topRight`, `bottomRight`, `bottomLeft`, `startStart`, `startEnd`, `endStart`, `endEnd`). Each entry is a function with this signature:
 
-The whole 15-variant table is a single statically-analyzable `stylex.create({ … })` literal — your StyleX bundler picks it up the same way it picks up your own create calls.
+```ts
+(radius: string | number, amt?: string | number) => StyleXStyles
+```
+
+- `radius` — any value valid for `border-radius` (rem, px, %, a `var(--…)` reference, or a number which StyleX converts to px).
+- `amt` — the superellipse exponent. **Defaults to `2`.** Unlike the Tailwind and Panda integrations, this preset does *not* read `--squircle-amt` from the cascade — pass `amt` explicitly per call site to tune it.
+
+Browsers without `corner-shape` support fall back to a plain `border-radius` at the same size (the `@supports` block silently drops out).
+
+#### 3. Mix with your own styles
+
+`stylex.props` accepts any number of style references and merges them. Layer squircle on top of your own component styles:
+
+```tsx
+const styles = stylex.create({
+  card: { padding: 16, backgroundColor: "#fff", boxShadow: "0 1px 2px #0002" },
+});
+
+<div {...stylex.props(styles.card, squircle.all("1rem"))} />
+```
+
+#### 4. Use shared radius tokens
+
+Pull radii out into a `defineVars` file so multiple components share one scale:
+
+```ts
+// theme/radii.stylex.ts
+import * as stylex from "@stylexjs/stylex";
+
+export const radii = stylex.defineVars({
+  sm: "0.25rem",
+  md: "0.5rem",
+  lg: "1rem",
+});
+```
+
+```tsx
+import { radii } from "./theme/radii.stylex";
+import { squircle } from "@klinking/squircle/stylex";
+
+<div {...stylex.props(squircle.all(radii.md))} />
+```
+
+`radii.md` is a `var(--xR-…)` reference at runtime, which StyleX wraps in another custom property and the squircle calc resolves transitively.
+
+#### Notes
+
+- **No CSS-variable knobs.** The Tailwind and Panda integrations expose `amtVar` / `rVar` because they emit static `@supports` blocks the cascade can override. StyleX's preset is per-call parametric instead — there's nothing to rename.
+- **Static analysis.** The 15-variant table is a single statically-analyzable `stylex.create({ … })` literal, so your StyleX bundler picks it up the same way it picks up your own create calls. The literal is generated from a template — see `package/scripts/generate-stylex.ts`.
+- **Optional peer.** `@stylexjs/stylex` is an *optional* peer dependency on `@klinking/squircle` — installing the package without StyleX doesn't pull it in.
 
 ## Utilities
 
@@ -423,7 +591,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>tailwind/utils.css</code></strong> — the Tailwind utilities</summary>
 
 <!-- BEGIN:dist/tailwind/utils.css -->
-
 ```css
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default 2)    */
@@ -583,7 +750,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   }
 }
 ```
-
 <!-- END:dist/tailwind/utils.css -->
 
 </details>
@@ -592,8 +758,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>tailwind/index.mjs</code></strong> — the Tailwind plugin and tailwind-merge config</summary>
 
 <!-- BEGIN:dist/tailwind/index.mjs -->
-
-````js
+```js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries } from "../variants-CUhqvLRq.mjs";
 import plugin from "tailwindcss/plugin";
 //#region src/tailwind.ts
