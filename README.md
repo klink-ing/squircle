@@ -9,6 +9,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 ## Contents
 
 <!-- BEGIN:toc -->
+
 - [Requirements](#requirements)
 - [Install & setup](#install--setup)
 - [Utilities](#utilities)
@@ -195,7 +196,7 @@ export default defineConfig({
 #### Notes
 
 - **Usage-driven extraction.** Panda only emits CSS for properties it finds in scanned source. If you want every `squircle*` variant in the output regardless of usage, opt them in via Panda's [`staticCss`](https://panda-css.com/docs/guides/static-css) config.
-- **Optional peer.** `@pandacss/dev` is an *optional* peer dependency on `@klinking/squircle` — installing the package without Panda doesn't pull Panda in.
+- **Optional peer.** `@pandacss/dev` is an _optional_ peer dependency on `@klinking/squircle` — installing the package without Panda doesn't pull Panda in.
 
 ### Path D: StyleX
 
@@ -206,7 +207,7 @@ npm install @stylexjs/stylex @klinking/squircle
 npm install -D @stylexjs/babel-plugin
 ```
 
-Wire `@stylexjs/babel-plugin` into your bundler the standard way ([Vite](https://stylexjs.com/docs/learn/installation/#using-vite), [Next.js](https://stylexjs.com/docs/learn/installation/#using-nextjs), etc.). One detail specific to consuming this package: `@klinking/squircle/stylex` ships a pre-compiled `dist/stylex/index.mjs` that *also* contains a `stylex.create({ … })` call, so the babel plugin must run on it too.
+Wire `@stylexjs/babel-plugin` into your bundler the standard way ([Vite](https://stylexjs.com/docs/learn/installation/#using-vite), [Next.js](https://stylexjs.com/docs/learn/installation/#using-nextjs), etc.). One detail specific to consuming this package: `@klinking/squircle/stylex` ships a pre-compiled `dist/stylex/index.mjs` that _also_ contains a `stylex.create({ … })` call, so the babel plugin must run on it too.
 
 For a Vite project, that means excluding the package from `optimizeDeps` and either `noExternal`-ing it (Vite SSR mode) or running babel on it via a small custom transform:
 
@@ -278,7 +279,7 @@ import { squircle } from "@klinking/squircle/stylex";
 ```
 
 - `radius` — any value valid for `border-radius` (rem, px, %, a `var(--…)` reference, or a number which StyleX converts to px).
-- `amt` — the superellipse exponent. **Defaults to `2`.** Unlike the Tailwind and Panda integrations, this preset does *not* read `--squircle-amt` from the cascade — pass `amt` explicitly per call site to tune it.
+- `amt` — the superellipse exponent. **Defaults to `2`.** Unlike the Tailwind and Panda integrations, this preset does _not_ read `--squircle-amt` from the cascade — pass `amt` explicitly per call site to tune it.
 
 Browsers without `corner-shape` support fall back to a plain `border-radius` at the same size (the `@supports` block silently drops out).
 
@@ -322,7 +323,7 @@ import { squircle } from "@klinking/squircle/stylex";
 
 - **No CSS-variable knobs.** The Tailwind and Panda integrations expose `amtVar` / `rVar` because they emit static `@supports` blocks the cascade can override. StyleX's preset is per-call parametric instead — there's nothing to rename.
 - **Static analysis.** The 15-variant table is a single statically-analyzable `stylex.create({ … })` literal, so your StyleX bundler picks it up the same way it picks up your own create calls. The literal is generated from a template — see `package/scripts/generate-stylex.ts`.
-- **Optional peer.** `@stylexjs/stylex` is an *optional* peer dependency on `@klinking/squircle` — installing the package without StyleX doesn't pull it in.
+- **Optional peer.** `@stylexjs/stylex` is an _optional_ peer dependency on `@klinking/squircle` — installing the package without StyleX doesn't pull it in.
 
 ## Utilities
 
@@ -591,6 +592,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>tailwind/utils.css</code></strong> — the Tailwind utilities</summary>
 
 <!-- BEGIN:dist/tailwind/utils.css -->
+
 ```css
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default 2)    */
@@ -750,6 +752,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   }
 }
 ```
+
 <!-- END:dist/tailwind/utils.css -->
 
 </details>
@@ -758,7 +761,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>tailwind/index.mjs</code></strong> — the Tailwind plugin and tailwind-merge config</summary>
 
 <!-- BEGIN:dist/tailwind/index.mjs -->
-```js
+
+````js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries } from "../variants-CUhqvLRq.mjs";
 import plugin from "tailwindcss/plugin";
 //#region src/tailwind.ts
