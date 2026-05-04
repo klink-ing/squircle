@@ -840,6 +840,7 @@ export { squircle as default, squircleMergeConfig };
 <!-- BEGIN:dist/panda/index.mjs -->
 ```js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries, t as CAMEL_VARIANTS } from "../variants-CUhqvLRq.mjs";
+import { definePreset } from "@pandacss/dev";
 //#region src/panda.ts
 /**
 * Build the Panda preset object. Pass directly to `presets:` in `panda.config.ts`:
@@ -884,11 +885,11 @@ function squirclePandaPreset(options = {}) {
 			[SUPPORTS_RULE]: { cornerShape: `superellipse(var(${amtVar}))` }
 		})
 	};
-	return {
+	return definePreset({
 		name: "@klinking/squircle",
 		utilities: { extend: utilities },
 		conditions: { extend: { squircleSupported: SUPPORTS_RULE } }
-	};
+	});
 }
 //#endregion
 export { squirclePandaPreset as default, squirclePandaPreset };
