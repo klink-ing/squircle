@@ -1,3 +1,4 @@
+import { definePreset, type PropertyConfig } from "@pandacss/dev";
 import {
   CAMEL_VARIANTS,
   DEFAULT_AMOUNT_VAR_NAME,
@@ -6,32 +7,11 @@ import {
   variantEntries,
 } from "./variants";
 
-/**
- * Panda CSS utility entry shape (subset). We do not depend on `@pandacss/dev`
- * at runtime — the preset is a plain object literal and the consumer's Panda
- * install loads it. Typing the public surface manually keeps `@pandacss/dev`
- * an *optional* peer dependency and avoids versioning entanglement.
- */
-type PandaUtility = {
-  shorthand?: string | string[];
-  values?: string | string[] | Record<string, string> | { type: string };
-  transform?: (
-    value: string,
-    helpers: { token: (path: string) => string; raw: string },
-  ) => Record<string, unknown>;
-};
-
 export interface SquirclePandaPresetOptions {
   /** CSS custom property name for the superellipse amount (default: "--squircle-amt"). */
   amtVar?: string;
   /** CSS custom property name for the intermediate corrected radius (default: "--squircle-r"). */
   rVar?: string;
-}
-
-export interface SquirclePandaPreset {
-  name: string;
-  utilities: { extend: Record<string, PandaUtility> };
-  conditions: { extend: Record<string, string> };
 }
 
 /**
@@ -53,11 +33,11 @@ export interface SquirclePandaPreset {
  */
 export function squirclePandaPreset(
   options: SquirclePandaPresetOptions = {},
-): SquirclePandaPreset {
+) {
   const amtVar = options.amtVar ?? DEFAULT_AMOUNT_VAR_NAME;
   const rVar = options.rVar ?? "--squircle-r";
 
-  const utilities: Record<string, PandaUtility> = {};
+  const utilities: Record<string, PropertyConfig> = {};
 
   const variantBySuffix = new Map(variantEntries());
 
@@ -68,18 +48,15 @@ export function squirclePandaPreset(
     utilities[variant.property] = {
       shorthand: variant.shorthand,
       values: "radii",
-      transform: (value: string) =>
-        squircleCssObj(props, value, { amtVar, rVar, case: "camel" }) as Record<
-          string,
-          unknown
-        >,
+      transform: (value) =>
+        squircleCssObj(props, value, { amtVar, rVar, case: "camel" }) as any,
     };
   }
 
   utilities["squircleAmount"] = {
     shorthand: "squircleAmt",
     values: { type: "number" },
-    transform: (value: string) => ({
+    transform: (value) => ({
       [amtVar]: value,
       [SUPPORTS_RULE]: {
         cornerShape: `superellipse(var(${amtVar}))`,
@@ -87,7 +64,7 @@ export function squirclePandaPreset(
     }),
   };
 
-  return {
+  return definePreset({
     name: "@klinking/squircle",
     utilities: { extend: utilities },
     conditions: {
@@ -95,7 +72,7 @@ export function squirclePandaPreset(
         squircleSupported: SUPPORTS_RULE,
       },
     },
-  };
+  });
 }
 
 export default squirclePandaPreset;

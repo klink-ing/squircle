@@ -42,6 +42,7 @@
   "devDependencies": {
     "@babel/core": "^7.29.0",
     "@babel/preset-typescript": "^7.28.0",
+    "@pandacss/dev": "^1.11.0",
     "@stylexjs/babel-plugin": "^0.18.3",
     "@stylexjs/stylex": "^0.18.3",
     "@tailwindcss/vite": "^4.2.2",
