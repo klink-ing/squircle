@@ -1,151 +1,181 @@
-import { css } from "../../styled-system/css";
+import { css, cx } from "../../styled-system/css";
 
-const rect = css({
-  width: "96px",
-  height: "96px",
-  backgroundImage:
-    "linear-gradient(135deg, token(colors.indigo.400), token(colors.violet.400))",
+const boxBase = css({
+  width: "112px",
+  height: "112px",
 });
 
-const rectAlt = css({
-  width: "96px",
-  height: "96px",
-  backgroundImage:
-    "linear-gradient(135deg, token(colors.pink.400), token(colors.purple.400))",
-});
-
-const row = css({
-  display: "flex",
-  gap: "24px",
-  flexWrap: "wrap",
-  alignItems: "flex-start",
-});
-
-const cell = css({
+const cellLayout = css({
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   gap: "8px",
 });
 
-const label = css({
+const labelStyle = css({
+  maxWidth: "112px",
+  textAlign: "center",
   fontSize: "12px",
   color: "zinc.400",
-  fontFamily: "mono",
-  textAlign: "center",
-  maxWidth: "120px",
 });
 
-const heading = css({
-  fontSize: "16px",
-  fontWeight: 600,
-  color: "zinc.300",
-  marginBottom: "16px",
-});
-
-const section = css({
-  marginBottom: "40px",
-});
-
-function Cell({ label: l, className }: { label: string; className: string }) {
+function Box({ label, className }: { label: string; className: string }) {
   return (
-    <div className={cell}>
-      <div className={className} />
-      <span className={label}>{l}</span>
+    <div className={cellLayout}>
+      <div className={cx(boxBase, className)} />
+      <span className={labelStyle}>{label}</span>
     </div>
   );
 }
 
 export default function PandaDemo() {
   return (
-    <div>
-      <section className={section}>
-        <h3 className={heading}>All-corners (`squircle`) — varying radius</h3>
-        <div className={row}>
-          <Cell
-            label={`css({ squircle: 'sm' })`}
-            className={`${rect} ${css({ squircle: "sm" })}`}
+    <div className="space-y-10">
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Small radius</h2>
+        <div className="flex gap-6">
+          <Box
+            label="css({ borderRadius: 'lg' })"
+            className={css({ backgroundColor: "demoPlain", borderRadius: "lg" })}
           />
-          <Cell
-            label={`css({ squircle: 'md' })`}
-            className={`${rect} ${css({ squircle: "md" })}`}
-          />
-          <Cell
-            label={`css({ squircle: 'lg' })`}
-            className={`${rect} ${css({ squircle: "lg" })}`}
-          />
-          <Cell
-            label={`css({ squircle: '2xl' })`}
-            className={`${rect} ${css({ squircle: "2xl" })}`}
+          <Box
+            label="css({ squircle: 'lg' })"
+            className={css({ backgroundColor: "demoSquircle", squircle: "lg" })}
           />
         </div>
       </section>
 
-      <section className={section}>
-        <h3 className={heading}>
-          Varying superellipse exponent via{" "}
-          <code className={css({ fontFamily: "mono" })}>squircleAmt</code>
-        </h3>
-        <div className={row}>
-          <Cell
-            label={`squircle: 'xl', squircleAmt: 1.5`}
-            className={`${rectAlt} ${css({ squircle: "xl", squircleAmt: "1.5" })}`}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Medium radius</h2>
+        <div className="flex gap-6">
+          <Box
+            label="css({ borderRadius: '2xl' })"
+            className={css({ backgroundColor: "demoPlain", borderRadius: "2xl" })}
           />
-          <Cell
-            label={`squircle: 'xl', squircleAmt: 2`}
-            className={`${rectAlt} ${css({ squircle: "xl", squircleAmt: "2" })}`}
-          />
-          <Cell
-            label={`squircle: 'xl', squircleAmt: 3`}
-            className={`${rectAlt} ${css({ squircle: "xl", squircleAmt: "3" })}`}
-          />
-          <Cell
-            label={`squircle: 'xl', squircleAmt: 5`}
-            className={`${rectAlt} ${css({ squircle: "xl", squircleAmt: "5" })}`}
+          <Box
+            label="css({ squircle: '2xl' })"
+            className={css({ backgroundColor: "demoSquircle", squircle: "2xl" })}
           />
         </div>
       </section>
 
-      <section className={section}>
-        <h3 className={heading}>Per-side variants</h3>
-        <div className={row}>
-          <Cell
-            label={`css({ squircleTop: '2xl' })`}
-            className={`${rect} ${css({ squircleTop: "2xl" })}`}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Large radius</h2>
+        <div className="flex gap-6">
+          <Box
+            label="css({ borderRadius: '3xl' })"
+            className={css({ backgroundColor: "demoPlain", borderRadius: "3xl" })}
           />
-          <Cell
-            label={`css({ squircleRight: '2xl' })`}
-            className={`${rect} ${css({ squircleRight: "2xl" })}`}
-          />
-          <Cell
-            label={`css({ squircleBottom: '2xl' })`}
-            className={`${rect} ${css({ squircleBottom: "2xl" })}`}
-          />
-          <Cell
-            label={`css({ squircleLeft: '2xl' })`}
-            className={`${rect} ${css({ squircleLeft: "2xl" })}`}
+          <Box
+            label="css({ squircle: '3xl' })"
+            className={css({ backgroundColor: "demoSquircle", squircle: "3xl" })}
           />
         </div>
       </section>
 
-      <section className={section}>
-        <h3 className={heading}>Per-corner variants</h3>
-        <div className={row}>
-          <Cell
-            label={`css({ squircleTopLeft: '3xl' })`}
-            className={`${rect} ${css({ squircleTopLeft: "3xl" })}`}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">
+          Squircle amount via squircleAmt
+        </h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          Controls the superellipse exponent. Higher = more square. Default is 2.
+        </p>
+        <div className="flex flex-wrap gap-6">
+          <Box
+            label="squircle: '3xl', squircleAmt: '1'"
+            className={css({
+              backgroundColor: "demoAmount",
+              squircle: "3xl",
+              squircleAmt: "1",
+            })}
           />
-          <Cell
-            label={`css({ squircleTopRight: '3xl' })`}
-            className={`${rect} ${css({ squircleTopRight: "3xl" })}`}
+          <Box
+            label="squircle: '3xl', squircleAmt: '1.5'"
+            className={css({
+              backgroundColor: "demoAmount",
+              squircle: "3xl",
+              squircleAmt: "1.5",
+            })}
           />
-          <Cell
-            label={`css({ squircleBottomRight: '3xl' })`}
-            className={`${rect} ${css({ squircleBottomRight: "3xl" })}`}
+          <Box
+            label="squircle: '3xl' (default 2)"
+            className={css({ backgroundColor: "demoAmount", squircle: "3xl" })}
           />
-          <Cell
-            label={`css({ squircleBottomLeft: '3xl' })`}
-            className={`${rect} ${css({ squircleBottomLeft: "3xl" })}`}
+          <Box
+            label="squircle: '3xl', squircleAmt: '3'"
+            className={css({
+              backgroundColor: "demoAmount",
+              squircle: "3xl",
+              squircleAmt: "3",
+            })}
+          />
+          <Box
+            label="squircle: '3xl', squircleAmt: '5'"
+            className={css({
+              backgroundColor: "demoAmount",
+              squircle: "3xl",
+              squircleAmt: "5",
+            })}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Per-corner squircles</h2>
+        <div className="flex flex-wrap gap-6">
+          <Box
+            label="squircleTopLeft: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleTopLeft: "3xl" })}
+          />
+          <Box
+            label="squircleTopRight: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleTopRight: "3xl" })}
+          />
+          <Box
+            label="squircleBottomRight: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleBottomRight: "3xl" })}
+          />
+          <Box
+            label="squircleBottomLeft: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleBottomLeft: "3xl" })}
+          />
+          <Box
+            label="squircleTop: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleTop: "3xl" })}
+          />
+          <Box
+            label="squircleBottom: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleBottom: "3xl" })}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Logical-side squircles</h2>
+        <div className="flex flex-wrap gap-6">
+          <Box
+            label="squircleStart: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleStart: "3xl" })}
+          />
+          <Box
+            label="squircleEnd: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleEnd: "3xl" })}
+          />
+          <Box
+            label="squircleStartStart: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleStartStart: "3xl" })}
+          />
+          <Box
+            label="squircleStartEnd: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleStartEnd: "3xl" })}
+          />
+          <Box
+            label="squircleEndStart: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleEndStart: "3xl" })}
+          />
+          <Box
+            label="squircleEndEnd: '3xl'"
+            className={css({ backgroundColor: "demoCorner", squircleEndEnd: "3xl" })}
           />
         </div>
       </section>

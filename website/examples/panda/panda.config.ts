@@ -2,19 +2,11 @@ import { defineConfig } from "@pandacss/dev";
 import squirclePreset from "@klinking/squircle/panda-preset";
 
 export default defineConfig({
-  // Tailwind also runs on this site; prefix Panda's generated classes so they
-  // never collide with a tailwind utility (`pd-bg-rose-500` vs `bg-rose-500`).
   prefix: "pd",
-
-  preflight: false,
-
+  preflight: true,
   jsxFramework: "react",
-
   presets: ["@pandacss/dev/presets", squirclePreset()],
 
-  // Semantic colors used by the demo boxes — names line up with the StyleX
-  // and Tailwind demos so the same logical concept is the same color in all
-  // three styling systems.
   theme: {
     extend: {
       semanticTokens: {
@@ -28,8 +20,7 @@ export default defineConfig({
     },
   },
 
-  include: ["./src/**/*.{ts,tsx,astro}"],
+  include: ["./src/**/*.{ts,tsx}"],
   exclude: [],
-
   outdir: "styled-system",
 });

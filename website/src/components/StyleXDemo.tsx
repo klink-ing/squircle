@@ -1,151 +1,186 @@
 import * as stylex from "@stylexjs/stylex";
 import { squircle } from "@klinking/squircle/stylex";
+import { radii } from "./radii.stylex";
+import { colors } from "./colors.stylex";
 
-const styles = stylex.create({
-  rect: {
-    width: 96,
-    height: 96,
-    backgroundImage: "linear-gradient(135deg, #818cf8, #a78bfa)",
-  },
-  rectAlt: {
-    width: 96,
-    height: 96,
-    backgroundImage: "linear-gradient(135deg, #f472b6, #c084fc)",
-  },
-  row: {
-    display: "flex",
-    gap: 24,
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-  },
-  cell: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 8,
-  },
-  label: {
-    fontSize: 12,
-    color: "#a1a1aa",
-    fontFamily: "ui-monospace, SFMono-Regular, monospace",
-    textAlign: "center",
-    maxWidth: 120,
-  },
-  section: {
-    marginBottom: 40,
-  },
-  heading: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#d4d4d8",
-    marginBottom: 16,
-  },
+const swatch = stylex.create({
+  plain: { backgroundColor: colors.demoPlain },
+  squircle: { backgroundColor: colors.demoSquircle },
+  amount: { backgroundColor: colors.demoAmount },
+  corner: { backgroundColor: colors.demoCorner },
 });
 
-function Cell({
+const plainRadius = stylex.create({
+  lg: { borderRadius: radii.lg },
+  "2xl": { borderRadius: radii["2xl"] },
+  "3xl": { borderRadius: radii["3xl"] },
+});
+
+function Box({
+  label,
+  className,
+  style,
+}: {
+  label: string;
+  className: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className={`h-28 w-28 ${className}`} style={style} />
+      <span className="max-w-28 text-center text-xs text-zinc-400">{label}</span>
+    </div>
+  );
+}
+
+function StylexBox({
   label,
   styleProps,
 }: {
   label: string;
-  styleProps: Readonly<Record<string, unknown>>;
+  styleProps: ReturnType<typeof stylex.props>;
 }) {
   return (
-    <div {...stylex.props(styles.cell)}>
-      <div {...(styleProps as ReturnType<typeof stylex.props>)} />
-      <span {...stylex.props(styles.label)}>{label}</span>
-    </div>
+    <Box
+      label={label}
+      className={styleProps.className ?? ""}
+      style={styleProps.style as React.CSSProperties | undefined}
+    />
   );
 }
 
 export default function StyleXDemo() {
   return (
-    <div>
-      <section {...stylex.props(styles.section)}>
-        <h3 {...stylex.props(styles.heading)}>All-corners variant — varying radius</h3>
-        <div {...stylex.props(styles.row)}>
-          <Cell
-            label={`squircle.all('0.5rem')`}
-            styleProps={stylex.props(styles.rect, squircle.all("0.5rem"))}
+    <div className="space-y-10">
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Small radius</h2>
+        <div className="flex gap-6">
+          <StylexBox
+            label="borderRadius: radii.lg"
+            styleProps={stylex.props(swatch.plain, plainRadius.lg)}
           />
-          <Cell
-            label={`squircle.all('1rem')`}
-            styleProps={stylex.props(styles.rect, squircle.all("1rem"))}
-          />
-          <Cell
-            label={`squircle.all('1.5rem')`}
-            styleProps={stylex.props(styles.rect, squircle.all("1.5rem"))}
-          />
-          <Cell
-            label={`squircle.all('2.5rem')`}
-            styleProps={stylex.props(styles.rect, squircle.all("2.5rem"))}
+          <StylexBox
+            label="squircle.all(radii.lg)"
+            styleProps={stylex.props(swatch.squircle, squircle.all(radii.lg))}
           />
         </div>
       </section>
 
-      <section {...stylex.props(styles.section)}>
-        <h3 {...stylex.props(styles.heading)}>
-          Varying superellipse exponent (amt)
-        </h3>
-        <div {...stylex.props(styles.row)}>
-          <Cell
-            label={`squircle.all('1.25rem', 1.5)`}
-            styleProps={stylex.props(styles.rectAlt, squircle.all("1.25rem", 1.5))}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Medium radius</h2>
+        <div className="flex gap-6">
+          <StylexBox
+            label="borderRadius: radii['2xl']"
+            styleProps={stylex.props(swatch.plain, plainRadius["2xl"])}
           />
-          <Cell
-            label={`squircle.all('1.25rem', 2)`}
-            styleProps={stylex.props(styles.rectAlt, squircle.all("1.25rem", 2))}
-          />
-          <Cell
-            label={`squircle.all('1.25rem', 3)`}
-            styleProps={stylex.props(styles.rectAlt, squircle.all("1.25rem", 3))}
-          />
-          <Cell
-            label={`squircle.all('1.25rem', 5)`}
-            styleProps={stylex.props(styles.rectAlt, squircle.all("1.25rem", 5))}
+          <StylexBox
+            label="squircle.all(radii['2xl'])"
+            styleProps={stylex.props(swatch.squircle, squircle.all(radii["2xl"]))}
           />
         </div>
       </section>
 
-      <section {...stylex.props(styles.section)}>
-        <h3 {...stylex.props(styles.heading)}>Per-side variants</h3>
-        <div {...stylex.props(styles.row)}>
-          <Cell
-            label={`squircle.top('1.5rem')`}
-            styleProps={stylex.props(styles.rect, squircle.top("1.5rem"))}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Large radius</h2>
+        <div className="flex gap-6">
+          <StylexBox
+            label="borderRadius: radii['3xl']"
+            styleProps={stylex.props(swatch.plain, plainRadius["3xl"])}
           />
-          <Cell
-            label={`squircle.right('1.5rem')`}
-            styleProps={stylex.props(styles.rect, squircle.right("1.5rem"))}
-          />
-          <Cell
-            label={`squircle.bottom('1.5rem')`}
-            styleProps={stylex.props(styles.rect, squircle.bottom("1.5rem"))}
-          />
-          <Cell
-            label={`squircle.left('1.5rem')`}
-            styleProps={stylex.props(styles.rect, squircle.left("1.5rem"))}
+          <StylexBox
+            label="squircle.all(radii['3xl'])"
+            styleProps={stylex.props(swatch.squircle, squircle.all(radii["3xl"]))}
           />
         </div>
       </section>
 
-      <section {...stylex.props(styles.section)}>
-        <h3 {...stylex.props(styles.heading)}>Per-corner variants</h3>
-        <div {...stylex.props(styles.row)}>
-          <Cell
-            label={`squircle.topLeft('2rem')`}
-            styleProps={stylex.props(styles.rect, squircle.topLeft("2rem"))}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">
+          Squircle amount (the superellipse exponent)
+        </h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          Controls the superellipse exponent. Higher = more square. Default is 2.
+        </p>
+        <div className="flex flex-wrap gap-6">
+          <StylexBox
+            label="squircle.all(radii['3xl'], 1)"
+            styleProps={stylex.props(swatch.amount, squircle.all(radii["3xl"], 1))}
           />
-          <Cell
-            label={`squircle.topRight('2rem')`}
-            styleProps={stylex.props(styles.rect, squircle.topRight("2rem"))}
+          <StylexBox
+            label="squircle.all(radii['3xl'], 1.5)"
+            styleProps={stylex.props(swatch.amount, squircle.all(radii["3xl"], 1.5))}
           />
-          <Cell
-            label={`squircle.bottomRight('2rem')`}
-            styleProps={stylex.props(styles.rect, squircle.bottomRight("2rem"))}
+          <StylexBox
+            label="squircle.all(radii['3xl'])"
+            styleProps={stylex.props(swatch.amount, squircle.all(radii["3xl"]))}
           />
-          <Cell
-            label={`squircle.bottomLeft('2rem')`}
-            styleProps={stylex.props(styles.rect, squircle.bottomLeft("2rem"))}
+          <StylexBox
+            label="squircle.all(radii['3xl'], 3)"
+            styleProps={stylex.props(swatch.amount, squircle.all(radii["3xl"], 3))}
+          />
+          <StylexBox
+            label="squircle.all(radii['3xl'], 5)"
+            styleProps={stylex.props(swatch.amount, squircle.all(radii["3xl"], 5))}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Per-corner squircles</h2>
+        <div className="flex flex-wrap gap-6">
+          <StylexBox
+            label="squircle.topLeft(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.topLeft(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.topRight(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.topRight(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.bottomRight(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.bottomRight(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.bottomLeft(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.bottomLeft(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.top(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.top(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.bottom(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.bottom(radii["3xl"]))}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Logical-side squircles</h2>
+        <div className="flex flex-wrap gap-6">
+          <StylexBox
+            label="squircle.start(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.start(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.end(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.end(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.startStart(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.startStart(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.startEnd(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.startEnd(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.endStart(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.endStart(radii["3xl"]))}
+          />
+          <StylexBox
+            label="squircle.endEnd(radii['3xl'])"
+            styleProps={stylex.props(swatch.corner, squircle.endEnd(radii["3xl"]))}
           />
         </div>
       </section>

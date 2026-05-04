@@ -1,9 +1,10 @@
 {
-  "name": "squircle-react-basic-demo",
+  "name": "squircle-panda-demo",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite"
+    "prepare": "panda codegen && panda cssgen --outfile src/styles.generated.css",
+    "dev": "panda --watch & vite"
   },
   "dependencies": {
     "@klinking/squircle": "latest",
@@ -11,11 +12,10 @@
     "react-dom": "^19"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4",
+    "@pandacss/dev": "^1.11.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4",
-    "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^6"
   }

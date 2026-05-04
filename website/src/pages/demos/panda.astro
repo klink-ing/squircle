@@ -1,26 +1,32 @@
 ---
 import "../../styles/panda.css";
 import Layout from "../../components/Layout.astro";
+import DemoEmbed from "../../components/DemoEmbed";
 import PandaDemo from "../../components/PandaDemo";
 ---
 
 <Layout title="Demo: Panda CSS — @klinking/squircle">
   <h2 class="mb-2 text-2xl font-bold">Panda CSS</h2>
-  <p class="mb-2 text-zinc-400">
+  <p class="mb-8 text-zinc-400">
     Squircle utilities consumed via the Panda preset's <code class="text-zinc-300"
       >squircle*</code
     > shorthands. Panda is configured with <code class="text-zinc-300"
       >prefix: 'pd'</code
-    > so its generated classes (e.g. <code class="text-zinc-300"
-      >.pd-bd-r_md</code
-    >) cannot collide with Tailwind utilities used elsewhere on this site.
+    > so its generated classes cannot collide with Tailwind utilities used elsewhere
+    on this site.
   </p>
 
-  <pre
-    class="mb-8 overflow-x-auto rounded-lg bg-zinc-900 p-4 text-sm text-zinc-300"><code>{`import { css } from '../styled-system/css';
-
-<div className={css({ squircle: 'md' })} />
-<div className={css({ squircleTopLeft: 'lg', squircleAmt: '3' })} />`}</code></pre>
-
   <PandaDemo client:load />
+
+  <h3 class="mt-12 mb-4 text-lg font-semibold text-zinc-300">Edit on StackBlitz</h3>
+  <DemoEmbed
+    client:load
+    projectPath="website/examples/panda"
+    file="src/App.tsx"
+    height={600}
+  />
+  <p class="mt-4 text-sm text-zinc-500">
+    Powered by <a href="https://stackblitz.com" class="text-indigo-400 hover:underline">StackBlitz</a>.
+    Requires a Chromium-based browser.
+  </p>
 </Layout>

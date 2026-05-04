@@ -1,5 +1,6 @@
 ---
 import Layout from "../../components/Layout.astro";
+import DemoEmbed from "../../components/DemoEmbed";
 import StyleXDemo from "../../components/StyleXDemo";
 ---
 
@@ -16,12 +17,17 @@ import StyleXDemo from "../../components/StyleXDemo";
     >.
   </p>
 
-  <pre
-    class="mb-8 overflow-x-auto rounded-lg bg-zinc-900 p-4 text-sm text-zinc-300"><code>{`import * as stylex from '@stylexjs/stylex';
-import { squircle } from '@klinking/squircle/stylex';
-
-<div {...stylex.props(squircle.all('1rem'))} />
-<div {...stylex.props(squircle.topLeft('1.5rem', 3))} />`}</code></pre>
-
   <StyleXDemo client:only="react" />
+
+  <h3 class="mt-12 mb-4 text-lg font-semibold text-zinc-300">Edit on StackBlitz</h3>
+  <DemoEmbed
+    client:load
+    projectPath="website/examples/stylex"
+    file="src/App.tsx"
+    height={600}
+  />
+  <p class="mt-4 text-sm text-zinc-500">
+    Powered by <a href="https://stackblitz.com" class="text-indigo-400 hover:underline">StackBlitz</a>.
+    Requires a Chromium-based browser.
+  </p>
 </Layout>
