@@ -9,6 +9,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 ## Contents
 
 <!-- BEGIN:toc -->
+
 - [Requirements](#requirements)
 - [Install & setup](#install--setup)
 - [Utilities](#utilities)
@@ -422,6 +423,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>tailwind/utils.css</code></strong> — the Tailwind utilities</summary>
 
 <!-- BEGIN:dist/tailwind/utils.css -->
+
 ```css
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default 2)    */
@@ -581,6 +583,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   }
 }
 ```
+
 <!-- END:dist/tailwind/utils.css -->
 
 </details>
@@ -589,7 +592,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>tailwind/index.mjs</code></strong> — the Tailwind plugin and tailwind-merge config</summary>
 
 <!-- BEGIN:dist/tailwind/index.mjs -->
-```js
+
+````js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries } from "../variants-CUhqvLRq.mjs";
 import plugin from "tailwindcss/plugin";
 //#region src/tailwind.ts
