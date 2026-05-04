@@ -54,5 +54,172 @@ export function usesIntermediateVar(suffix: string): boolean {
   return suffix === "" || entry.length > 1;
 }
 
+/**
+ * Property-name table used by the Panda preset and StyleX module.
+ * Each entry maps a Tailwind variant suffix to the camelCase utility name and
+ * Panda-style shorthand. The descriptive label is used in generated docs and
+ * snapshot tests. Order matches `VARIANTS`.
+ */
+export type CamelVariant = {
+  /** Suffix from `VARIANTS` ("" for all-corners). */
+  suffix: string;
+  /** Full camelCase property name, e.g. "squircleTopLeftRadius". */
+  property: string;
+  /** Short alias following Panda's `rounded*` shorthand convention. */
+  shorthand: string;
+  /** Side/corner direction key (passed to a side-aware factory). */
+  side:
+    | "all"
+    | "top"
+    | "right"
+    | "bottom"
+    | "left"
+    | "start"
+    | "end"
+    | "topLeft"
+    | "topRight"
+    | "bottomRight"
+    | "bottomLeft"
+    | "startStart"
+    | "startEnd"
+    | "endStart"
+    | "endEnd";
+};
+
+export const CAMEL_VARIANTS: readonly CamelVariant[] = [
+  { suffix: "", property: "squircleRadius", shorthand: "squircle", side: "all" },
+  { suffix: "t", property: "squircleTopRadius", shorthand: "squircleTop", side: "top" },
+  { suffix: "r", property: "squircleRightRadius", shorthand: "squircleRight", side: "right" },
+  { suffix: "b", property: "squircleBottomRadius", shorthand: "squircleBottom", side: "bottom" },
+  { suffix: "l", property: "squircleLeftRadius", shorthand: "squircleLeft", side: "left" },
+  { suffix: "s", property: "squircleStartRadius", shorthand: "squircleStart", side: "start" },
+  { suffix: "e", property: "squircleEndRadius", shorthand: "squircleEnd", side: "end" },
+  {
+    suffix: "tl",
+    property: "squircleTopLeftRadius",
+    shorthand: "squircleTopLeft",
+    side: "topLeft",
+  },
+  {
+    suffix: "tr",
+    property: "squircleTopRightRadius",
+    shorthand: "squircleTopRight",
+    side: "topRight",
+  },
+  {
+    suffix: "br",
+    property: "squircleBottomRightRadius",
+    shorthand: "squircleBottomRight",
+    side: "bottomRight",
+  },
+  {
+    suffix: "bl",
+    property: "squircleBottomLeftRadius",
+    shorthand: "squircleBottomLeft",
+    side: "bottomLeft",
+  },
+  {
+    suffix: "ss",
+    property: "squircleStartStartRadius",
+    shorthand: "squircleStartStart",
+    side: "startStart",
+  },
+  {
+    suffix: "se",
+    property: "squircleStartEndRadius",
+    shorthand: "squircleStartEnd",
+    side: "startEnd",
+  },
+  {
+    suffix: "es",
+    property: "squircleEndStartRadius",
+    shorthand: "squircleEndStart",
+    side: "endStart",
+  },
+  {
+    suffix: "ee",
+    property: "squircleEndEndRadius",
+    shorthand: "squircleEndEnd",
+    side: "endEnd",
+  },
+];
+
+const KEBAB_TO_CAMEL_CACHE = new Map<string, string>();
+function toCamel(kebab: string): string {
+  const cached = KEBAB_TO_CAMEL_CACHE.get(kebab);
+  if (cached) return cached;
+  const camel = kebab.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+  KEBAB_TO_CAMEL_CACHE.set(kebab, camel);
+  return camel;
+}
+
+export type CssLikeObject = Record<string, string | number | null | Record<string, string | number | null>>;
+
+export interface SquircleCssObjOptions {
+  /** Override the `--squircle-amt` variable name (default `--squircle-amt`). */
+  amtVar?: string;
+  /** Override the intermediate corrected-radius variable name (default `--squircle-r`). */
+  rVar?: string;
+  /**
+   * Output property name case. `kebab` (default) emits `border-radius`-style keys
+   * for Tailwind plugins and raw CSS. `camel` emits `borderRadius`-style keys
+   * for Panda/StyleX/CSS-in-JS callers.
+   */
+  case?: "kebab" | "camel";
+  /**
+   * When false, never emit the `--squircle-r` intermediate variable: the corrected
+   * `calc(...)` is inlined into each property. Defaults to the same heuristic
+   * Tailwind uses (true for all-corners and multi-prop sides, false for single
+   * corners). Pass `false` for callers that prefer flat output (StyleX cannot
+   * read a custom property set in the same rule it's used in without a separate
+   * declaration cycle, so the inlined form is more portable).
+   */
+  useIntermediateVar?: boolean;
+}
+
+/**
+ * Build the framework-agnostic CSS-in-JS object for one squircle utility.
+ * Returns the same shape Tailwind's `matchUtilities` consumes, with an
+ * `@supports` block that gates the corrected radius behind `corner-shape`
+ * support. Used by the Tailwind plugin, the static-CSS generator, the Panda
+ * preset, and the StyleX helpers.
+ */
+export function squircleCssObj(
+  props: string[],
+  radius: string,
+  options: SquircleCssObjOptions = {},
+): CssLikeObject {
+  const amtVar = options.amtVar ?? DEFAULT_AMOUNT_VAR_NAME;
+  const rVar = options.rVar ?? DEFAULT_R_VAR_NAME;
+  const keyCase = options.case ?? "kebab";
+  const useIntermediate =
+    options.useIntermediateVar ?? (props.length > 1 || props[0] === "border-radius");
+
+  const amtCss = `var(${amtVar}, ${DEFAULT_AMT})`;
+  const rCss = `var(${rVar})`;
+  const cornerShape = getCornerShape(amtVar);
+  const corrected = correctedRadius(radius, amtCss);
+
+  const cornerShapeKey = keyCase === "camel" ? "cornerShape" : "corner-shape";
+  const propKey = (p: string) => (keyCase === "camel" ? toCamel(p) : p);
+
+  const fallback: Record<string, string> = {};
+  for (const p of props) fallback[propKey(p)] = radius;
+
+  const supportsBlock: Record<string, string> = {};
+  if (useIntermediate) {
+    supportsBlock[rVar] = corrected;
+    for (const p of props) supportsBlock[propKey(p)] = rCss;
+  } else {
+    for (const p of props) supportsBlock[propKey(p)] = corrected;
+  }
+  supportsBlock[cornerShapeKey] = cornerShape;
+
+  return {
+    ...fallback,
+    [SUPPORTS_RULE]: supportsBlock,
+  };
+}
+
 export { isComment };
 export type { SectionComment, VariantEntry };

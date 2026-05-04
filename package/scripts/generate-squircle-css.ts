@@ -1,46 +1,31 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  getCornerShape,
-  DEFAULT_AMT,
-  VARIANTS,
-  correctedRadius,
-  isComment,
-  usesIntermediateVar,
-  SUPPORTS_RULE,
-} from "../src/variants";
+import { DEFAULT_AMT, SUPPORTS_RULE, VARIANTS, isComment, squircleCssObj } from "../src/variants";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Support arbitrary, bare, and theme values in one --value() call.
 // https://tailwindcss.com/docs/adding-custom-styles#functional-utilities
 const value = "--value(--radius-*, [length])";
-const formula = correctedRadius(value);
 
-function multiPropUtility(name: string, props: string[]) {
-  const fallbacks = props.map((p) => `  ${p}: ${value};`).join("\n");
-  const corrected = props.map((p) => `    ${p}: var(--squircle-r);`).join("\n");
-  return `\
-@utility ${name} {
-${fallbacks}
-  ${SUPPORTS_RULE} {
-    --squircle-r: ${formula};
-${corrected}
-    corner-shape: ${getCornerShape()};
-  }
-}`;
-}
+function renderUtility(name: string, props: string[]): string {
+  const obj = squircleCssObj(props, value);
+  const lines: string[] = [`@utility ${name} {`];
 
-function singlePropUtility(name: string, prop: string) {
-  return `\
-@utility ${name} {
-  ${prop}: ${value};
-  ${SUPPORTS_RULE} {
-    ${prop}: ${formula};
-    corner-shape: ${getCornerShape()};
+  for (const [key, val] of Object.entries(obj)) {
+    if (key === SUPPORTS_RULE && typeof val === "object" && val !== null) {
+      lines.push(`  ${SUPPORTS_RULE} {`);
+      for (const [innerKey, innerVal] of Object.entries(val)) {
+        lines.push(`    ${innerKey}: ${innerVal as string};`);
+      }
+      lines.push(`  }`);
+    } else {
+      lines.push(`  ${key}: ${val as string};`);
+    }
   }
-}`;
+  lines.push(`}`);
+  return lines.join("\n");
 }
 
 function generateCss(): string {
@@ -65,25 +50,20 @@ function generateCss(): string {
     }
 
     const name = suffix ? `squircle-${suffix}-*` : "squircle-*";
-
-    if (usesIntermediateVar(suffix)) {
-      blocks.push(multiPropUtility(name, entry));
-    } else {
-      blocks.push(singlePropUtility(name, entry[0]!));
-    }
+    blocks.push(renderUtility(name, entry));
   }
 
   return blocks.join("\n\n") + "\n";
 }
 
 const output = generateCss();
-const distDir = join(__dirname, "..", "dist");
-mkdirSync(distDir, { recursive: true });
-const outPath = join(distDir, "tw-utils.css");
+const tailwindDir = join(__dirname, "..", "dist", "tailwind");
+mkdirSync(tailwindDir, { recursive: true });
+const outPath = join(tailwindDir, "utils.css");
 writeFileSync(outPath, output);
 console.log(`Generated ${outPath} (skipping fmt)`);
 
 const radiusSrc = join(__dirname, "..", "src", "squircle-radius.css");
-const radiusDest = join(distDir, "squircle-radius.css");
+const radiusDest = join(tailwindDir, "radius.css");
 copyFileSync(radiusSrc, radiusDest);
 console.log(`Copied ${radiusDest}`);

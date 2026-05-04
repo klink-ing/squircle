@@ -1,0 +1,25 @@
+{
+  "name": "squircle-stylex-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@klinking/squircle": "latest",
+    "@stylexjs/stylex": "^0.18.3",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@stylexjs/babel-plugin": "^0.18.3",
+    "@stylexjs/dev-runtime": "^0.11.1",
+    "@tailwindcss/vite": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vite": "^6"
+  }
+}

@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "@klinking/squircle/tailwind/utils.css";
+
+@theme {
+  --color-demo-plain: #4f46e5;
+  --color-demo-squircle: #db2777;
+  --color-demo-amount: #059669;
+  --color-demo-corner: #7c3aed;
+}

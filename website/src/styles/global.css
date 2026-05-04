@@ -1,7 +1,15 @@
 @import "tailwindcss";
-@plugin "../../../package/dist/tw-plugin.mjs";
+@plugin "../../../package/dist/tailwind/index.mjs";
 
 @theme {
+  /* Semantic colors used by the demo boxes. Each names what the box is
+     showing, so the same logical names line up across Tailwind / StyleX /
+     Panda demos. */
+  --color-demo-plain: #4f46e5;
+  --color-demo-squircle: #db2777;
+  --color-demo-amount: #059669;
+  --color-demo-corner: #7c3aed;
+
   --color-rounded-border: oklch(0.7 0.17 257.57);
   --color-rounded-border-hover: oklch(from var(--color-rounded-border) min(1, calc(l + 0.15)) c h);
   --color-squircle-border: oklch(0.7 0.24 2.48);

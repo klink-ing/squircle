@@ -1,0 +1,33 @@
+---
+import Layout from "../../components/Layout.astro";
+import DemoEmbed from "../../components/DemoEmbed";
+import StyleXDemo from "../../components/StyleXDemo";
+---
+
+<Layout title="Demo: StyleX — @klinking/squircle">
+  <h2 class="mb-2 text-2xl font-bold">StyleX</h2>
+  <p class="mb-8 text-zinc-400">
+    Squircle utilities authored as StyleX <em>dynamic styles</em>. Each variant is a
+    function that takes a <code class="text-zinc-300">radius</code> (and an optional
+    superellipse <code class="text-zinc-300">amt</code>) and produces a
+    <code class="text-zinc-300">borderRadius</code> + <code class="text-zinc-300"
+      >cornerShape</code
+    > pair gated behind <code class="text-zinc-300"
+      >@supports (corner-shape: superellipse(2))</code
+    >.
+  </p>
+
+  <StyleXDemo client:only="react" />
+
+  <h3 class="mt-12 mb-4 text-lg font-semibold text-zinc-300">Edit on StackBlitz</h3>
+  <DemoEmbed
+    client:load
+    projectPath="website/examples/stylex"
+    file="src/App.tsx"
+    height={600}
+  />
+  <p class="mt-4 text-sm text-zinc-500">
+    Powered by <a href="https://stackblitz.com" class="text-indigo-400 hover:underline">StackBlitz</a>.
+    Requires a Chromium-based browser.
+  </p>
+</Layout>

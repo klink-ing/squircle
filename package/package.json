@@ -21,21 +21,30 @@
   ],
   "type": "module",
   "exports": {
-    "./tw-utils.css": "./dist/tw-utils.css",
-    "./squircle-radius.css": "./dist/squircle-radius.css",
-    "./tw-merge-cfg": {
-      "types": "./dist/tw-merge-cfg.d.mts",
-      "import": "./dist/tw-merge-cfg.mjs"
+    "./tailwind": {
+      "types": "./dist/tailwind/index.d.mts",
+      "import": "./dist/tailwind/index.mjs"
     },
-    "./tw-plugin": {
-      "types": "./dist/tw-plugin.d.mts",
-      "import": "./dist/tw-plugin.mjs"
+    "./tailwind/utils.css": "./dist/tailwind/utils.css",
+    "./tailwind/radius.css": "./dist/tailwind/radius.css",
+    "./panda": {
+      "types": "./dist/panda/index.d.mts",
+      "import": "./dist/panda/index.mjs"
+    },
+    "./stylex": {
+      "types": "./dist/stylex/index.d.mts",
+      "import": "./dist/stylex/index.mjs"
     }
   },
   "scripts": {
     "prepublishOnly": "vp run build"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/preset-typescript": "^7.28.0",
+    "@pandacss/dev": "^1.11.0",
+    "@stylexjs/babel-plugin": "^0.18.3",
+    "@stylexjs/stylex": "^0.18.3",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^25.5.2",
     "oxlint": "^1.58.0",
@@ -46,11 +55,22 @@
     "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.15"
   },
   "peerDependencies": {
+    "@pandacss/dev": ">=0.40.0",
+    "@stylexjs/stylex": ">=0.18.0",
     "tailwind-merge": ">=2.0.0",
     "tailwindcss": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "@pandacss/dev": {
+      "optional": true
+    },
+    "@stylexjs/stylex": {
+      "optional": true
+    },
     "tailwind-merge": {
+      "optional": true
+    },
+    "tailwindcss": {
       "optional": true
     }
   },

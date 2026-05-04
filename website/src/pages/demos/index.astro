@@ -12,13 +12,37 @@ import Layout from "../../components/Layout.astro";
   <ul class="grid gap-4 sm:grid-cols-2">
     <li>
       <a
-        href="/demos/react-basic"
+        href="/demos/tailwind"
         class="block rounded-lg border border-zinc-800 p-6 transition hover:border-indigo-500 hover:bg-zinc-900"
       >
-        <h3 class="text-lg font-semibold">React + CSS-only</h3>
+        <h3 class="text-lg font-semibold">Tailwind</h3>
         <p class="mt-2 text-sm text-zinc-400">
           Compare regular rounded corners with squircle corners at different
           radii using Tailwind CSS utilities.
+        </p>
+      </a>
+    </li>
+    <li>
+      <a
+        href="/demos/stylex"
+        class="block rounded-lg border border-zinc-800 p-6 transition hover:border-indigo-500 hover:bg-zinc-900"
+      >
+        <h3 class="text-lg font-semibold">StyleX</h3>
+        <p class="mt-2 text-sm text-zinc-400">
+          Squircle utilities authored as StyleX dynamic styles —
+          <code class="text-zinc-300">stylex.props(squircle.all('1rem'))</code>.
+        </p>
+      </a>
+    </li>
+    <li>
+      <a
+        href="/demos/panda"
+        class="block rounded-lg border border-zinc-800 p-6 transition hover:border-indigo-500 hover:bg-zinc-900"
+      >
+        <h3 class="text-lg font-semibold">Panda CSS</h3>
+        <p class="mt-2 text-sm text-zinc-400">
+          Squircle utilities via the Panda preset, prefixed to coexist with
+          Tailwind on the same page.
         </p>
       </a>
     </li>

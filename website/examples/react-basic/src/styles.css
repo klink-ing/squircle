@@ -1,7 +1,0 @@
-@import "tailwindcss";
-@import "@klinking/squircle/tw-utils.css";
-
-/* Raw superellipse with no radius correction — shows the problem */
-.raw-superellipse {
-  corner-shape: superellipse;
-}
