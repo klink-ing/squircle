@@ -1,0 +1,26 @@
+---
+import "../../styles/panda.css";
+import Layout from "../../components/Layout.astro";
+import PandaDemo from "../../components/PandaDemo";
+---
+
+<Layout title="Demo: Panda CSS — @klinking/squircle">
+  <h2 class="mb-2 text-2xl font-bold">Panda CSS</h2>
+  <p class="mb-2 text-zinc-400">
+    Squircle utilities consumed via the Panda preset's <code class="text-zinc-300"
+      >squircle*</code
+    > shorthands. Panda is configured with <code class="text-zinc-300"
+      >prefix: 'pd'</code
+    > so its generated classes (e.g. <code class="text-zinc-300"
+      >.pd-bd-r_md</code
+    >) cannot collide with Tailwind utilities used elsewhere on this site.
+  </p>
+
+  <pre
+    class="mb-8 overflow-x-auto rounded-lg bg-zinc-900 p-4 text-sm text-zinc-300"><code>{`import { css } from '../styled-system/css';
+
+<div className={css({ squircle: 'md' })} />
+<div className={css({ squircleTopLeft: 'lg', squircleAmt: '3' })} />`}</code></pre>
+
+  <PandaDemo client:load />
+</Layout>

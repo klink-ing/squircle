@@ -4,16 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "panda": "panda codegen",
+    "panda:watch": "panda codegen --watch"
   },
   "dependencies": {
     "@astrojs/react": "^4",
+    "@klinking/squircle": "workspace:*",
+    "@stylexjs/stylex": "^0.18.3",
     "astro": "^5",
     "framer-motion": "^12.38.0",
     "react": "^19",
     "react-dom": "^19"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@pandacss/dev": "^1.11.0",
+    "@stylexjs/babel-plugin": "^0.18.3",
+    "@stylexjs/dev-runtime": "^0.11.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",

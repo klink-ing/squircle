@@ -1,0 +1,27 @@
+---
+import Layout from "../../components/Layout.astro";
+import StyleXDemo from "../../components/StyleXDemo";
+---
+
+<Layout title="Demo: StyleX — @klinking/squircle">
+  <h2 class="mb-2 text-2xl font-bold">StyleX</h2>
+  <p class="mb-8 text-zinc-400">
+    Squircle utilities authored as StyleX <em>dynamic styles</em>. Each variant is a
+    function that takes a <code class="text-zinc-300">radius</code> (and an optional
+    superellipse <code class="text-zinc-300">amt</code>) and produces a
+    <code class="text-zinc-300">borderRadius</code> + <code class="text-zinc-300"
+      >cornerShape</code
+    > pair gated behind <code class="text-zinc-300"
+      >@supports (corner-shape: superellipse(2))</code
+    >.
+  </p>
+
+  <pre
+    class="mb-8 overflow-x-auto rounded-lg bg-zinc-900 p-4 text-sm text-zinc-300"><code>{`import * as stylex from '@stylexjs/stylex';
+import { squircle } from '@klinking/squircle/stylex';
+
+<div {...stylex.props(squircle.all('1rem'))} />
+<div {...stylex.props(squircle.topLeft('1.5rem', 3))} />`}</code></pre>
+
+  <StyleXDemo client:only="react" />
+</Layout>
