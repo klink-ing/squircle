@@ -54,7 +54,7 @@ export function createCompiler(srcDir: string) {
   async function compileCss(candidates: string[]): Promise<string> {
     const input = `
 @import "tailwindcss";
-@import "../dist/tw-utils.css";
+@import "../dist/tailwind/utils.css";
 `;
     const compiler = await compile(input, {
       base: srcDir,
@@ -66,8 +66,8 @@ export function createCompiler(srcDir: string) {
 
   async function compilePlugin(candidates: string[], pluginBlock = ""): Promise<string> {
     const pluginDecl = pluginBlock
-      ? `@plugin "./tw-plugin.ts" {\n${pluginBlock}\n}`
-      : `@plugin "./tw-plugin.ts";`;
+      ? `@plugin "./tailwind.ts" {\n${pluginBlock}\n}`
+      : `@plugin "./tailwind.ts";`;
     const input = `
 @import "tailwindcss";
 ${pluginDecl}

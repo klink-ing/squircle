@@ -8,18 +8,17 @@ export default defineConfig({
   },
   pack: {
     entry: {
-      "tw-plugin": "./src/tw-plugin.ts",
-      "tw-merge-cfg": "./src/tw-merge-cfg.ts",
-      "panda-preset": "./src/panda-preset.ts",
-      stylex: "./src/squircle.stylex.ts",
+      "tailwind/index": "./src/tailwind.ts",
+      "panda/index": "./src/panda.ts",
+      "stylex/index": "./src/stylex.ts",
     },
     format: "esm",
     dts: true,
   },
   run: {
     tasks: {
-      "test:plugin": {
-        command: "vp test run tw-plugin",
+      "test:tailwind": {
+        command: "vp test run tailwind",
       },
       "test:css": {
         command: "vp test run squircle-css",
@@ -30,15 +29,15 @@ export default defineConfig({
         dependsOn: ["build"],
       },
       "test:panda": {
-        command: "vp test run panda-preset",
+        command: "vp test run panda",
       },
       "test:stylex": {
-        command: "vp test run squircle.stylex",
+        command: "vp test run stylex",
       },
       test: {
         command: "echo 'All tests passed'",
         dependsOn: [
-          "test:plugin",
+          "test:tailwind",
           "test:css",
           "test:radius",
           "test:panda",

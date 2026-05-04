@@ -9,7 +9,6 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 ## Contents
 
 <!-- BEGIN:toc -->
-
 - [Requirements](#requirements)
 - [Install & setup](#install--setup)
 - [Utilities](#utilities)
@@ -43,13 +42,13 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 npm install @klinking/squircle
 ```
 
-Then pick the integration path that fits your project. Tailwind is the original target (paths A and B). Path C is the [Panda CSS](https://panda-css.com/) preset, which produces the exact same `@supports`-gated visual correction wired through Panda's utility pipeline.
+Then pick the integration path that fits your project. Tailwind is the original target (paths A and B). Path C is the [Panda CSS](https://panda-css.com/) preset and Path D is the [StyleX](https://stylexjs.com/) preset — both produce the exact same `@supports`-gated visual correction wired through their host's utility pipeline.
 
 ### Path A: CSS import (recommended)
 
 ```css
 @import "tailwindcss";
-@import "@klinking/squircle/tw-utils.css";
+@import "@klinking/squircle/tailwind/utils.css";
 ```
 
 That's it. All `squircle-*` classes are available. This path uses Tailwind v4's `@utility` directive, so everything is generated at build time with zero runtime cost.
@@ -60,14 +59,14 @@ Use this if you want to change the class prefix or the `--squircle-amt` CSS vari
 
 ```css
 @import "tailwindcss";
-@plugin "@klinking/squircle/tw-plugin";
+@plugin "@klinking/squircle/tailwind";
 ```
 
 Or with options:
 
 ```css
 @import "tailwindcss";
-@plugin "@klinking/squircle/tw-plugin" {
+@plugin "@klinking/squircle/tailwind" {
   prefix: sq;          /* use `sq-md`, `sq-t-lg`, etc. */
   amt-var: --my-amt;   /* use `--my-amt` instead of `--squircle-amt` */
 }
@@ -80,7 +79,7 @@ See [Configuring theme tokens](#configuring-theme-tokens) for what else you can 
 If your project already uses [`tailwind-merge`](https://github.com/dcastil/tailwind-merge) to de-duplicate conflicting classes, pull in the squircle conflict config so `rounded-lg squircle-md` resolves the way you'd expect:
 
 ```js
-import { squircleMergeConfig } from "@klinking/squircle/tw-merge-cfg";
+import { squircleMergeConfig } from "@klinking/squircle/tailwind";
 import { extendTailwindMerge } from "tailwind-merge";
 
 const twMerge = extendTailwindMerge(squircleMergeConfig, {
@@ -94,7 +93,7 @@ For [Panda CSS](https://panda-css.com/) projects, register the preset in `panda.
 
 ```ts
 import { defineConfig } from "@pandacss/dev";
-import squirclePreset from "@klinking/squircle/panda-preset";
+import squirclePreset from "@klinking/squircle/panda";
 
 export default defineConfig({
   presets: ["@pandacss/dev/presets", squirclePreset()],
@@ -139,6 +138,22 @@ squirclePreset({ amtVar: "--my-amt", rVar: "--my-r" });
 ```
 
 Panda is usage-driven — utilities only appear in the output for properties found in scanned source. If you want every variant emitted unconditionally, opt in via Panda's [`staticCss`](https://panda-css.com/docs/guides/static-css).
+
+### Path D: StyleX
+
+For [StyleX](https://stylexjs.com/) projects, import the dynamic-style helpers from `@klinking/squircle/stylex`:
+
+```tsx
+import * as stylex from "@stylexjs/stylex";
+import { squircle } from "@klinking/squircle/stylex";
+
+<div {...stylex.props(squircle.all("1rem"))} />
+<div {...stylex.props(squircle.topLeft("1.5rem", 3))} />
+```
+
+Each variant (`all`, `top`, `right`, …, `topLeft`, `endEnd`, …) is a function that takes a `radius` and an optional superellipse `amt`, then emits a `borderRadius` + `cornerShape` pair gated behind `@supports (corner-shape: superellipse(2))`. If `amt` is omitted, it falls through `var(--squircle-amt, 2)` so the same custom property used by the Tailwind / Panda integrations applies.
+
+The whole 15-variant table is a single statically-analyzable `stylex.create({ … })` literal — your StyleX bundler picks it up the same way it picks up your own create calls.
 
 ## Utilities
 
@@ -252,7 +267,7 @@ All three are exposed as kebab-case inside the `@plugin` block and as camelCase 
 For the footure. Less total CSS than all those tailwind utilities. So beautiful. So utterly currently unusable.
 
 ```css
-@import "@klinking/squircle/squircle-radius.css";
+@import "@klinking/squircle/tailwind/radius.css";
 
 .card {
   --squircle-amt: 2;
@@ -361,7 +376,7 @@ Partially, at time of writing — recent Chrome ships `corner-shape`, Safari and
 
 ### Does it work with Tailwind v3?
 
-The **CSS utilities** (`tw-utils.css`) are v4-only — they use `@utility` and `--value()`, which don't exist in v3.
+The **CSS utilities** (`tailwind/utils.css`) are v4-only — they use `@utility` and `--value()`, which don't exist in v3.
 
 The **JS plugin** uses only APIs that exist in both v3 and v4 (`plugin.withOptions`, `matchUtilities`, `type: "length" | "number"`, `theme()`), so it's likely to work in v3 via a `tailwind.config.js`-style registration — but it's not currently tested or declared against v3. Tracked in [#26](https://github.com/dogmar/squircle/pull/26).
 
@@ -404,10 +419,9 @@ Kinda. Honestly I wrote the basic tailwind utilities by hand using a weird cobbl
 If you'd rather not add a dependency, copy the source directly. Click to expand each file.
 
 <details>
-<summary><strong><code>tw-utils.css</code></strong> — the Tailwind utilities</summary>
+<summary><strong><code>tailwind/utils.css</code></strong> — the Tailwind utilities</summary>
 
-<!-- BEGIN:dist/tw-utils.css -->
-
+<!-- BEGIN:dist/tailwind/utils.css -->
 ```css
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default 2)    */
@@ -567,20 +581,18 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   }
 }
 ```
-
-<!-- END:dist/tw-utils.css -->
+<!-- END:dist/tailwind/utils.css -->
 
 </details>
 
 <details>
-<summary><strong><code>tw-plugin.mjs</code></strong> — the JS plugin</summary>
+<summary><strong><code>tailwind/index.mjs</code></strong> — the Tailwind plugin and tailwind-merge config</summary>
 
-<!-- BEGIN:dist/tw-plugin.mjs -->
-
-````js
-import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries } from "./variants-CUhqvLRq.mjs";
+<!-- BEGIN:dist/tailwind/index.mjs -->
+```js
+import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries } from "../variants-CUhqvLRq.mjs";
 import plugin from "tailwindcss/plugin";
-//#region src/tw-plugin.ts
+//#region src/tailwind.ts
 const squircle = plugin.withOptions((options = {}) => ({ matchUtilities, theme }) => {
 	const amtVar = options.amtVar ?? options["amt-var"] ?? "--squircle-amt";
 	const rVar = options.rVar ?? options["r-var"] ?? "--squircle-r";
@@ -598,20 +610,6 @@ const squircle = plugin.withOptions((options = {}) => ({ matchUtilities, theme }
 		values: radiusValues
 	});
 });
-//#endregion
-export { squircle as default };
-
-//# sourceMappingURL=tw-plugin.mjs.map```
-<!-- END:dist/tw-plugin.mjs -->
-
-</details>
-
-<details>
-<summary><strong><code>tw-merge-cfg.mjs</code></strong> — the tailwind-merge config</summary>
-
-<!-- BEGIN:dist/tw-merge-cfg.mjs -->
-```js
-//#region src/tw-merge-cfg.ts
 const allRoundedGroups = [
 	"rounded",
 	"rounded-s",
@@ -656,10 +654,292 @@ const squircleMergeConfig = { extend: {
 	}
 } };
 //#endregion
-export { squircleMergeConfig };
+export { squircle as default, squircleMergeConfig };
 
-//# sourceMappingURL=tw-merge-cfg.mjs.map```
-<!-- END:dist/tw-merge-cfg.mjs -->
+//# sourceMappingURL=index.mjs.map```
+<!-- END:dist/tailwind/index.mjs -->
+
+</details>
+
+<details>
+<summary><strong><code>panda/index.mjs</code></strong> — the Panda CSS preset</summary>
+
+<!-- BEGIN:dist/panda/index.mjs -->
+```js
+import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries, t as CAMEL_VARIANTS } from "../variants-CUhqvLRq.mjs";
+//#region src/panda.ts
+/**
+* Build the Panda preset object. Pass directly to `presets:` in `panda.config.ts`:
+*
+* ```ts
+* import { defineConfig } from '@pandacss/dev'
+* import squirclePreset from '@klinking/squircle/panda'
+*
+* export default defineConfig({
+*   presets: ['@pandacss/dev/presets', squirclePreset()],
+* })
+* ```
+*
+* Naming follows Panda's own border-radius convention: full property names like
+* `squircleTopLeftRadius` mirror `borderTopLeftRadius`, and shorthands like
+* `squircleTopLeft` mirror `roundedTopLeft`. The shape table is identical to
+* Panda's built-in radius utilities.
+*/
+function squirclePandaPreset(options = {}) {
+	const amtVar = options.amtVar ?? "--squircle-amt";
+	const rVar = options.rVar ?? "--squircle-r";
+	const utilities = {};
+	const variantBySuffix = new Map(variantEntries());
+	for (const variant of CAMEL_VARIANTS) {
+		const props = variantBySuffix.get(variant.suffix);
+		if (!props) continue;
+		utilities[variant.property] = {
+			shorthand: variant.shorthand,
+			values: "radii",
+			transform: (value) => squircleCssObj(props, value, {
+				amtVar,
+				rVar,
+				case: "camel"
+			})
+		};
+	}
+	utilities["squircleAmount"] = {
+		shorthand: "squircleAmt",
+		values: { type: "number" },
+		transform: (value) => ({
+			[amtVar]: value,
+			[SUPPORTS_RULE]: { cornerShape: `superellipse(var(${amtVar}))` }
+		})
+	};
+	return {
+		name: "@klinking/squircle",
+		utilities: { extend: utilities },
+		conditions: { extend: { squircleSupported: SUPPORTS_RULE } }
+	};
+}
+//#endregion
+export { squirclePandaPreset as default, squirclePandaPreset };
+
+//# sourceMappingURL=index.mjs.map```
+<!-- END:dist/panda/index.mjs -->
+
+</details>
+
+<details>
+<summary><strong><code>stylex/index.mjs</code></strong> — the StyleX dynamic-style preset</summary>
+
+<!-- BEGIN:dist/stylex/index.mjs -->
+```js
+import * as stylex from "@stylexjs/stylex";
+//#region src/stylex.ts
+/**
+* StyleX squircle utilities.
+*
+* Each entry is a *dynamic* style — a function that takes a `radius` (and an
+* optional superellipse `amt`) and produces a `borderRadius` + `cornerShape`
+* pair gated behind `@supports (corner-shape: superellipse(2))`. Browsers that
+* don't support `corner-shape` fall back to a plain rounded rectangle at the
+* same radius.
+*
+* ```tsx
+* import * as stylex from '@stylexjs/stylex';
+* import { squircle } from '@klinking/squircle/stylex';
+*
+* <div {...stylex.props(squircle.all('1rem'))} />
+* <div {...stylex.props(squircle.topLeft('0.5rem', 3))} />
+* ```
+*
+* If `amt` is omitted, the corrected radius and `corner-shape` resolve through
+* `var(--squircle-amt, 2)` — set that custom property anywhere up the cascade
+* to drive the superellipse exponent globally.
+*
+* **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to receive
+* a fully-static object literal, and forbids destructuring, spreading, or
+* default values on dynamic-style function parameters. The whole 15-variant
+* table is therefore spelled out here verbatim. Keep it that way; tooling
+* relies on every variant being statically analyzable at this call site.
+*/
+const squircle = stylex.create({
+	all: (radius, amt) => ({
+		borderRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	top: (radius, amt) => ({
+		borderTopLeftRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		borderTopRightRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	right: (radius, amt) => ({
+		borderTopRightRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		borderBottomRightRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	bottom: (radius, amt) => ({
+		borderBottomLeftRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		borderBottomRightRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	left: (radius, amt) => ({
+		borderTopLeftRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		borderBottomLeftRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	start: (radius, amt) => ({
+		borderStartStartRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		borderEndStartRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	end: (radius, amt) => ({
+		borderStartEndRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		borderEndEndRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	topLeft: (radius, amt) => ({
+		borderTopLeftRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	topRight: (radius, amt) => ({
+		borderTopRightRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	bottomRight: (radius, amt) => ({
+		borderBottomRightRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	bottomLeft: (radius, amt) => ({
+		borderBottomLeftRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	startStart: (radius, amt) => ({
+		borderStartStartRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	startEnd: (radius, amt) => ({
+		borderStartEndRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	endStart: (radius, amt) => ({
+		borderEndStartRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	}),
+	endEnd: (radius, amt) => ({
+		borderEndEndRadius: {
+			default: radius,
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+		},
+		cornerShape: {
+			default: null,
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+		}
+	})
+});
+//#endregion
+export { squircle };
+
+//# sourceMappingURL=index.mjs.map```
+<!-- END:dist/stylex/index.mjs -->
 
 </details>
 

@@ -21,23 +21,19 @@
   ],
   "type": "module",
   "exports": {
-    "./tw-utils.css": "./dist/tw-utils.css",
-    "./squircle-radius.css": "./dist/squircle-radius.css",
-    "./tw-merge-cfg": {
-      "types": "./dist/tw-merge-cfg.d.mts",
-      "import": "./dist/tw-merge-cfg.mjs"
+    "./tailwind": {
+      "types": "./dist/tailwind/index.d.mts",
+      "import": "./dist/tailwind/index.mjs"
     },
-    "./tw-plugin": {
-      "types": "./dist/tw-plugin.d.mts",
-      "import": "./dist/tw-plugin.mjs"
-    },
-    "./panda-preset": {
-      "types": "./dist/panda-preset.d.mts",
-      "import": "./dist/panda-preset.mjs"
+    "./tailwind/utils.css": "./dist/tailwind/utils.css",
+    "./tailwind/radius.css": "./dist/tailwind/radius.css",
+    "./panda": {
+      "types": "./dist/panda/index.d.mts",
+      "import": "./dist/panda/index.mjs"
     },
     "./stylex": {
-      "types": "./dist/stylex.d.mts",
-      "import": "./dist/stylex.mjs"
+      "types": "./dist/stylex/index.d.mts",
+      "import": "./dist/stylex/index.mjs"
     }
   },
   "scripts": {

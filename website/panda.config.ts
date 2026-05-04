@@ -1,5 +1,5 @@
 import { defineConfig } from "@pandacss/dev";
-import squirclePreset from "@klinking/squircle/panda-preset";
+import squirclePreset from "@klinking/squircle/panda";
 
 export default defineConfig({
   // Tailwind also runs on this site; prefix Panda's generated classes so they

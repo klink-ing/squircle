@@ -49,10 +49,10 @@ function compileFromSource(source: string, filename: string) {
   };
 }
 
-const MODULE_PATH = `${import.meta.dirname}/squircle.stylex.ts`;
+const MODULE_PATH = `${import.meta.dirname}/stylex.ts`;
 const MODULE_SOURCE = readFileSync(MODULE_PATH, "utf8");
 
-describe("squircle.stylex", () => {
+describe("stylex", () => {
   const compiled = compileFromSource(MODULE_SOURCE, MODULE_PATH);
   const css = compiled.rules.map((r) => r[1].ltr).join("\n");
 

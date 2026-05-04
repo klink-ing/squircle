@@ -75,9 +75,10 @@ sync_toc() {
   rm -f "$tocfile"
 }
 
-sync_file "dist/tw-utils.css" "css" "package/dist/tw-utils.css"
-sync_file "dist/tw-merge-cfg.mjs" "js" "package/dist/tw-merge-cfg.mjs"
-sync_file "dist/tw-plugin.mjs" "js" "package/dist/tw-plugin.mjs"
+sync_file "dist/tailwind/utils.css" "css" "package/dist/tailwind/utils.css"
+sync_file "dist/tailwind/index.mjs" "js" "package/dist/tailwind/index.mjs"
+sync_file "dist/panda/index.mjs" "js" "package/dist/panda/index.mjs"
+sync_file "dist/stylex/index.mjs" "js" "package/dist/stylex/index.mjs"
 sync_toc
 
 echo "README synced."

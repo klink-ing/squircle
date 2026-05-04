@@ -19,8 +19,8 @@ const stylexBabelOpts = {
 
 /**
  * Run `@stylexjs/babel-plugin` on files outside of `@vitejs/plugin-react`'s
- * reach — notably the package's compiled `dist/stylex.mjs`, resolved through
- * the pnpm workspace.
+ * reach — notably the package's compiled `dist/stylex/index.mjs`, resolved
+ * through the pnpm workspace.
  */
 function stylexForExternalModules() {
   return {
@@ -29,8 +29,8 @@ function stylexForExternalModules() {
     async transform(code, id) {
       if (!/\.m?jsx?$|\.tsx?$/.test(id)) return null;
       if (
-        !id.includes("/package/dist/stylex.mjs") &&
-        !id.includes("squircle.stylex.")
+        !id.includes("/package/dist/stylex/index.mjs") &&
+        !id.includes(".stylex.")
       ) {
         return null;
       }

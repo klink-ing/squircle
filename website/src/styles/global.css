@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@plugin "../../../package/dist/tw-plugin.mjs";
+@plugin "../../../package/dist/tailwind/index.mjs";
 
 @theme {
   /* Semantic colors used by the demo boxes. Each names what the box is

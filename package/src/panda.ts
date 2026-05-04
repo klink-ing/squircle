@@ -39,7 +39,7 @@ export interface SquirclePandaPreset {
  *
  * ```ts
  * import { defineConfig } from '@pandacss/dev'
- * import squirclePreset from '@klinking/squircle/panda-preset'
+ * import squirclePreset from '@klinking/squircle/panda'
  *
  * export default defineConfig({
  *   presets: ['@pandacss/dev/presets', squirclePreset()],

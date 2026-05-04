@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@klinking/squircle/tw-utils.css";
+@import "@klinking/squircle/tailwind/utils.css";
 
 @theme {
   --color-demo-plain: #4f46e5;

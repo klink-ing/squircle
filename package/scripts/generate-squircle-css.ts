@@ -57,13 +57,13 @@ function generateCss(): string {
 }
 
 const output = generateCss();
-const distDir = join(__dirname, "..", "dist");
-mkdirSync(distDir, { recursive: true });
-const outPath = join(distDir, "tw-utils.css");
+const tailwindDir = join(__dirname, "..", "dist", "tailwind");
+mkdirSync(tailwindDir, { recursive: true });
+const outPath = join(tailwindDir, "utils.css");
 writeFileSync(outPath, output);
 console.log(`Generated ${outPath} (skipping fmt)`);
 
 const radiusSrc = join(__dirname, "..", "src", "squircle-radius.css");
-const radiusDest = join(distDir, "squircle-radius.css");
+const radiusDest = join(tailwindDir, "radius.css");
 copyFileSync(radiusSrc, radiusDest);
 console.log(`Copied ${radiusDest}`);

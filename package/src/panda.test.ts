@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import squirclePandaPreset from "./panda-preset";
+import squirclePandaPreset from "./panda";
 import { CAMEL_VARIANTS } from "./variants";
 
 describe("panda preset shape", () => {
