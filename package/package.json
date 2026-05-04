@@ -34,12 +34,20 @@
     "./panda-preset": {
       "types": "./dist/panda-preset.d.mts",
       "import": "./dist/panda-preset.mjs"
+    },
+    "./stylex": {
+      "types": "./dist/stylex.d.mts",
+      "import": "./dist/stylex.mjs"
     }
   },
   "scripts": {
     "prepublishOnly": "vp run build"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/preset-typescript": "^7.28.0",
+    "@stylexjs/babel-plugin": "^0.18.3",
+    "@stylexjs/stylex": "^0.18.3",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^25.5.2",
     "oxlint": "^1.58.0",
@@ -51,11 +59,15 @@
   },
   "peerDependencies": {
     "@pandacss/dev": ">=0.40.0",
+    "@stylexjs/stylex": ">=0.18.0",
     "tailwind-merge": ">=2.0.0",
     "tailwindcss": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@pandacss/dev": {
+      "optional": true
+    },
+    "@stylexjs/stylex": {
       "optional": true
     },
     "tailwind-merge": {
