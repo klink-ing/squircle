@@ -103,8 +103,11 @@ describe("stylex", () => {
     expect(compiled.code).toContain("pow(2, -1 *");
   });
 
-  it("uses the var(--squircle-amt, 2) default for amt", () => {
-    expect(compiled.code).toContain("var(--squircle-amt, 2)");
+  it("defaults amt to the literal exponent 2 when omitted", () => {
+    // Each variant function emits `${amt ?? 2}` inside its template literals.
+    expect(compiled.code).toMatch(/amt\s*\?\?\s*2/);
+    // And does not bake in a `var(--squircle-amt, …)` fallback at runtime.
+    expect(compiled.code).not.toContain("var(--squircle-amt");
   });
 
   it("emits all 15 variants", () => {

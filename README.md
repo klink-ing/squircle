@@ -152,7 +152,7 @@ import { squircle } from "@klinking/squircle/stylex";
 <div {...stylex.props(squircle.topLeft("1.5rem", 3))} />
 ```
 
-Each variant (`all`, `top`, `right`, …, `topLeft`, `endEnd`, …) is a function that takes a `radius` and an optional superellipse `amt`, then emits a `borderRadius` + `cornerShape` pair gated behind `@supports (corner-shape: superellipse(2))`. If `amt` is omitted, it falls through `var(--squircle-amt, 2)` so the same custom property used by the Tailwind / Panda integrations applies.
+Each variant (`all`, `top`, `right`, …, `topLeft`, `endEnd`, …) is a function that takes a `radius` and an optional superellipse `amt`, then emits a `borderRadius` + `cornerShape` pair gated behind `@supports (corner-shape: superellipse(2))`. If `amt` is omitted, the default exponent `2` is used; unlike the Tailwind and Panda integrations, this preset does not read `--squircle-amt` — pass `amt` explicitly per call site to tune it.
 
 The whole 15-variant table is a single statically-analyzable `stylex.create({ … })` literal — your StyleX bundler picks it up the same way it picks up your own create calls.
 
@@ -753,9 +753,10 @@ import * as stylex from "@stylexjs/stylex";
 * <div {...stylex.props(squircle.topLeft('0.5rem', 3))} />
 * ```
 *
-* If `amt` is omitted, the corrected radius and `corner-shape` resolve through
-* `var(--squircle-amt, 2)` — set that custom property anywhere up the cascade
-* to drive the superellipse exponent globally.
+* If `amt` is omitted, the corrected radius and `corner-shape` use the
+* literal default exponent of `2` — pass `amt` explicitly per-call site to
+* tune it. Unlike the Tailwind and Panda integrations, this preset does not
+* read `--squircle-amt`; StyleX's per-call parameter is the only knob.
 *
 * **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to receive
 * a fully-static object literal, and forbids destructuring, spreading, or
@@ -767,175 +768,175 @@ const squircle = stylex.create({
 	all: (radius, amt) => ({
 		borderRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	top: (radius, amt) => ({
 		borderTopLeftRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		borderTopRightRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	right: (radius, amt) => ({
 		borderTopRightRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		borderBottomRightRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	bottom: (radius, amt) => ({
 		borderBottomLeftRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		borderBottomRightRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	left: (radius, amt) => ({
 		borderTopLeftRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		borderBottomLeftRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	start: (radius, amt) => ({
 		borderStartStartRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		borderEndStartRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	end: (radius, amt) => ({
 		borderStartEndRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		borderEndEndRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	topLeft: (radius, amt) => ({
 		borderTopLeftRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	topRight: (radius, amt) => ({
 		borderTopRightRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	bottomRight: (radius, amt) => ({
 		borderBottomRightRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	bottomLeft: (radius, amt) => ({
 		borderBottomLeftRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	startStart: (radius, amt) => ({
 		borderStartStartRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	startEnd: (radius, amt) => ({
 		borderStartEndRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	endStart: (radius, amt) => ({
 		borderEndStartRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	}),
 	endEnd: (radius, amt) => ({
 		borderEndEndRadius: {
 			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? "var(--squircle-amt, 2)"}))))`
+			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
 		},
 		cornerShape: {
 			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? "var(--squircle-amt, 2)"})`
+			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
 		}
 	})
 });
