@@ -44,8 +44,12 @@ export default defineConfig({
           "test:stylex",
         ],
       },
+      "generate:stylex": {
+        command: "tsx scripts/generate-stylex.ts",
+      },
       build: {
-        command: "vp pack && tsx scripts/generate-squircle-css.ts",
+        command:
+          "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts",
       },
     },
   },

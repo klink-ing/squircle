@@ -113,23 +113,36 @@ describe("panda preset transform output", () => {
 });
 
 describe("panda preset options", () => {
-  it("custom amtVar threads through every transform", () => {
+  it("custom amtVar lands in every place the default --squircle-amt does", () => {
     const preset = squirclePandaPreset({ amtVar: "--my-amt" });
-    const out = preset.utilities.extend["squircleRadius"]!.transform!("1rem", {
+
+    // 1. radius transform — @supports calc references the custom var, and
+    //    cornerShape uses it as the superellipse argument.
+    const radiusOut = preset.utilities.extend["squircleRadius"]!.transform!("1rem", {
       token: () => "1rem",
       raw: "1rem",
     }) as Record<string, unknown>;
-    const supports = out["@supports (corner-shape: superellipse(2))"] as Record<
-      string,
-      string
-    >;
-    expect(supports["cornerShape"]).toBe("superellipse(var(--my-amt, 2))");
+    const radiusSupports = radiusOut[
+      "@supports (corner-shape: superellipse(2))"
+    ] as Record<string, string>;
+    expect(radiusSupports["--squircle-r"]).toContain("var(--my-amt, 2)");
+    expect(radiusSupports["cornerShape"]).toBe("superellipse(var(--my-amt, 2))");
 
+    // 2. squircleAmount transform — writes the custom var and the @supports
+    //    block reads it back.
     const amtOut = preset.utilities.extend["squircleAmount"]!.transform!("3", {
       token: () => "3",
       raw: "3",
     }) as Record<string, unknown>;
     expect(amtOut["--my-amt"]).toBe("3");
+    const amtSupports = amtOut[
+      "@supports (corner-shape: superellipse(2))"
+    ] as Record<string, string>;
+    expect(amtSupports["cornerShape"]).toBe("superellipse(var(--my-amt))");
+
+    // 3. The default name does not appear anywhere when overridden.
+    const allOutput = JSON.stringify({ radiusOut, amtOut });
+    expect(allOutput).not.toContain("--squircle-amt");
   });
 
   it("custom rVar threads through multi-prop side transforms", () => {
@@ -145,5 +158,22 @@ describe("panda preset options", () => {
     expect(supports["--my-r"]).toContain("calc(1rem");
     expect(supports["borderTopLeftRadius"]).toBe("var(--my-r)");
     expect(supports["borderTopRightRadius"]).toBe("var(--my-r)");
+    // And the default --squircle-r is gone.
+    expect(JSON.stringify(out)).not.toContain("--squircle-r");
+  });
+
+  it("amtVar and rVar can both be overridden together", () => {
+    const preset = squirclePandaPreset({ amtVar: "--a", rVar: "--r" });
+    const out = preset.utilities.extend["squircleRadius"]!.transform!("1rem", {
+      token: () => "1rem",
+      raw: "1rem",
+    }) as Record<string, unknown>;
+    const supports = out["@supports (corner-shape: superellipse(2))"] as Record<
+      string,
+      string
+    >;
+    expect(supports["--r"]).toContain("var(--a, 2)");
+    expect(supports["borderRadius"]).toBe("var(--r)");
+    expect(supports["cornerShape"]).toBe("superellipse(var(--a, 2))");
   });
 });

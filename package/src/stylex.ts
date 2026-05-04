@@ -1,13 +1,21 @@
+// THIS FILE IS GENERATED — DO NOT EDIT.
+// Source: scripts/generate-stylex.ts (template: src/stylex.template.ts)
+//
+// To regenerate: tsx package/scripts/generate-stylex.ts (also runs in vp build).
+// To modify variant shape, edit `renderVariant` in the generator.
+// To add/rename variants, edit `CAMEL_VARIANTS` and `VARIANTS` in src/variants.ts.
+
 import * as stylex from "@stylexjs/stylex";
 
 /**
- * StyleX squircle utilities.
+ * StyleX squircle utilities — generated from this template by
+ * `scripts/generate-stylex.ts`.
  *
- * Each entry is a *dynamic* style — a function that takes a `radius` (and an
- * optional superellipse `amt`) and produces a `borderRadius` + `cornerShape`
- * pair gated behind `@supports (corner-shape: superellipse(2))`. Browsers that
- * don't support `corner-shape` fall back to a plain rounded rectangle at the
- * same radius.
+ * Each variant is a *dynamic* style — a function that takes a `radius` (and
+ * an optional superellipse `amt`) and produces a `borderRadius` +
+ * `cornerShape` pair gated behind `@supports (corner-shape: superellipse(2))`.
+ * Browsers that don't support `corner-shape` fall back to a plain rounded
+ * rectangle at the same radius.
  *
  * ```tsx
  * import * as stylex from '@stylexjs/stylex';
@@ -22,13 +30,28 @@ import * as stylex from "@stylexjs/stylex";
  * tune it. Unlike the Tailwind and Panda integrations, this preset does not
  * read `--squircle-amt`; StyleX's per-call parameter is the only knob.
  *
- * **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to receive
- * a fully-static object literal, and forbids destructuring, spreading, or
- * default values on dynamic-style function parameters. The whole 15-variant
- * table is therefore spelled out here verbatim. Keep it that way; tooling
- * relies on every variant being statically analyzable at this call site.
+ * **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to
+ * receive a fully-static object literal, and forbids destructuring,
+ * spreading, or default values on dynamic-style function parameters. The
+ * whole 15-variant table is therefore spelled out verbatim in the generated
+ * output. Every entry in this template must remain statically analyzable at
+ * its final call site.
+ *
+ * **How to modify**
+ *
+ * - To tweak a *variant's body* (the `borderRadius`/`cornerShape` block),
+ *   edit `renderVariant` in `scripts/generate-stylex.ts`.
+ * - To add or rename variants, edit `CAMEL_VARIANTS` and `VARIANTS` in
+ *   `variants.ts`.
+ * - To tweak the *file shell* (imports, docstring, the wrapping
+ *   `stylex.create({ ... })` call), edit this template.
+ *
+ * Then run `tsx scripts/generate-stylex.ts` (or just `vp run build`) to
+ * regenerate `stylex.ts`. Do not hand-edit `stylex.ts`.
  */
 export const squircle = stylex.create({
+  // --- All corners ---
+
   all: (radius: string | number, amt: string | number | undefined) => ({
     borderRadius: {
       default: radius,
@@ -40,7 +63,7 @@ export const squircle = stylex.create({
     },
   }),
 
-  // --- Per-side physical variants ---
+  // --- Per-side physical ---
 
   top: (radius: string | number, amt: string | number | undefined) => ({
     borderTopLeftRadius: {
@@ -102,7 +125,7 @@ export const squircle = stylex.create({
     },
   }),
 
-  // --- Per-side logical variants ---
+  // --- Per-side logical ---
 
   start: (radius: string | number, amt: string | number | undefined) => ({
     borderStartStartRadius: {
@@ -134,7 +157,7 @@ export const squircle = stylex.create({
     },
   }),
 
-  // --- Per-corner physical variants ---
+  // --- Per-corner physical ---
 
   topLeft: (radius: string | number, amt: string | number | undefined) => ({
     borderTopLeftRadius: {
@@ -180,7 +203,7 @@ export const squircle = stylex.create({
     },
   }),
 
-  // --- Per-corner logical variants ---
+  // --- Per-corner logical ---
 
   startStart: (radius: string | number, amt: string | number | undefined) => ({
     borderStartStartRadius: {

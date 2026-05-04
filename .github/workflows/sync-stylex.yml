@@ -1,0 +1,45 @@
+name: Sync generated stylex.ts
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - package/src/stylex.template.ts
+      - package/src/stylex.ts
+      - package/src/variants.ts
+      - package/scripts/generate-stylex.ts
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: "22"
+          cache: true
+
+      - run: vp install
+
+      - name: Regenerate package/src/stylex.ts
+        run: vp run @klinking/squircle#generate:stylex
+
+      - name: Commit and push if changed
+        run: |
+          git diff --quiet package/src/stylex.ts && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package/src/stylex.ts
+          git commit -m "chore: regenerate package/src/stylex.ts"
+          git push || {
+            echo "::error::package/src/stylex.ts is out of sync and could not push fix to branch"
+            exit 1
+          }
