@@ -505,49 +505,79 @@ Both are first-class — at least for the Tailwind CSS utilities, which are ~100
 
 ## FAQ
 
-### Does this work in Safari/Firefox/Chrome today?
+<details>
+<summary><strong>Does this work in Safari/Firefox/Chrome today?</strong></summary>
 
 Partially, at time of writing — recent Chrome ships `corner-shape`, Safari and Firefox are still catching up. Check [caniuse](https://caniuse.com/?search=corner-shape) for the current state. Either way you're fine: in a browser without support, you get a plain `border-radius` at the pre-correction value, which visually matches `rounded-*`. No broken layouts, no visible fallback weirdness.
 
-### Does it work with Tailwind v3?
+</details>
+
+<details>
+<summary><strong>Does it work with Tailwind v3?</strong></summary>
 
 The **CSS utilities** (`tailwind/utils.css`) are v4-only — they use `@utility` and `--value()`, which don't exist in v3.
 
 The **JS plugin** uses only APIs that exist in both v3 and v4 (`plugin.withOptions`, `matchUtilities`, `type: "length" | "number"`, `theme()`), so it's likely to work in v3 via a `tailwind.config.js`-style registration — but it's not currently tested or declared against v3. Tracked in [#26](https://github.com/dogmar/squircle/pull/26).
 
-### Why do my corners look smaller with `corner-shape: superellipse` without this?
+</details>
+
+<details>
+<summary><strong>Why do my corners look smaller with <code>corner-shape: superellipse</code> without this?</strong></summary>
 
 At the same `border-radius`, a squircle pokes further into the corner, so less of the box edge is rounded off. The fix is to scale the radius up so the visual roundness matches `rounded-*` — see [How the radius correction works](#how-the-radius-correction-works).
 
-### Does this add runtime JS?
+</details>
+
+<details>
+<summary><strong>Does this add runtime JS?</strong></summary>
 
 No. Everything is static CSS — the Tailwind utilities expand at build time into declarations with a native `calc()` the browser evaluates. The JS plugin also runs at build time only. Zero JS ships to the browser.
 
-### What happens once `corner-shape` is universal?
+</details>
+
+<details>
+<summary><strong>What happens once <code>corner-shape</code> is universal?</strong></summary>
 
 Nothing you need to do. The correction lives inside `@supports (corner-shape: superellipse(2))`, so it activates exactly when the shape does. Once the browser ships support, the shape applies _and_ the compensated radius applies, at the same moment. Your layout is identical before and after.
 
-### Do I need `tailwind-merge`?
+</details>
+
+<details>
+<summary><strong>Do I need <code>tailwind-merge</code>?</strong></summary>
 
 Only if your project already uses it. The extra config (`squircleMergeConfig`) exists so `rounded-lg squircle-md` de-duplicates the way you'd expect — otherwise tailwind-merge doesn't know `squircle-*` and `rounded-*` occupy the same slot.
 
-### What's the difference between the utilities and the `squircle-radius()` function?
+</details>
+
+<details>
+<summary><strong>What's the difference between the utilities and the <code>squircle-radius()</code> function?</strong></summary>
 
 The utilities expand to inline `calc()` at build time — they work in any browser that supports `calc()` + `pow()` (most current ones) and degrade to plain `border-radius` where `corner-shape` isn't supported.
 
 The `@function` form runs the same math at CSS runtime via CSS Values 5's `@function` — which is [experimental](https://caniuse.com/?search=%40function) (Chrome behind a flag, nothing else yet). Use the utilities unless you're specifically building for a non-Tailwind setup.
 
-### Can I use a different `squircle-amt` for each corner?
+</details>
+
+<details>
+<summary><strong>Can I use a different <code>squircle-amt</code> for each corner?</strong></summary>
 
 No. `corner-shape` is declared once per element, so all four corners share the same K. You can still mix per-corner _radii_ (`squircle-tl-lg squircle-br-sm`), but the squircle-ness is uniform across the element.
 
-### Why is the tone of this README all over the place?
+</details>
+
+<details>
+<summary><strong>Why is the tone of this README all over the place?</strong></summary>
 
 Because I made Claude write most of it, got mad at claude, re-wrote a lot of stuff myself, then got tired and let Claude win.
 
-### Did you just let Claude write this?
+</details>
+
+<details>
+<summary><strong>Did you just let Claude write this?</strong></summary>
 
 Kinda. Honestly I wrote the basic tailwind utilities by hand using a weird cobbled together formula I just kinda eyeballed to work for most values anyone would actually want to use for the `superellipse()` param. But then I thought, hey, robots are good at math, maybe they can make the formula _actually_ **correct**. And they could! The robots _could_ make a right formula. I was so happy. I cried tears of joy for days and days. So many tears I drowned my robot. And now I'll never code again. Alas.
+
+</details>
 
 ## Copy/paste source
 
@@ -723,11 +753,45 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 </details>
 
 <details>
+<summary><strong><code>tailwind/radius.css</code></strong> — the <code>squircle-radius()</code> CSS function</summary>
+
+<!-- BEGIN:dist/tailwind/radius.css -->
+
+```css
+/* ── squircle-radius() ────────────────────────────────────────
+ * Computes the visually-corrected border-radius for use with
+ * corner-shape: superellipse(). A superellipse corner appears
+ * tighter than a circular arc at the same radius, so the radius
+ * must be scaled up to preserve the intended visual size.
+ *
+ * --radius       The target border-radius (any <length>).
+ * --squircle-amt The superellipse exponent passed to corner-shape.
+ *
+ * Parameters are untyped to preserve standard CSS resolution of
+ * relative units (em, rem, etc.) — they resolve in the context
+ * where the function result is applied, not at call time.
+ *
+ * Usage:
+ *   border-radius: squircle-radius(1rem, 1.5);
+ *   corner-shape: superellipse(1.5);
+ * ──────────────────────────────────────────────────────────── */
+@function squircle-radius(--radius, --squircle-amt) {
+  result: calc(
+    var(--radius) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt))))
+  );
+}
+```
+
+<!-- END:dist/tailwind/radius.css -->
+
+</details>
+
+<details>
 <summary><strong><code>tailwind/index.mjs</code></strong> — the Tailwind plugin and tailwind-merge config</summary>
 
 <!-- BEGIN:dist/tailwind/index.mjs -->
 
-````js
+```js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries } from "../variants-CUhqvLRq.mjs";
 import plugin from "tailwindcss/plugin";
 //#region src/tailwind.ts
@@ -794,7 +858,9 @@ const squircleMergeConfig = { extend: {
 //#endregion
 export { squircle as default, squircleMergeConfig };
 
-//# sourceMappingURL=index.mjs.map```
+//# sourceMappingURL=index.mjs.map
+```
+
 <!-- END:dist/tailwind/index.mjs -->
 
 </details>
@@ -803,7 +869,8 @@ export { squircle as default, squircleMergeConfig };
 <summary><strong><code>panda/index.mjs</code></strong> — the Panda CSS preset</summary>
 
 <!-- BEGIN:dist/panda/index.mjs -->
-```js
+
+````js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries, t as CAMEL_VARIANTS } from "../variants-CUhqvLRq.mjs";
 import { definePreset } from "@pandacss/dev";
 //#region src/panda.ts
@@ -859,7 +926,9 @@ function squirclePandaPreset(options = {}) {
 //#endregion
 export { squirclePandaPreset as default, squirclePandaPreset };
 
-//# sourceMappingURL=index.mjs.map```
+//# sourceMappingURL=index.mjs.map
+````
+
 <!-- END:dist/panda/index.mjs -->
 
 </details>
@@ -868,7 +937,8 @@ export { squirclePandaPreset as default, squirclePandaPreset };
 <summary><strong><code>stylex/index.mjs</code></strong> — the StyleX dynamic-style preset</summary>
 
 <!-- BEGIN:dist/stylex/index.mjs -->
-```js
+
+````js
 import * as stylex from "@stylexjs/stylex";
 //#region src/stylex.ts
 /**
@@ -1092,7 +1162,9 @@ const squircle = stylex.create({
 //#endregion
 export { squircle };
 
-//# sourceMappingURL=index.mjs.map```
+//# sourceMappingURL=index.mjs.map
+````
+
 <!-- END:dist/stylex/index.mjs -->
 
 </details>
@@ -1106,4 +1178,3 @@ export { squircle };
 ## License
 
 MIT
-````

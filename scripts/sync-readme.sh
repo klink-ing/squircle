@@ -12,11 +12,15 @@ sync_file() {
   local begin="<!-- BEGIN:$filename -->"
   local end="<!-- END:$filename -->"
 
-  # Build replacement: marker, fenced code block, content, closing fence
+  # Build replacement: marker, fenced code block, content, closing fence.
+  # Some bundled dist files have no trailing newline, which would glue the
+  # closing fence to the last source line (e.g. `//# sourceMappingURL=…```)
+  # and prevent the fence from closing — so force a newline before it.
   {
     echo "$begin"
     echo "\`\`\`$lang"
     cat "$src"
+    [ -z "$(tail -c 1 "$src")" ] || echo ""
     echo "\`\`\`"
   } > "$REPO_ROOT/.sync-block.tmp"
 
@@ -76,6 +80,7 @@ sync_toc() {
 }
 
 sync_file "dist/tailwind/utils.css" "css" "package/dist/tailwind/utils.css"
+sync_file "dist/tailwind/radius.css" "css" "package/dist/tailwind/radius.css"
 sync_file "dist/tailwind/index.mjs" "js" "package/dist/tailwind/index.mjs"
 sync_file "dist/panda/index.mjs" "js" "package/dist/panda/index.mjs"
 sync_file "dist/stylex/index.mjs" "js" "package/dist/stylex/index.mjs"
