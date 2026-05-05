@@ -88,7 +88,7 @@ sync_toc() {
 }
 
 sync_file "dist/tailwind/utils.css" "css" "package/dist/tailwind/utils.css"
-sync_file "dist/tailwind/radius.css" "css" "package/dist/tailwind/radius.css"
+sync_file "dist/radius-function.css" "css" "package/dist/radius-function.css"
 # tailwind/index.mjs — only the tailwind-merge config is shown (hand-written)
 # Panda preset — bundled output imports internal chunks, not copy/paste-able (#32)
 sync_file "dist/stylex/index.mjs" "js" "package/dist/stylex/index.mjs"

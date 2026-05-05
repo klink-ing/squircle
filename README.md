@@ -400,7 +400,7 @@ import { squircle } from "@klinking/squircle/stylex";
 For the footure. Less total CSS than all those tailwind utilities. So beautiful. So utterly currently unusable.
 
 ```css
-@import "@klinking/squircle/tailwind/radius.css";
+@import "@klinking/squircle/radius-function.css";
 
 .card {
   --squircle-amt: 2;
@@ -753,9 +753,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 </details>
 
 <details>
-<summary><strong><code>tailwind/radius.css</code></strong> — the <code>squircle-radius()</code> CSS function</summary>
+<summary><strong><code>radius-function.css</code></strong> — the <code>squircle-radius()</code> CSS function</summary>
 
-<!-- BEGIN:dist/tailwind/radius.css -->
+<!-- BEGIN:dist/radius-function.css -->
 
 ```css
 /* ── squircle-radius() ────────────────────────────────────────
@@ -782,7 +782,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 ```
 
-<!-- END:dist/tailwind/radius.css -->
+<!-- END:dist/radius-function.css -->
 
 </details>
 
