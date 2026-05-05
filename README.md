@@ -11,7 +11,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 <!-- BEGIN:toc -->
 
 - [Requirements](#requirements)
-- [Install & setup](#install--setup) — Tailwind CSS · Panda CSS · StyleX · CSS function
+- [Install & setup](#install--setup)
 - [How the radius correction works](#how-the-radius-correction-works)
 - [Browser support & fallback strategy](#browser-support--fallback-strategy)
 - [Why it called "squircle" when it use "superellipse()"?](#why-it-called-squircle-when-it-use-superellipse)
