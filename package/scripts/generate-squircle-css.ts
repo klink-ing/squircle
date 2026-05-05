@@ -64,6 +64,6 @@ writeFileSync(outPath, output);
 console.log(`Generated ${outPath} (skipping fmt)`);
 
 const radiusSrc = join(__dirname, "..", "src", "squircle-radius.css");
-const radiusDest = join(tailwindDir, "radius.css");
+const radiusDest = join(__dirname, "..", "dist", "radius-function.css");
 copyFileSync(radiusSrc, radiusDest);
 console.log(`Copied ${radiusDest}`);

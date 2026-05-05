@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { correctedRadius } from "./variants";
 
-const distPath = join(import.meta.dirname, "..", "dist", "tailwind", "radius.css");
+const distPath = join(import.meta.dirname, "..", "dist", "radius-function.css");
 
 describe("squircle-radius.css ships", () => {
   it("is copied into dist during build", () => {

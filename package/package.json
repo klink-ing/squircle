@@ -26,7 +26,7 @@
       "import": "./dist/tailwind/index.mjs"
     },
     "./tailwind/utils.css": "./dist/tailwind/utils.css",
-    "./tailwind/radius.css": "./dist/tailwind/radius.css",
+    "./radius-function.css": "./dist/radius-function.css",
     "./panda": {
       "types": "./dist/panda/index.d.mts",
       "import": "./dist/panda/index.mjs"
