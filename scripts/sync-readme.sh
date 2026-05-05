@@ -16,12 +16,21 @@ sync_file() {
   # Some bundled dist files have no trailing newline, which would glue the
   # closing fence to the last source line (e.g. `//# sourceMappingURL=…```)
   # and prevent the fence from closing — so force a newline before it.
+  local cleaned="$REPO_ROOT/.sync-cleaned.tmp.$lang"
+  grep -v -E '^//#(region|endregion)|^//# sourceMappingURL=' "$src" > "$cleaned"
+
+  if [[ "$lang" == "js" || "$lang" == "ts" ]]; then
+    vp fmt "$cleaned" --write 2>/dev/null
+  fi
+
   {
     echo "$begin"
     echo "\`\`\`$lang"
-    grep -v -E '^//#(region|endregion)|^//# sourceMappingURL=' "$src"
+    cat "$cleaned"
     echo "\`\`\`"
   } > "$REPO_ROOT/.sync-block.tmp"
+
+  rm -f "$cleaned"
 
   # Use awk to skip lines between begin/end markers, inserting replacement block
   awk -v begin="$begin" -v end="$end" -v blockfile="$REPO_ROOT/.sync-block.tmp" '
