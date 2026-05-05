@@ -904,7 +904,8 @@ export { squircle as default, squircleMergeConfig };
 <summary><strong><code>panda/index.mjs</code></strong> — the Panda CSS preset</summary>
 
 <!-- BEGIN:dist/panda/index.mjs -->
-```js
+
+````js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries, t as CAMEL_VARIANTS } from "../variants-CUhqvLRq.mjs";
 import { definePreset } from "@pandacss/dev";
 //#region src/panda.ts
@@ -961,7 +962,7 @@ function squirclePandaPreset(options = {}) {
 export { squirclePandaPreset as default, squirclePandaPreset };
 
 //# sourceMappingURL=index.mjs.map
-```
+````
 
 <!-- END:dist/panda/index.mjs -->
 
@@ -971,7 +972,8 @@ export { squirclePandaPreset as default, squirclePandaPreset };
 <summary><strong><code>stylex/index.mjs</code></strong> — the StyleX dynamic-style preset</summary>
 
 <!-- BEGIN:dist/stylex/index.mjs -->
-```js
+
+````js
 import * as stylex from "@stylexjs/stylex";
 //#region src/stylex.ts
 /**
@@ -1196,7 +1198,7 @@ const squircle = stylex.create({
 export { squircle };
 
 //# sourceMappingURL=index.mjs.map
-```
+````
 
 <!-- END:dist/stylex/index.mjs -->
 
