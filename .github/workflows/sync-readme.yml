@@ -64,3 +64,4 @@ jobs:
         run: |
           gh workflow run ci.yml --ref "$BRANCH"
           gh workflow run sync-readme.yml --ref "$BRANCH"
+          gh workflow run pr-title.yml --ref "$BRANCH"
