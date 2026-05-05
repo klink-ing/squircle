@@ -787,149 +787,46 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 </details>
 
 <details>
-<summary><strong><code>tailwind/index.mjs</code></strong> — the Tailwind plugin and tailwind-merge config</summary>
-
-<!-- BEGIN:dist/tailwind/index.mjs -->
+<summary><strong><code>squircleMergeConfig</code></strong> — tailwind-merge conflict config</summary>
 
 ```js
-import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries } from "../variants-CUhqvLRq.mjs";
-import plugin from "tailwindcss/plugin";
-//#region src/tailwind.ts
-const squircle = plugin.withOptions((options = {}) => ({ matchUtilities, theme }) => {
-	const amtVar = options.amtVar ?? options["amt-var"] ?? "--squircle-amt";
-	const rVar = options.rVar ?? options["r-var"] ?? "--squircle-r";
-	const prefix = options.prefix ?? "squircle";
-	const radiusValues = theme("borderRadius");
-	matchUtilities({ [`${prefix}-amt`]: (value) => ({
-		[amtVar]: value,
-		[SUPPORTS_RULE]: { "corner-shape": `superellipse(var(${amtVar}))` }
-	}) }, { type: "number" });
-	for (const [suffix, props] of variantEntries()) matchUtilities({ [suffix ? `${prefix}-${suffix}` : prefix]: (value) => squircleCssObj(props, value, {
-		amtVar,
-		rVar
-	}) }, {
-		type: "length",
-		values: radiusValues
-	});
-});
+import { extendTailwindMerge } from "tailwind-merge";
+
 const allRoundedGroups = [
-	"rounded",
-	"rounded-s",
-	"rounded-e",
-	"rounded-t",
-	"rounded-r",
-	"rounded-b",
-	"rounded-l",
-	"rounded-ss",
-	"rounded-se",
-	"rounded-es",
-	"rounded-ee",
-	"rounded-tl",
-	"rounded-tr",
-	"rounded-br",
-	"rounded-bl"
+  "rounded", "rounded-s", "rounded-e", "rounded-t", "rounded-r",
+  "rounded-b", "rounded-l", "rounded-ss", "rounded-se", "rounded-es",
+  "rounded-ee", "rounded-tl", "rounded-tr", "rounded-br", "rounded-bl",
 ];
-const squircleMergeConfig = { extend: {
-	classGroups: {
-		squircle: [
-			{ squircle: [() => true] },
-			{ "squircle-t": [() => true] },
-			{ "squircle-r": [() => true] },
-			{ "squircle-b": [() => true] },
-			{ "squircle-l": [() => true] },
-			{ "squircle-s": [() => true] },
-			{ "squircle-e": [() => true] },
-			{ "squircle-tl": [() => true] },
-			{ "squircle-tr": [() => true] },
-			{ "squircle-br": [() => true] },
-			{ "squircle-bl": [() => true] },
-			{ "squircle-ss": [() => true] },
-			{ "squircle-se": [() => true] },
-			{ "squircle-es": [() => true] },
-			{ "squircle-ee": [() => true] }
-		],
-		"squircle-amt": [{ "squircle-amt": [() => true] }]
-	},
-	conflictingClassGroups: {
-		squircle: [...allRoundedGroups, "squircle-amt"],
-		...Object.fromEntries(allRoundedGroups.map((g) => [g, ["squircle", "squircle-amt"]]))
-	}
+
+export const squircleMergeConfig = { extend: {
+  classGroups: {
+    squircle: [
+      { squircle: [() => true] },
+      { "squircle-t": [() => true] },
+      { "squircle-r": [() => true] },
+      { "squircle-b": [() => true] },
+      { "squircle-l": [() => true] },
+      { "squircle-s": [() => true] },
+      { "squircle-e": [() => true] },
+      { "squircle-tl": [() => true] },
+      { "squircle-tr": [() => true] },
+      { "squircle-br": [() => true] },
+      { "squircle-bl": [() => true] },
+      { "squircle-ss": [() => true] },
+      { "squircle-se": [() => true] },
+      { "squircle-es": [() => true] },
+      { "squircle-ee": [() => true] },
+    ],
+    "squircle-amt": [{ "squircle-amt": [() => true] }],
+  },
+  conflictingClassGroups: {
+    squircle: [...allRoundedGroups, "squircle-amt"],
+    ...Object.fromEntries(allRoundedGroups.map((g) => [g, ["squircle", "squircle-amt"]])),
+  },
 } };
-//#endregion
-export { squircle as default, squircleMergeConfig };
 
-//# sourceMappingURL=index.mjs.map
+export const twMerge = extendTailwindMerge(squircleMergeConfig);
 ```
-
-<!-- END:dist/tailwind/index.mjs -->
-
-</details>
-
-<details>
-<summary><strong><code>panda/index.mjs</code></strong> — the Panda CSS preset</summary>
-
-<!-- BEGIN:dist/panda/index.mjs -->
-
-````js
-import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries, t as CAMEL_VARIANTS } from "../variants-CUhqvLRq.mjs";
-import { definePreset } from "@pandacss/dev";
-//#region src/panda.ts
-/**
-* Build the Panda preset object. Pass directly to `presets:` in `panda.config.ts`:
-*
-* ```ts
-* import { defineConfig } from '@pandacss/dev'
-* import squirclePreset from '@klinking/squircle/panda'
-*
-* export default defineConfig({
-*   presets: ['@pandacss/dev/presets', squirclePreset()],
-* })
-* ```
-*
-* Naming follows Panda's own border-radius convention: full property names like
-* `squircleTopLeftRadius` mirror `borderTopLeftRadius`, and shorthands like
-* `squircleTopLeft` mirror `roundedTopLeft`. The shape table is identical to
-* Panda's built-in radius utilities.
-*/
-function squirclePandaPreset(options = {}) {
-	const amtVar = options.amtVar ?? "--squircle-amt";
-	const rVar = options.rVar ?? "--squircle-r";
-	const utilities = {};
-	const variantBySuffix = new Map(variantEntries());
-	for (const variant of CAMEL_VARIANTS) {
-		const props = variantBySuffix.get(variant.suffix);
-		if (!props) continue;
-		utilities[variant.property] = {
-			shorthand: variant.shorthand,
-			values: "radii",
-			transform: (value) => squircleCssObj(props, value, {
-				amtVar,
-				rVar,
-				case: "camel"
-			})
-		};
-	}
-	utilities["squircleAmount"] = {
-		shorthand: "squircleAmt",
-		values: { type: "number" },
-		transform: (value) => ({
-			[amtVar]: value,
-			[SUPPORTS_RULE]: { cornerShape: `superellipse(var(${amtVar}))` }
-		})
-	};
-	return definePreset({
-		name: "@klinking/squircle",
-		utilities: { extend: utilities },
-		conditions: { extend: { squircleSupported: SUPPORTS_RULE } }
-	});
-}
-//#endregion
-export { squirclePandaPreset as default, squirclePandaPreset };
-
-//# sourceMappingURL=index.mjs.map
-````
-
-<!-- END:dist/panda/index.mjs -->
 
 </details>
 
@@ -940,229 +837,225 @@ export { squirclePandaPreset as default, squirclePandaPreset };
 
 ````js
 import * as stylex from "@stylexjs/stylex";
-//#region src/stylex.ts
 /**
-* StyleX squircle utilities — generated from this template by
-* `scripts/generate-stylex.ts`.
-*
-* Each variant is a *dynamic* style — a function that takes a `radius` (and
-* an optional superellipse `amt`) and produces a `borderRadius` +
-* `cornerShape` pair gated behind `@supports (corner-shape: superellipse(2))`.
-* Browsers that don't support `corner-shape` fall back to a plain rounded
-* rectangle at the same radius.
-*
-* ```tsx
-* import * as stylex from '@stylexjs/stylex';
-* import { squircle } from '@klinking/squircle/stylex';
-*
-* <div {...stylex.props(squircle.all('1rem'))} />
-* <div {...stylex.props(squircle.topLeft('0.5rem', 3))} />
-* ```
-*
-* If `amt` is omitted, the corrected radius and `corner-shape` use the
-* literal default exponent of `2` — pass `amt` explicitly per-call site to
-* tune it. Unlike the Tailwind and Panda integrations, this preset does not
-* read `--squircle-amt`; StyleX's per-call parameter is the only knob.
-*
-* **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to
-* receive a fully-static object literal, and forbids destructuring,
-* spreading, or default values on dynamic-style function parameters. The
-* whole 15-variant table is therefore spelled out verbatim in the generated
-* output. Every entry in this template must remain statically analyzable at
-* its final call site.
-*
-* **How to modify**
-*
-* - To tweak a *variant's body* (the `borderRadius`/`cornerShape` block),
-*   edit `renderVariant` in `scripts/generate-stylex.ts`.
-* - To add or rename variants, edit `CAMEL_VARIANTS` and `VARIANTS` in
-*   `variants.ts`.
-* - To tweak the *file shell* (imports, docstring, the wrapping
-*   `stylex.create({ ... })` call), edit this template.
-*
-* Then run `tsx scripts/generate-stylex.ts` (or just `vp run build`) to
-* regenerate `stylex.ts`. Do not hand-edit `stylex.ts`.
-*/
+ * StyleX squircle utilities — generated from this template by
+ * `scripts/generate-stylex.ts`.
+ *
+ * Each variant is a *dynamic* style — a function that takes a `radius` (and
+ * an optional superellipse `amt`) and produces a `borderRadius` +
+ * `cornerShape` pair gated behind `@supports (corner-shape: superellipse(2))`.
+ * Browsers that don't support `corner-shape` fall back to a plain rounded
+ * rectangle at the same radius.
+ *
+ * ```tsx
+ * import * as stylex from '@stylexjs/stylex';
+ * import { squircle } from '@klinking/squircle/stylex';
+ *
+ * <div {...stylex.props(squircle.all('1rem'))} />
+ * <div {...stylex.props(squircle.topLeft('0.5rem', 3))} />
+ * ```
+ *
+ * If `amt` is omitted, the corrected radius and `corner-shape` use the
+ * literal default exponent of `2` — pass `amt` explicitly per-call site to
+ * tune it. Unlike the Tailwind and Panda integrations, this preset does not
+ * read `--squircle-amt`; StyleX's per-call parameter is the only knob.
+ *
+ * **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to
+ * receive a fully-static object literal, and forbids destructuring,
+ * spreading, or default values on dynamic-style function parameters. The
+ * whole 15-variant table is therefore spelled out verbatim in the generated
+ * output. Every entry in this template must remain statically analyzable at
+ * its final call site.
+ *
+ * **How to modify**
+ *
+ * - To tweak a *variant's body* (the `borderRadius`/`cornerShape` block),
+ *   edit `renderVariant` in `scripts/generate-stylex.ts`.
+ * - To add or rename variants, edit `CAMEL_VARIANTS` and `VARIANTS` in
+ *   `variants.ts`.
+ * - To tweak the *file shell* (imports, docstring, the wrapping
+ *   `stylex.create({ ... })` call), edit this template.
+ *
+ * Then run `tsx scripts/generate-stylex.ts` (or just `vp run build`) to
+ * regenerate `stylex.ts`. Do not hand-edit `stylex.ts`.
+ */
 const squircle = stylex.create({
-	all: (radius, amt) => ({
-		borderRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	top: (radius, amt) => ({
-		borderTopLeftRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		borderTopRightRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	right: (radius, amt) => ({
-		borderTopRightRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		borderBottomRightRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	bottom: (radius, amt) => ({
-		borderBottomLeftRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		borderBottomRightRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	left: (radius, amt) => ({
-		borderTopLeftRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		borderBottomLeftRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	start: (radius, amt) => ({
-		borderStartStartRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		borderEndStartRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	end: (radius, amt) => ({
-		borderStartEndRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		borderEndEndRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	topLeft: (radius, amt) => ({
-		borderTopLeftRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	topRight: (radius, amt) => ({
-		borderTopRightRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	bottomRight: (radius, amt) => ({
-		borderBottomRightRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	bottomLeft: (radius, amt) => ({
-		borderBottomLeftRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	startStart: (radius, amt) => ({
-		borderStartStartRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	startEnd: (radius, amt) => ({
-		borderStartEndRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	endStart: (radius, amt) => ({
-		borderEndStartRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	}),
-	endEnd: (radius, amt) => ({
-		borderEndEndRadius: {
-			default: radius,
-			"@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`
-		},
-		cornerShape: {
-			default: null,
-			"@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`
-		}
-	})
+  all: (radius, amt) => ({
+    borderRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  top: (radius, amt) => ({
+    borderTopLeftRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    borderTopRightRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  right: (radius, amt) => ({
+    borderTopRightRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    borderBottomRightRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  bottom: (radius, amt) => ({
+    borderBottomLeftRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    borderBottomRightRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  left: (radius, amt) => ({
+    borderTopLeftRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    borderBottomLeftRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  start: (radius, amt) => ({
+    borderStartStartRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    borderEndStartRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  end: (radius, amt) => ({
+    borderStartEndRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    borderEndEndRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  topLeft: (radius, amt) => ({
+    borderTopLeftRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  topRight: (radius, amt) => ({
+    borderTopRightRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  bottomRight: (radius, amt) => ({
+    borderBottomRightRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  bottomLeft: (radius, amt) => ({
+    borderBottomLeftRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  startStart: (radius, amt) => ({
+    borderStartStartRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  startEnd: (radius, amt) => ({
+    borderStartEndRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  endStart: (radius, amt) => ({
+    borderEndStartRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
+  endEnd: (radius, amt) => ({
+    borderEndEndRadius: {
+      default: radius,
+      "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
+    },
+    cornerShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+  }),
 });
-//#endregion
 export { squircle };
-
-//# sourceMappingURL=index.mjs.map
 ````
 
 <!-- END:dist/stylex/index.mjs -->

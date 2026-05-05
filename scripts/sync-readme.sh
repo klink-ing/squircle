@@ -16,13 +16,21 @@ sync_file() {
   # Some bundled dist files have no trailing newline, which would glue the
   # closing fence to the last source line (e.g. `//# sourceMappingURL=…```)
   # and prevent the fence from closing — so force a newline before it.
+  local cleaned="$REPO_ROOT/.sync-cleaned.tmp.$lang"
+  grep -v -E '^//#(region|endregion)|^//# sourceMappingURL=' "$src" > "$cleaned"
+
+  if [[ "$lang" == "js" || "$lang" == "ts" ]]; then
+    vp fmt "$cleaned" --write 2>/dev/null
+  fi
+
   {
     echo "$begin"
     echo "\`\`\`$lang"
-    cat "$src"
-    [ -z "$(tail -c 1 "$src")" ] || echo ""
+    cat "$cleaned"
     echo "\`\`\`"
   } > "$REPO_ROOT/.sync-block.tmp"
+
+  rm -f "$cleaned"
 
   # Use awk to skip lines between begin/end markers, inserting replacement block
   awk -v begin="$begin" -v end="$end" -v blockfile="$REPO_ROOT/.sync-block.tmp" '
@@ -81,8 +89,8 @@ sync_toc() {
 
 sync_file "dist/tailwind/utils.css" "css" "package/dist/tailwind/utils.css"
 sync_file "dist/tailwind/radius.css" "css" "package/dist/tailwind/radius.css"
-sync_file "dist/tailwind/index.mjs" "js" "package/dist/tailwind/index.mjs"
-sync_file "dist/panda/index.mjs" "js" "package/dist/panda/index.mjs"
+# tailwind/index.mjs — only the tailwind-merge config is shown (hand-written)
+# Panda preset — bundled output imports internal chunks, not copy/paste-able (#32)
 sync_file "dist/stylex/index.mjs" "js" "package/dist/stylex/index.mjs"
 sync_toc
 
