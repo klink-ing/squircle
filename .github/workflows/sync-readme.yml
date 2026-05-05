@@ -35,13 +35,30 @@ jobs:
         run: vp run sync-readme
 
       - name: Commit and push if changed
+        id: sync
         run: |
-          git diff --quiet README.md && exit 0
+          if git diff --quiet README.md; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
           git commit -m "docs: sync README code blocks"
-          git push || {
+          if ! git push; then
             echo "::error::README is out of sync and could not push fix to branch"
             exit 1
-          }
+          fi
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # GitHub's anti-loop policy: pushes made with the default GITHUB_TOKEN
+      # don't fire `pull_request`/`push` events, so the synced commit would
+      # land on the PR with no CI run. Re-dispatch CI manually so the new HEAD
+      # gets validated. (For a "proper" fix that fires the synchronize event,
+      # plumb a PAT/App token through the checkout step's `token:` input.)
+      - name: Re-trigger CI on synced commit
+        if: steps.sync.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.head_ref }}
+        run: gh workflow run ci.yml --ref "$BRANCH"
