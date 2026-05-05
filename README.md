@@ -1056,6 +1056,7 @@ const squircle = stylex.create({
 	})
 });
 export { squircle };
+
 ````
 
 <!-- END:dist/stylex/index.mjs -->
