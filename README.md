@@ -11,10 +11,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 <!-- BEGIN:toc -->
 
 - [Requirements](#requirements)
-- [Install & setup](#install--setup)
-- [Utilities](#utilities)
-- [Configuring theme tokens](#configuring-theme-tokens)
-- [CSS function: `squircle-radius()`](#css-function-squircle-radius)
+- [Install & setup](#install--setup) — Tailwind CSS · Panda CSS · StyleX · CSS function
 - [How the radius correction works](#how-the-radius-correction-works)
 - [Browser support & fallback strategy](#browser-support--fallback-strategy)
 - [Why it called "squircle" when it use "superellipse()"?](#why-it-called-squircle-when-it-use-superellipse)
@@ -28,10 +25,8 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 
 ## Requirements
 
-- **Tailwind CSS v4+.** The CSS utilities use v4's `@utility` and `--value()` APIs. The JS plugin is API-compatible with v3 but only tested and declared against v4 — see [FAQ](#faq) if you want to try it on v3.
 - **Modern browsers** for the squircle shape itself. Unsupported browsers get a clean `border-radius` fallback that matches visual size of rounding; see [Browser support](#browser-support--fallback-strategy) for the feature-by-feature matrix.
-- **Optional:** [`tailwind-merge`](https://github.com/dcastil/tailwind-merge) v2+ if your project already uses it (extra config below).
-- **Optional:** CSS `@function` support if you use the standalone [`squircle-radius()`](#css-function-squircle-radius) — experimental.
+- **One of:** [Tailwind CSS](https://tailwindcss.com/) v4+, [Panda CSS](https://panda-css.com/) v0.40+, or [StyleX](https://stylexjs.com/) v0.18+. All three are optional peer dependencies — install only what you use.
 
 <!-- Uncomment once the converter at squircle.klink.ing is live:
 - **"I just want to convert one little ol' border-radius to one squircle!"** Well, then just [go here](https://squircle.klink.ing).
@@ -43,9 +38,14 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 npm install @klinking/squircle
 ```
 
-Then pick the integration path that fits your project. Tailwind is the original target (paths A and B). Path C is the [Panda CSS](https://panda-css.com/) preset and Path D is the [StyleX](https://stylexjs.com/) preset — both produce the exact same `@supports`-gated visual correction wired through their host's utility pipeline.
+Each option produces the same `@supports`-gated radius correction — pick the one that fits your stack.
 
-### Path A: CSS import (recommended)
+<details>
+<summary><strong>Tailwind CSS</strong></summary>
+
+Two setup options: the **CSS import** is zero-config and recommended for most projects. The **JS plugin** gives you control over the class prefix and CSS variable names.
+
+### CSS import (recommended)
 
 ```css
 @import "tailwindcss";
@@ -54,7 +54,7 @@ Then pick the integration path that fits your project. Tailwind is the original 
 
 That's it. All `squircle-*` classes are available. This path uses Tailwind v4's `@utility` directive, so everything is generated at build time with zero runtime cost.
 
-### Path B: JS plugin (for customization)
+### JS plugin (for customization)
 
 Use this if you want to change the class prefix or the `--squircle-amt` CSS variable name:
 
@@ -73,8 +73,6 @@ Or with options:
 }
 ```
 
-See [Configuring theme tokens](#configuring-theme-tokens) for what else you can customize.
-
 ### tailwind-merge (optional)
 
 If your project already uses [`tailwind-merge`](https://github.com/dcastil/tailwind-merge) to de-duplicate conflicting classes, pull in the squircle conflict config so `rounded-lg squircle-md` resolves the way you'd expect:
@@ -88,9 +86,117 @@ const twMerge = extendTailwindMerge(squircleMergeConfig, {
 });
 ```
 
-### Path C: Panda CSS preset
+### Utilities
 
-#### 1. Install Panda
+| Utility          | Equivalent     | Description                       |
+| ---------------- | -------------- | --------------------------------- |
+| `squircle-*`     | `rounded-*`    | All corners                       |
+| `squircle-t-*`   | `rounded-t-*`  | Top corners                       |
+| `squircle-r-*`   | `rounded-r-*`  | Right corners                     |
+| `squircle-b-*`   | `rounded-b-*`  | Bottom corners                    |
+| `squircle-l-*`   | `rounded-l-*`  | Left corners                      |
+| `squircle-s-*`   | `rounded-s-*`  | Inline-start corners (logical)    |
+| `squircle-e-*`   | `rounded-e-*`  | Inline-end corners (logical)      |
+| `squircle-tl-*`  | `rounded-tl-*` | Top-left corner                   |
+| `squircle-tr-*`  | `rounded-tr-*` | Top-right corner                  |
+| `squircle-br-*`  | `rounded-br-*` | Bottom-right corner               |
+| `squircle-bl-*`  | `rounded-bl-*` | Bottom-left corner                |
+| `squircle-ss-*`  | `rounded-ss-*` | Start-start corner (logical)      |
+| `squircle-se-*`  | `rounded-se-*` | Start-end corner (logical)        |
+| `squircle-es-*`  | `rounded-es-*` | End-start corner (logical)        |
+| `squircle-ee-*`  | `rounded-ee-*` | End-end corner (logical)          |
+| `squircle-amt-*` | —              | Superellipse exponent (default 2) |
+
+### What values are accepted?
+
+Values are validated strictly so typos fail at build time instead of producing invalid CSS:
+
+- **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, `full`, plus anything you add to `@theme`) and arbitrary lengths like `squircle-[16px]`. Non-length arbitraries (`[50%]`, `[foo]`) and paren refs (`squircle-(--my-radius)`) are rejected — use a theme key instead.
+- **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), and theme values. Unit-bearing arbitraries (`[1em]`) and paren refs (`(--my-amt)`) are rejected.
+
+### What does `squircle-amt-*` control?
+
+The value is the `K` parameter passed to `superellipse(K)`, which controls how square the corner shape is:
+
+- **2** — the classic squircle (this package's default), same as the `squircle` keyword. Values greater than 2 get more and more square as they increase, becoming visually indistinguishable from a perfect square around 10 or higher.
+- **1** — ordinary ellipse (same as the `round` keyword). The _classic_. Just like standard `border-radius`, no squircling at all. Why are you even here?
+- **0** — straight bevel (same as the `bevel` keyword)
+- **Negative values** — concave "scooped out" corners (`-1` = `scoop`, `-∞` = `notch`)
+
+See the [MDN reference for `superellipse()`](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/superellipse) for the full spec.
+
+### Configuring theme tokens
+
+Everything that `squircle-*` and `squircle-amt-*` accept is driven by Tailwind's `@theme` block, so configuration is standard Tailwind — no special knobs.
+
+#### Custom radius sizes
+
+Any `--radius-*` token you define works automatically:
+
+```css
+@theme {
+  --radius-hero: 2.5rem;
+  --radius-blob: 48px;
+}
+```
+
+```html
+<div class="squircle-hero">…</div>
+<div class="squircle-blob">…</div>
+```
+
+#### Default superellipse amount
+
+`--squircle-amt` is a regular CSS custom property — set it anywhere it'll be in scope and it overrides the default of `2` for every `squircle-*` and `squircle-amt-*` utility beneath it:
+
+```css
+:root {
+  --squircle-amt: 3;
+}
+
+/* or scoped to a subtree: */
+.hero {
+  --squircle-amt: 2.5;
+}
+```
+
+Individual elements can still override with `squircle-amt-*` classes.
+
+#### Referencing a runtime CSS variable
+
+Paren refs like `squircle-(--my-radius)` or `squircle-amt-(--my-amt)` are intentionally rejected (poor things). Tailwind can't distinguish them from unit-typo brackets like `squircle-amt-[1em]` at the validation level, so allowing one means allowing the other. Thread the var through a theme key instead (or, y'know, fork this repo, or tell me I'm wrong, and maybe I'll change):
+
+```css
+@theme {
+  --radius-hero: var(--hero-radius);
+  --squircle-amt-hero: var(--hero-squircle-amt);
+}
+```
+
+```html
+<div class="squircle-hero squircle-amt-hero">…</div>
+```
+
+Tailwind resolves the theme key, which reads your underlying CSS variable — you get the runtime indirection, the validator still catches typos.
+
+### JS plugin options
+
+If you installed via the JS plugin, three options tune the emitted output:
+
+| Option    | Default            | Effect                                                             |
+| --------- | ------------------ | ------------------------------------------------------------------ |
+| `prefix`  | `"squircle"`       | Class prefix. `prefix: "sq"` → `sq-md`, `sq-t-lg`                  |
+| `amt-var` | `"--squircle-amt"` | CSS variable name for the `K` parameter passed to `superellipse()` |
+| `r-var`   | `"--squircle-r"`   | CSS variable name for the intermediate corrected-radius variable   |
+
+All three are exposed as kebab-case inside the `@plugin` block and as camelCase (`amtVar`, `rVar`) when requiring the plugin from JavaScript.
+
+</details>
+
+<details>
+<summary><strong>Panda CSS</strong></summary>
+
+### 1. Install Panda
 
 ```bash
 npm install -D @pandacss/dev @klinking/squircle
@@ -98,7 +204,7 @@ npm install -D @pandacss/dev @klinking/squircle
 
 If you don't have Panda set up yet, follow the [official quickstart](https://panda-css.com/docs/installation/cli) to initialize a `panda.config.ts` and your `styled-system/` codegen output.
 
-#### 2. Register the preset
+### 2. Register the preset
 
 ```ts
 // panda.config.ts
@@ -113,7 +219,7 @@ export default defineConfig({
 
 Re-run `panda codegen` so the new `squircle*` properties show up in the typed `css({ … })` and `cva({ … })` APIs.
 
-#### 3. Use the utilities
+### 3. Use the utilities
 
 The naming follows Panda's own border-radius convention exactly — substitute `border` ↔ `squircle` and `rounded` ↔ `squircle` (the shorthand) and the table is identical to Panda's:
 
@@ -169,7 +275,7 @@ The preset also registers a `_squircleSupported` condition mapped to `@supports 
 />
 ```
 
-#### 4. (Optional) customize CSS variable names
+### 4. (Optional) customize CSS variable names
 
 If you've already standardized on different variable names — say your design system uses `--corner-amt` everywhere — pass them when calling the preset:
 
@@ -182,7 +288,7 @@ squirclePreset({
 
 The override flows through every transform: the `@supports` calc, the `cornerShape: superellipse(var(--corner-amt))`, and the `squircleAmount` utility's variable write.
 
-#### 5. (Optional) prefix the generated classes
+### 5. (Optional) prefix the generated classes
 
 If you're running Panda alongside another utility framework (Tailwind, Mantine, etc.) and worried about class collisions, use Panda's own [`prefix`](https://panda-css.com/docs/concepts/extend) option in `panda.config.ts`. It applies to every Panda utility, this preset included:
 
@@ -193,67 +299,26 @@ export default defineConfig({
 });
 ```
 
-#### Notes
+### Notes
 
 - **Usage-driven extraction.** Panda only emits CSS for properties it finds in scanned source. If you want every `squircle*` variant in the output regardless of usage, opt them in via Panda's [`staticCss`](https://panda-css.com/docs/guides/static-css) config.
 - **Optional peer.** `@pandacss/dev` is an _optional_ peer dependency on `@klinking/squircle` — installing the package without Panda doesn't pull Panda in.
 
-### Path D: StyleX
+</details>
 
-#### 1. Install StyleX
+<details>
+<summary><strong>StyleX</strong></summary>
+
+### 1. Install & configure StyleX
 
 ```bash
 npm install @stylexjs/stylex @klinking/squircle
 npm install -D @stylexjs/babel-plugin
 ```
 
-Wire `@stylexjs/babel-plugin` into your bundler the standard way ([Vite](https://stylexjs.com/docs/learn/installation/#using-vite), [Next.js](https://stylexjs.com/docs/learn/installation/#using-nextjs), etc.). One detail specific to consuming this package: `@klinking/squircle/stylex` ships a pre-compiled `dist/stylex/index.mjs` that _also_ contains a `stylex.create({ … })` call, so the babel plugin must run on it too.
+Set up `@stylexjs/babel-plugin` in your bundler per the [StyleX installation guide](https://stylexjs.com/docs/learn/installation/). One extra detail: `@klinking/squircle/stylex` ships a pre-compiled module that contains `stylex.create()` calls, so your StyleX babel config must also process this package — not just your own source files. See the [babel plugin docs](https://stylexjs.com/docs/api/configuration/babel-plugin/) for how to configure external module processing.
 
-For a Vite project, that means excluding the package from `optimizeDeps` and either `noExternal`-ing it (Vite SSR mode) or running babel on it via a small custom transform:
-
-```ts
-// vite.config.ts
-import babel from "@babel/core";
-import stylexPlugin from "@stylexjs/babel-plugin";
-import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
-
-const stylexBabelOpts = {
-  dev: true, // or false for prod
-  runtimeInjection: true,
-  unstable_moduleResolution: { type: "commonJS", rootDir: process.cwd() },
-};
-
-export default defineConfig({
-  plugins: [
-    react({
-      babel: { plugins: [[stylexPlugin, stylexBabelOpts]] },
-    }),
-    // Run the stylex plugin on @klinking/squircle/stylex too — the
-    // package ships a compiled file that still needs babel processing.
-    {
-      name: "stylex-external",
-      enforce: "pre",
-      async transform(code, id) {
-        if (!id.includes("@klinking/squircle/dist/stylex/index.mjs")) return;
-        const result = await babel.transformAsync(code, {
-          filename: id,
-          babelrc: false,
-          configFile: false,
-          plugins: [[stylexPlugin, stylexBabelOpts]],
-        });
-        return result?.code ? { code: result.code, map: result.map } : null;
-      },
-    },
-  ],
-  optimizeDeps: { exclude: ["@klinking/squircle"] },
-  ssr: { noExternal: ["@klinking/squircle"] },
-});
-```
-
-The website's [`astro.config.mjs`](website/astro.config.mjs) does this end-to-end if you'd like a complete reference.
-
-#### 2. Use the utilities
+### 2. Use the utilities
 
 ```tsx
 import * as stylex from "@stylexjs/stylex";
@@ -283,7 +348,7 @@ import { squircle } from "@klinking/squircle/stylex";
 
 Browsers without `corner-shape` support fall back to a plain `border-radius` at the same size (the `@supports` block silently drops out).
 
-#### 3. Mix with your own styles
+### 3. Mix with your own styles
 
 `stylex.props` accepts any number of style references and merges them. Layer squircle on top of your own component styles:
 
@@ -295,7 +360,7 @@ const styles = stylex.create({
 <div {...stylex.props(styles.card, squircle.all("1rem"))} />
 ```
 
-#### 4. Use shared radius tokens
+### 4. Use shared radius tokens
 
 Pull radii out into a `defineVars` file so multiple components share one scale:
 
@@ -319,120 +384,18 @@ import { squircle } from "@klinking/squircle/stylex";
 
 `radii.md` is a `var(--xR-…)` reference at runtime, which StyleX wraps in another custom property and the squircle calc resolves transitively.
 
-#### Notes
+### Notes
 
 - **No CSS-variable knobs.** The Tailwind and Panda integrations expose `amtVar` / `rVar` because they emit static `@supports` blocks the cascade can override. StyleX's preset is per-call parametric instead — there's nothing to rename.
 - **Static analysis.** The 15-variant table is a single statically-analyzable `stylex.create({ … })` literal, so your StyleX bundler picks it up the same way it picks up your own create calls. The literal is generated from a template — see `package/scripts/generate-stylex.ts`.
 - **Optional peer.** `@stylexjs/stylex` is an _optional_ peer dependency on `@klinking/squircle` — installing the package without StyleX doesn't pull it in.
 
-## Utilities
+</details>
 
-| Utility          | Equivalent     | Description                       |
-| ---------------- | -------------- | --------------------------------- |
-| `squircle-*`     | `rounded-*`    | All corners                       |
-| `squircle-t-*`   | `rounded-t-*`  | Top corners                       |
-| `squircle-r-*`   | `rounded-r-*`  | Right corners                     |
-| `squircle-b-*`   | `rounded-b-*`  | Bottom corners                    |
-| `squircle-l-*`   | `rounded-l-*`  | Left corners                      |
-| `squircle-s-*`   | `rounded-s-*`  | Inline-start corners (logical)    |
-| `squircle-e-*`   | `rounded-e-*`  | Inline-end corners (logical)      |
-| `squircle-tl-*`  | `rounded-tl-*` | Top-left corner                   |
-| `squircle-tr-*`  | `rounded-tr-*` | Top-right corner                  |
-| `squircle-br-*`  | `rounded-br-*` | Bottom-right corner               |
-| `squircle-bl-*`  | `rounded-bl-*` | Bottom-left corner                |
-| `squircle-ss-*`  | `rounded-ss-*` | Start-start corner (logical)      |
-| `squircle-se-*`  | `rounded-se-*` | Start-end corner (logical)        |
-| `squircle-es-*`  | `rounded-es-*` | End-start corner (logical)        |
-| `squircle-ee-*`  | `rounded-ee-*` | End-end corner (logical)          |
-| `squircle-amt-*` | —              | Superellipse exponent (default 2) |
+<details>
+<summary><strong>CSS function: <code>squircle-radius()</code></strong> (experimental)</summary>
 
-### What values are accepted?
-
-Values are validated strictly so typos fail at build time instead of producing invalid CSS:
-
-- **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, `full`, plus anything you add to `@theme`) and arbitrary lengths like `squircle-[16px]`. Non-length arbitraries (`[50%]`, `[foo]`) and paren refs (`squircle-(--my-radius)`) are rejected — use a theme key instead (see [Configuring theme tokens](#configuring-theme-tokens)).
-- **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), and theme values. Unit-bearing arbitraries (`[1em]`) and paren refs (`(--my-amt)`) are rejected.
-
-### What does `squircle-amt-*` control?
-
-The value is the `K` parameter passed to `superellipse(K)`, which controls how square the corner shape is:
-
-- **2** — the classic squircle (this package's default), same as the `squircle` keyword. Values greater than 2 get more and more square as they increase, becoming visually indistinguishable from a perfect square around 10 or higher.
-- **1** — ordinary ellipse (same as the `round` keyword). The _classic_. Just like standard `border-radius`, no squircling at all. Why are you even here?
-- **0** — straight bevel (same as the `bevel` keyword)
-- **Negative values** — concave "scooped out" corners (`-1` = `scoop`, `-∞` = `notch`)
-
-See the [MDN reference for `superellipse()`](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/superellipse) for the full spec.
-
-## Configuring theme tokens
-
-Everything that `squircle-*` and `squircle-amt-*` accept is driven by Tailwind's `@theme` block, so configuration is standard Tailwind — no special knobs.
-
-### Custom radius sizes
-
-Any `--radius-*` token you define works automatically:
-
-```css
-@theme {
-  --radius-hero: 2.5rem;
-  --radius-blob: 48px;
-}
-```
-
-```html
-<div class="squircle-hero">…</div>
-<div class="squircle-blob">…</div>
-```
-
-### Default superellipse amount
-
-`--squircle-amt` is a regular CSS custom property — set it anywhere it'll be in scope and it overrides the default of `2` for every `squircle-*` and `squircle-amt-*` utility beneath it:
-
-```css
-:root {
-  --squircle-amt: 3;
-}
-
-/* or scoped to a subtree: */
-.hero {
-  --squircle-amt: 2.5;
-}
-```
-
-Individual elements can still override with `squircle-amt-*` classes.
-
-### Referencing a runtime CSS variable
-
-Paren refs like `squircle-(--my-radius)` or `squircle-amt-(--my-amt)` are intentionally rejected (poor things). Tailwind can't distinguish them from unit-typo brackets like `squircle-amt-[1em]` at the validation level, so allowing one means allowing the other. Thread the var through a theme key instead (or, y'know, fork this repo, or tell me I'm wrong, and maybe I'll change):
-
-```css
-@theme {
-  --radius-hero: var(--hero-radius);
-  --squircle-amt-hero: var(--hero-squircle-amt);
-}
-```
-
-```html
-<div class="squircle-hero squircle-amt-hero">…</div>
-```
-
-Tailwind resolves the theme key, which reads your underlying CSS variable — you get the runtime indirection, the validator still catches typos.
-
-### JS plugin options
-
-If you installed via Path B, three options tune the emitted output:
-
-| Option    | Default            | Effect                                                             |
-| --------- | ------------------ | ------------------------------------------------------------------ |
-| `prefix`  | `"squircle"`       | Class prefix. `prefix: "sq"` → `sq-md`, `sq-t-lg`                  |
-| `amt-var` | `"--squircle-amt"` | CSS variable name for the `K` parameter passed to `superellipse()` |
-| `r-var`   | `"--squircle-r"`   | CSS variable name for the intermediate corrected-radius variable   |
-
-All three are exposed as kebab-case inside the `@plugin` block and as camelCase (`amtVar`, `rVar`) when requiring the plugin from JavaScript.
-
-## CSS function: `squircle-radius()`
-
-> ⚠️ **Experimental.** CSS `@function` is in [CSS Values 5](https://drafts.csswg.org/css-values-5/#custom-functions) and enabled behind a flag in recent Chrome. Check current support on [caniuse](https://caniuse.com/?search=%40function). For the same correction in today's browsers, use the Tailwind utilities — they expand to inline `calc()` that has been supported for years.
+> CSS `@function` is in [CSS Values 5](https://drafts.csswg.org/css-values-5/#custom-functions) and enabled behind a flag in recent Chrome. Check current support on [caniuse](https://caniuse.com/?search=%40function). For the same correction in today's browsers, use one of the options above — they expand to inline `calc()` that has been supported for years.
 
 For the footure. Less total CSS than all those tailwind utilities. So beautiful. So utterly currently unusable.
 
@@ -454,6 +417,8 @@ Arguments:
 The parameters are deliberately untyped so relative units (`em`, `rem`, container queries, etc.) resolve at the call site, not at function-definition time — matching how CSS custom properties normally propagate.
 
 **Heads up:** this doesn't supply the uncorrected fallback for browsers that have `@function` but lack `corner-shape`. By the time `@function` support is widespread, `corner-shape` probably will be too, so ¯\\\_(ツ)\_/¯.
+
+</details>
 
 ## How the radius correction works
 
@@ -522,9 +487,9 @@ Cuz ain't no one, not even a clanker want to type supperlips over and over again
 
 ## Should you install or copy/paste?
 
-Both are first-class. The copy/paste block is right below, and it's honestly maybe ~100 lines of CSS.
+Both are first-class — at least for the Tailwind CSS utilities, which are ~100 lines you can drop straight into your project. The Panda and StyleX presets are JS modules with more moving parts, so installing makes more sense there.
 
-**Copy/paste if:**
+**Copy/paste if** (Tailwind):
 
 - Honestly, I recommend it. Let's be real, I'm probably not going to make many updates to this library, and why expose yourself to some future security risk when I die and Vladimir Jong Un trojan-horses this thing.
 - You want zero runtime/build dependencies.
@@ -534,9 +499,9 @@ Both are first-class. The copy/paste block is right below, and it's honestly may
 **Install if:**
 
 - You want upgrades when the formula tightens, the value validation changes, or the utility surface grows.
-- You want the JS plugin form (custom `prefix`, `amt-var`, `r-var`).
-- You use `tailwind-merge` and want the conflict config maintained for you.
-- You want the standalone [`squircle-radius()`](#css-function-squircle-radius) CSS function for non-Tailwind use.
+- You're using the Panda CSS preset or StyleX preset — those are JS modules, so copy/paste isn't practical.
+- You want Tailwind's JS plugin form (custom `prefix`, `amt-var`, `r-var`) or the `tailwind-merge` conflict config.
+- You want the standalone [`squircle-radius()`](#css-function-squircle-radius) CSS function.
 
 ## FAQ
 
