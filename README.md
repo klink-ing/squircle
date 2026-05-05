@@ -9,6 +9,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 ## Contents
 
 <!-- BEGIN:toc -->
+
 - [Requirements](#requirements)
 - [Install & setup](#install--setup)
 - [How the radius correction works](#how-the-radius-correction-works)
@@ -586,6 +587,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>tailwind/utils.css</code></strong> — the Tailwind utilities</summary>
 
 <!-- BEGIN:dist/tailwind/utils.css -->
+
 ```css
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default 2)    */
@@ -745,6 +747,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   }
 }
 ```
+
 <!-- END:dist/tailwind/utils.css -->
 
 </details>
@@ -753,6 +756,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>tailwind/radius.css</code></strong> — the <code>squircle-radius()</code> CSS function</summary>
 
 <!-- BEGIN:dist/tailwind/radius.css -->
+
 ```css
 /* ── squircle-radius() ────────────────────────────────────────
  * Computes the visually-corrected border-radius for use with
@@ -777,6 +781,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   );
 }
 ```
+
 <!-- END:dist/tailwind/radius.css -->
 
 </details>
@@ -829,7 +834,8 @@ export const twMerge = extendTailwindMerge(squircleMergeConfig);
 <summary><strong><code>stylex/index.mjs</code></strong> — the StyleX dynamic-style preset</summary>
 
 <!-- BEGIN:dist/stylex/index.mjs -->
-```js
+
+````js
 import * as stylex from "@stylexjs/stylex";
 /**
  * StyleX squircle utilities — generated from this template by
@@ -1050,7 +1056,8 @@ const squircle = stylex.create({
   }),
 });
 export { squircle };
-```
+````
+
 <!-- END:dist/stylex/index.mjs -->
 
 </details>
