@@ -19,8 +19,7 @@ sync_file() {
   {
     echo "$begin"
     echo "\`\`\`$lang"
-    cat "$src"
-    [ -z "$(tail -c 1 "$src")" ] || echo ""
+    grep -v -E '^//#(region|endregion)|^//# sourceMappingURL=' "$src"
     echo "\`\`\`"
   } > "$REPO_ROOT/.sync-block.tmp"
 

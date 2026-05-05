@@ -829,7 +829,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 ```js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries } from "../variants-CUhqvLRq.mjs";
 import plugin from "tailwindcss/plugin";
-//#region src/tailwind.ts
 const squircle = plugin.withOptions((options = {}) => ({ matchUtilities, theme }) => {
 	const amtVar = options.amtVar ?? options["amt-var"] ?? "--squircle-amt";
 	const rVar = options.rVar ?? options["r-var"] ?? "--squircle-r";
@@ -890,10 +889,8 @@ const squircleMergeConfig = { extend: {
 		...Object.fromEntries(allRoundedGroups.map((g) => [g, ["squircle", "squircle-amt"]]))
 	}
 } };
-//#endregion
 export { squircle as default, squircleMergeConfig };
 
-//# sourceMappingURL=index.mjs.map
 ```
 
 <!-- END:dist/tailwind/index.mjs -->
@@ -908,7 +905,6 @@ export { squircle as default, squircleMergeConfig };
 ````js
 import { a as squircleCssObj, i as SUPPORTS_RULE, o as variantEntries, t as CAMEL_VARIANTS } from "../variants-CUhqvLRq.mjs";
 import { definePreset } from "@pandacss/dev";
-//#region src/panda.ts
 /**
 * Build the Panda preset object. Pass directly to `presets:` in `panda.config.ts`:
 *
@@ -958,10 +954,8 @@ function squirclePandaPreset(options = {}) {
 		conditions: { extend: { squircleSupported: SUPPORTS_RULE } }
 	});
 }
-//#endregion
 export { squirclePandaPreset as default, squirclePandaPreset };
 
-//# sourceMappingURL=index.mjs.map
 ````
 
 <!-- END:dist/panda/index.mjs -->
@@ -975,7 +969,6 @@ export { squirclePandaPreset as default, squirclePandaPreset };
 
 ````js
 import * as stylex from "@stylexjs/stylex";
-//#region src/stylex.ts
 /**
 * StyleX squircle utilities — generated from this template by
 * `scripts/generate-stylex.ts`.
@@ -1194,10 +1187,8 @@ const squircle = stylex.create({
 		}
 	})
 });
-//#endregion
 export { squircle };
 
-//# sourceMappingURL=index.mjs.map
 ````
 
 <!-- END:dist/stylex/index.mjs -->
