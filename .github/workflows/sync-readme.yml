@@ -3,20 +3,13 @@ name: Sync README code blocks
 on:
   pull_request:
     branches: [main]
-    paths:
-      - package/src/**
-      - package/scripts/generate-squircle-css.ts
-      - package/vite.config.ts
-      - scripts/sync-readme.sh
-      - vite.config.ts
-      - README.md
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  sync:
+  sync-readme:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
