@@ -1,6 +1,6 @@
 {
   "name": "@klinking/squircle",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Tailwind CSS v4 squircle (superellipse) corner utilities with visual radius correction",
   "keywords": [
     "border-radius",
@@ -10,11 +10,11 @@
     "tailwind-plugin",
     "tailwindcss"
   ],
-  "homepage": "https://dogmar.github.io/squircle",
+  "homepage": "https://squircle.klink.ing",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dogmar/squircle.git"
+    "url": "git+https://github.com/klink-ing/squircle.git"
   },
   "files": [
     "dist"
