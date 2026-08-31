@@ -590,7 +590,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 
 ```css
 /*!
- * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 
@@ -764,7 +764,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 
 ```css
 /*!
- * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 
@@ -801,7 +801,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 
 ```js
 /*!
- * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 
@@ -853,7 +853,7 @@ export const twMerge = extendTailwindMerge(squircleMergeConfig);
 ````js
 import * as stylex from "@stylexjs/stylex";
 /*!
- * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 /**

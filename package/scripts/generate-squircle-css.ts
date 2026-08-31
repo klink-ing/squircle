@@ -33,7 +33,7 @@ function generateCss(): string {
 
   blocks.push(`\
 /*!
- * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */`);
 
