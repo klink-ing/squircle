@@ -1,3 +1,8 @@
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
 import plugin from "tailwindcss/plugin";
 import {
   DEFAULT_AMOUNT_VAR_NAME,
@@ -26,37 +31,37 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
   plugin.withOptions<SquirclePluginOptions>((options = {}) =>
     // eslint-disable-next-line @typescript-eslint/unbound-method
     ({ matchUtilities, theme }) => {
-      const amtVar = options.amtVar ?? options["amt-var"] ?? DEFAULT_AMOUNT_VAR_NAME;
-      const rVar = options.rVar ?? options["r-var"] ?? DEFAULT_R_VAR_NAME;
-      const prefix = options.prefix ?? "squircle";
-      const radiusValues = theme("borderRadius");
+    const amtVar = options.amtVar ?? options["amt-var"] ?? DEFAULT_AMOUNT_VAR_NAME;
+    const rVar = options.rVar ?? options["r-var"] ?? DEFAULT_R_VAR_NAME;
+    const prefix = options.prefix ?? "squircle";
+    const radiusValues = theme("borderRadius");
 
+    matchUtilities(
+      {
+        [`${prefix}-amt`]: (value: string) => ({
+          [amtVar]: value,
+          [SUPPORTS_RULE]: {
+            "corner-shape": `superellipse(var(${amtVar}))`,
+          },
+        }),
+      },
+      { type: "number" },
+    );
+
+    for (const [suffix, props] of variantEntries()) {
+      const name = suffix ? `${prefix}-${suffix}` : prefix;
       matchUtilities(
         {
-          [`${prefix}-amt`]: (value: string) => ({
-            [amtVar]: value,
-            [SUPPORTS_RULE]: {
-              "corner-shape": `superellipse(var(${amtVar}))`,
-            },
-          }),
+          [name]: (value: string) =>
+            squircleCssObj(props, value, { amtVar, rVar }) as Record<
+              string,
+              string | Record<string, string>
+            >,
         },
-        { type: "number" },
+        { type: "length", values: radiusValues },
       );
-
-      for (const [suffix, props] of variantEntries()) {
-        const name = suffix ? `${prefix}-${suffix}` : prefix;
-        matchUtilities(
-          {
-            [name]: (value: string) =>
-              squircleCssObj(props, value, { amtVar, rVar }) as Record<
-                string,
-                string | Record<string, string>
-              >,
-          },
-          { type: "length", values: radiusValues },
-        );
-      }
-    });
+    }
+  });
 
 export default squircle;
 

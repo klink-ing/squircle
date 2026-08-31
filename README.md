@@ -589,6 +589,11 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <!-- BEGIN:dist/tailwind/utils.css -->
 
 ```css
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default 2)    */
 /* squircle-* mirrors rounded-* variants: all, t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
@@ -758,6 +763,11 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <!-- BEGIN:dist/radius-function.css -->
 
 ```css
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
 /* ── squircle-radius() ────────────────────────────────────────
  * Computes the visually-corrected border-radius for use with
  * corner-shape: superellipse(). A superellipse corner appears
@@ -790,6 +800,11 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 <summary><strong><code>squircleMergeConfig</code></strong> — tailwind-merge conflict config</summary>
 
 ```js
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
 import { extendTailwindMerge } from "tailwind-merge";
 
 const allRoundedGroups = [
@@ -837,6 +852,10 @@ export const twMerge = extendTailwindMerge(squircleMergeConfig);
 
 ````js
 import * as stylex from "@stylexjs/stylex";
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
 /**
  * StyleX squircle utilities — generated from this template by
  * `scripts/generate-stylex.ts`.

@@ -5,6 +5,11 @@
 // To modify variant shape, edit `renderVariant` in the generator.
 // To add/rename variants, edit `CAMEL_VARIANTS` and `VARIANTS` in src/variants.ts.
 
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
 import * as stylex from "@stylexjs/stylex";
 
 /**

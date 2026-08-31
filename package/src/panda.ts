@@ -1,3 +1,8 @@
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
 import { definePreset, type PropertyConfig } from "@pandacss/dev";
 import {
   CAMEL_VARIANTS,
@@ -31,9 +36,7 @@ export interface SquirclePandaPresetOptions {
  * `squircleTopLeft` mirror `roundedTopLeft`. The shape table is identical to
  * Panda's built-in radius utilities.
  */
-export function squirclePandaPreset(
-  options: SquirclePandaPresetOptions = {},
-) {
+export function squirclePandaPreset(options: SquirclePandaPresetOptions = {}) {
   const amtVar = options.amtVar ?? DEFAULT_AMOUNT_VAR_NAME;
   const rVar = options.rVar ?? "--squircle-r";
 
@@ -48,8 +51,7 @@ export function squirclePandaPreset(
     utilities[variant.property] = {
       shorthand: variant.shorthand,
       values: "radii",
-      transform: (value) =>
-        squircleCssObj(props, value, { amtVar, rVar, case: "camel" }) as any,
+      transform: (value) => squircleCssObj(props, value, { amtVar, rVar, case: "camel" }) as any,
     };
   }
 
