@@ -48,6 +48,46 @@ describe("plugin.ts utilities", () => {
     });
   }
 
+  describe("static none/full utilities (matching rounded-none/rounded-full)", () => {
+    it("squircle-full uses calc(infinity * 1px) with correction", async () => {
+      const css = await compilePlugin(["squircle-full"]);
+      expect(css).toContain("border-radius: calc(infinity * 1px)");
+      expect(css).toContain("calc(calc(infinity * 1px) *");
+    });
+
+    it("squircle-full is emitted exactly once (no v3-compat theme duplicate)", async () => {
+      const css = await compilePlugin(["squircle-full"]);
+      expect(css.match(/\.squircle-full \{/g)).toHaveLength(1);
+      expect(css).not.toContain("9999px");
+    });
+
+    it("squircle-tl-full applies the full radius to corner variants", async () => {
+      const css = await compilePlugin(["squircle-tl-full"]);
+      expect(css).toContain("border-top-left-radius: calc(infinity * 1px)");
+    });
+
+    it("squircle-none is plain zero radius with no correction", async () => {
+      const css = await compilePlugin(["squircle-none"]);
+      expect(css).toContain("border-radius: 0");
+      expect(css).not.toContain("@supports");
+      expect(css).not.toContain("corner-shape");
+      expect(css.match(/\.squircle-none \{/g)).toHaveLength(1);
+    });
+
+    it("squircle-t-none zeroes side variants", async () => {
+      const css = await compilePlugin(["squircle-t-none"]);
+      expect(css).toContain("border-top-left-radius: 0");
+      expect(css).toContain("border-top-right-radius: 0");
+    });
+
+    it("custom prefix applies to static none/full utilities", async () => {
+      const css = await compilePlugin(["se-none", "se-full"], "prefix: se;");
+      expect(css).toContain(".se-none");
+      expect(css).toContain(".se-full");
+      expect(css).toContain("border-radius: calc(infinity * 1px)");
+    });
+  });
+
   describe("arbitrary and invalid values", () => {
     it("squircle-[1rem] emits literal length", async () => {
       const css = await compilePlugin(["squircle-[1rem]"]);

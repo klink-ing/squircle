@@ -111,7 +111,8 @@ const twMerge = extendTailwindMerge(squircleMergeConfig, {
 
 Values are validated strictly so typos fail at build time instead of producing invalid CSS:
 
-- **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, `full`, plus anything you add to `@theme`) and arbitrary lengths like `squircle-[16px]`. Non-length arbitraries (`[50%]`, `[foo]`) and paren refs (`squircle-(--my-radius)`) are rejected — use a theme key instead.
+- **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, plus anything you add to `@theme`) and arbitrary lengths like `squircle-[16px]`. Non-length arbitraries (`[50%]`, `[foo]`) and paren refs (`squircle-(--my-radius)`) are rejected — use a theme key instead.
+- **`squircle-none` and `squircle-full`** (and their side/corner variants) are static utilities defined the same way as `rounded-none` and `rounded-full`: `0` and `calc(infinity * 1px)`. `squircle-full` gets the superellipse treatment; `squircle-none` is a plain zero radius, since there's no corner left to shape.
 - **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), and theme values. Unit-bearing arbitraries (`[1em]`) and paren refs (`(--my-amt)`) are rejected.
 
 ### What does `squircle-amt-*` control?
@@ -596,12 +597,26 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default 2)    */
-/* squircle-* mirrors rounded-* variants: all, t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
+/* squircle-* mirrors rounded-* variants: t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
+/* squircle-*-none and squircle-*-full are static, matching rounded-none and rounded-full */
 
 @utility squircle-amt-* {
   --squircle-amt: --value(--squircle-amt-*, number, [number]);
   @supports (corner-shape: superellipse(2)) {
     corner-shape: superellipse(var(--squircle-amt));
+  }
+}
+
+@utility squircle-none {
+  border-radius: 0;
+}
+
+@utility squircle-full {
+  border-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    --squircle-r: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-radius: var(--squircle-r);
+    corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }
 
@@ -616,6 +631,22 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 
 /* --- Per-side physical variants --- */
 
+@utility squircle-t-none {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+@utility squircle-t-full {
+  border-top-left-radius: calc(infinity * 1px);
+  border-top-right-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    --squircle-r: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-top-left-radius: var(--squircle-r);
+    border-top-right-radius: var(--squircle-r);
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
 @utility squircle-t-* {
   border-top-left-radius: --value(--radius-*, [length]);
   border-top-right-radius: --value(--radius-*, [length]);
@@ -623,6 +654,22 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
     --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-top-left-radius: var(--squircle-r);
     border-top-right-radius: var(--squircle-r);
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
+@utility squircle-r-none {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+@utility squircle-r-full {
+  border-top-right-radius: calc(infinity * 1px);
+  border-bottom-right-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    --squircle-r: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-top-right-radius: var(--squircle-r);
+    border-bottom-right-radius: var(--squircle-r);
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -638,6 +685,22 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   }
 }
 
+@utility squircle-b-none {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+@utility squircle-b-full {
+  border-bottom-left-radius: calc(infinity * 1px);
+  border-bottom-right-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    --squircle-r: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-bottom-left-radius: var(--squircle-r);
+    border-bottom-right-radius: var(--squircle-r);
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
 @utility squircle-b-* {
   border-bottom-left-radius: --value(--radius-*, [length]);
   border-bottom-right-radius: --value(--radius-*, [length]);
@@ -645,6 +708,22 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
     --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-bottom-left-radius: var(--squircle-r);
     border-bottom-right-radius: var(--squircle-r);
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
+@utility squircle-l-none {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+@utility squircle-l-full {
+  border-top-left-radius: calc(infinity * 1px);
+  border-bottom-left-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    --squircle-r: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-top-left-radius: var(--squircle-r);
+    border-bottom-left-radius: var(--squircle-r);
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -662,6 +741,22 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 
 /* --- Per-side logical variants --- */
 
+@utility squircle-s-none {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+@utility squircle-s-full {
+  border-start-start-radius: calc(infinity * 1px);
+  border-end-start-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    --squircle-r: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-start-start-radius: var(--squircle-r);
+    border-end-start-radius: var(--squircle-r);
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
 @utility squircle-s-* {
   border-start-start-radius: --value(--radius-*, [length]);
   border-end-start-radius: --value(--radius-*, [length]);
@@ -669,6 +764,22 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
     --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-start-start-radius: var(--squircle-r);
     border-end-start-radius: var(--squircle-r);
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
+@utility squircle-e-none {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+@utility squircle-e-full {
+  border-start-end-radius: calc(infinity * 1px);
+  border-end-end-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    --squircle-r: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-start-end-radius: var(--squircle-r);
+    border-end-end-radius: var(--squircle-r);
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -686,10 +797,34 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 
 /* --- Per-corner physical variants --- */
 
+@utility squircle-tl-none {
+  border-top-left-radius: 0;
+}
+
+@utility squircle-tl-full {
+  border-top-left-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    border-top-left-radius: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
 @utility squircle-tl-* {
   border-top-left-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
     border-top-left-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
+@utility squircle-tr-none {
+  border-top-right-radius: 0;
+}
+
+@utility squircle-tr-full {
+  border-top-right-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    border-top-right-radius: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -702,10 +837,34 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   }
 }
 
+@utility squircle-br-none {
+  border-bottom-right-radius: 0;
+}
+
+@utility squircle-br-full {
+  border-bottom-right-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    border-bottom-right-radius: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
 @utility squircle-br-* {
   border-bottom-right-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
     border-bottom-right-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
+@utility squircle-bl-none {
+  border-bottom-left-radius: 0;
+}
+
+@utility squircle-bl-full {
+  border-bottom-left-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    border-bottom-left-radius: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -720,10 +879,34 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 
 /* --- Per-corner logical variants --- */
 
+@utility squircle-ss-none {
+  border-start-start-radius: 0;
+}
+
+@utility squircle-ss-full {
+  border-start-start-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    border-start-start-radius: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
 @utility squircle-ss-* {
   border-start-start-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
     border-start-start-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
+@utility squircle-se-none {
+  border-start-end-radius: 0;
+}
+
+@utility squircle-se-full {
+  border-start-end-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    border-start-end-radius: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -736,10 +919,34 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   }
 }
 
+@utility squircle-es-none {
+  border-end-start-radius: 0;
+}
+
+@utility squircle-es-full {
+  border-end-start-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    border-end-start-radius: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
 @utility squircle-es-* {
   border-end-start-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
     border-end-start-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}
+
+@utility squircle-ee-none {
+  border-end-end-radius: 0;
+}
+
+@utility squircle-ee-full {
+  border-end-end-radius: calc(infinity * 1px);
+  @supports (corner-shape: superellipse(2)) {
+    border-end-end-radius: calc(calc(infinity * 1px) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }

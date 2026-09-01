@@ -6,6 +6,10 @@
 export const DEFAULT_AMT = 2 as const;
 export const DEFAULT_AMOUNT_VAR_NAME = "--squircle-amt" as const;
 export const DEFAULT_R_VAR_NAME = "--squircle-r" as const;
+/** Static value for `squircle-full`; matches Tailwind's `rounded-full`. */
+export const FULL_RADIUS = "calc(infinity * 1px)" as const;
+/** Static value for `squircle-none`; matches Tailwind's `rounded-none`. */
+export const NONE_RADIUS = "0" as const;
 export const DEFAULT_AMT_CSS = `var(${DEFAULT_AMOUNT_VAR_NAME}, ${DEFAULT_AMT})` as const;
 
 export const getCornerShape = (varName: string = DEFAULT_AMOUNT_VAR_NAME) =>

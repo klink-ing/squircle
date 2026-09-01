@@ -7,6 +7,8 @@ import plugin from "tailwindcss/plugin";
 import {
   DEFAULT_AMOUNT_VAR_NAME,
   DEFAULT_R_VAR_NAME,
+  FULL_RADIUS,
+  NONE_RADIUS,
   SUPPORTS_RULE,
   squircleCssObj,
   variantEntries,
@@ -30,11 +32,14 @@ export interface SquirclePluginOptions {
 const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
   plugin.withOptions<SquirclePluginOptions>((options = {}) =>
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    ({ matchUtilities, theme }) => {
+    ({ addUtilities, matchUtilities, theme }) => {
     const amtVar = options.amtVar ?? options["amt-var"] ?? DEFAULT_AMOUNT_VAR_NAME;
     const rVar = options.rVar ?? options["r-var"] ?? DEFAULT_R_VAR_NAME;
     const prefix = options.prefix ?? "squircle";
-    const radiusValues = theme("borderRadius");
+    // Drop none/full from the functional values (the v3-compat theme still
+    // carries them) — they're registered as static utilities below instead,
+    // with the same values Tailwind uses for rounded-none/rounded-full.
+    const { none: _none, full: _full, ...radiusValues } = theme("borderRadius") ?? {};
 
     matchUtilities(
       {
@@ -50,6 +55,16 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
 
     for (const [suffix, props] of variantEntries()) {
       const name = suffix ? `${prefix}-${suffix}` : prefix;
+      // Static -none/-full utilities, registered the same way Tailwind
+      // defines rounded-none and rounded-full (0 and calc(infinity * 1px)
+      // rather than theme values). -none needs no superellipse correction.
+      addUtilities({
+        [`.${name}-none`]: Object.fromEntries(props.map((p) => [p, NONE_RADIUS])),
+        [`.${name}-full`]: squircleCssObj(props, FULL_RADIUS, { amtVar, rVar }) as Record<
+          string,
+          string | Record<string, string>
+        >,
+      });
       matchUtilities(
         {
           [name]: (value: string) =>

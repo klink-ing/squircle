@@ -1,7 +1,16 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_AMT, SUPPORTS_RULE, VARIANTS, isComment, squircleCssObj } from "../src/variants";
+import {
+  DEFAULT_AMT,
+  FULL_RADIUS,
+  NONE_RADIUS,
+  SUPPORTS_RULE,
+  VARIANTS,
+  isComment,
+  squircleCssObj,
+  type CssLikeObject,
+} from "../src/variants";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -9,8 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // https://tailwindcss.com/docs/adding-custom-styles#functional-utilities
 const value = "--value(--radius-*, [length])";
 
-function renderUtility(name: string, props: string[]): string {
-  const obj = squircleCssObj(props, value);
+function renderUtility(name: string, obj: CssLikeObject): string {
   const lines: string[] = [`@utility ${name} {`];
 
   for (const [key, val] of Object.entries(obj)) {
@@ -40,7 +48,8 @@ function generateCss(): string {
   blocks.push(`\
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default ${DEFAULT_AMT})    */
-/* squircle-* mirrors rounded-* variants: all, t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
+/* squircle-* mirrors rounded-* variants: t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
+/* squircle-*-none and squircle-*-full are static, matching rounded-none and rounded-full */
 
 @utility squircle-amt-* {
   --squircle-amt: --value(--squircle-amt-*, number, [number]);
@@ -55,8 +64,14 @@ function generateCss(): string {
       continue;
     }
 
-    const name = suffix ? `squircle-${suffix}-*` : "squircle-*";
-    blocks.push(renderUtility(name, entry));
+    const root = suffix ? `squircle-${suffix}` : "squircle";
+    // Static -none/-full first, then the functional utility — the same shape
+    // Tailwind uses for rounded-none/rounded-full. -none needs no correction.
+    blocks.push(
+      renderUtility(`${root}-none`, Object.fromEntries(entry.map((p) => [p, NONE_RADIUS]))),
+    );
+    blocks.push(renderUtility(`${root}-full`, squircleCssObj(entry, FULL_RADIUS)));
+    blocks.push(renderUtility(`${root}-*`, squircleCssObj(entry, value)));
   }
 
   return blocks.join("\n\n") + "\n";

@@ -50,6 +50,34 @@ describe("squircle.css utilities", () => {
     });
   }
 
+  describe("static none/full utilities (matching rounded-none/rounded-full)", () => {
+    it("squircle-full uses calc(infinity * 1px) with correction", async () => {
+      const css = await compileCss(["squircle-full"]);
+      expect(css).toContain("border-radius: calc(infinity * 1px)");
+      expect(css).toContain("calc(calc(infinity * 1px) *");
+      expect(css).toContain("corner-shape: superellipse(var(--squircle-amt, 2))");
+    });
+
+    it("squircle-t-full applies the full radius to side variants", async () => {
+      const css = await compileCss(["squircle-t-full"]);
+      expect(css).toContain("border-top-left-radius: calc(infinity * 1px)");
+      expect(css).toContain("border-top-right-radius: calc(infinity * 1px)");
+    });
+
+    it("squircle-none is plain zero radius with no correction", async () => {
+      const css = await compileCss(["squircle-none"]);
+      expect(css).toContain("border-radius: 0");
+      expect(css).not.toContain("@supports");
+      expect(css).not.toContain("corner-shape");
+    });
+
+    it("squircle-tl-none zeroes a single corner", async () => {
+      const css = await compileCss(["squircle-tl-none"]);
+      expect(css).toContain("border-top-left-radius: 0");
+      expect(css).not.toContain("@supports");
+    });
+  });
+
   describe("arbitrary values", () => {
     it("squircle-[1rem] emits literal length in fallback and calc", async () => {
       const css = await compileCss(["squircle-[1rem]"]);
