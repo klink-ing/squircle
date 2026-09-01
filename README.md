@@ -1301,7 +1301,11 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerTopLeftShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+    cornerTopRightShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1315,7 +1319,11 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerTopRightShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+    cornerBottomRightShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1329,7 +1337,11 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerBottomLeftShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+    cornerBottomRightShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1343,7 +1355,11 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerTopLeftShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+    cornerBottomLeftShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1357,7 +1373,11 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerStartStartShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+    cornerEndStartShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1371,7 +1391,11 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerStartEndShape: {
+      default: null,
+      "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
+    },
+    cornerEndEndShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1381,7 +1405,7 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerTopLeftShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1391,7 +1415,7 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerTopRightShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1401,7 +1425,7 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerBottomRightShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1411,7 +1435,7 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerBottomLeftShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1421,7 +1445,7 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerStartStartShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1431,7 +1455,7 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerStartEndShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1441,7 +1465,7 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerEndStartShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
@@ -1451,7 +1475,7 @@ const squircle = stylex.create({
       default: radius,
       "@supports (corner-shape: superellipse(2))": `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt ?? 2}))))`,
     },
-    cornerShape: {
+    cornerEndEndShape: {
       default: null,
       "@supports (corner-shape: superellipse(2))": `superellipse(${amt ?? 2})`,
     },
