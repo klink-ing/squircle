@@ -78,13 +78,13 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
       // this contributes only the reset — the initial value, so it is inert
       // unless a squircle class set a shape on the same element. Without it a
       // rounded-* utility cannot take a corner back from a squircle, since it
-      // only ever sets a radius. Emitting no radius keeps `type: "any"` safe
-      // and lets every form core accepts — theme key, `[3px]`, `[var(--x)]`,
-      // `(--x)` — pick the reset up.
+      // only ever sets a radius. Restricted to lengths, the same values the
+      // squircle-* utilities accept: a paren ref keeps its squircle shape, so
+      // reach for a theme key there as everywhere else in this package.
       const roundedName = suffix ? `rounded-${suffix}` : "rounded";
       const reset = Object.fromEntries(props.map((p) => [cornerShapeProp(p), "round"]));
       addUtilities({ [`.${roundedName}-full`]: reset });
-      matchUtilities({ [roundedName]: () => reset }, { type: "any", values: radiusValues });
+      matchUtilities({ [roundedName]: () => reset }, { type: "length", values: radiusValues });
     }
   });
 

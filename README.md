@@ -135,7 +135,7 @@ Two things make that work. A `squircle-*` utility only shapes the corners it set
 
 Note that a corner reclaimed by `rounded-*` uses the plain radius, not the corrected one — the correction exists only to make a squircle look the same size as a rounded corner, so a genuinely round corner doesn't want it.
 
-Every value form `rounded-*` accepts picks the reset up, including `rounded-tl-[3px]` and paren refs like `rounded-tl-(--my-radius)`.
+The reset accepts the same values the `squircle-*` utilities do — theme keys and arbitrary lengths like `rounded-tl-[3px]`. Tailwind's own `rounded-*` is looser, so a corner named with a paren ref (`rounded-tl-(--my-radius)`) or a non-length arbitrary still gets its radius from Tailwind but keeps its squircle shape. Use a theme key there, as everywhere else in this package.
 
 ### What does `squircle-amt-*` control?
 
@@ -978,7 +978,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-* {
-  border-radius: --value(--radius-*, [length], [*]);
+  border-radius: --value(--radius-*, [length]);
   corner-shape: round;
 }
 
@@ -988,8 +988,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-t-* {
-  border-top-left-radius: --value(--radius-*, [length], [*]);
-  border-top-right-radius: --value(--radius-*, [length], [*]);
+  border-top-left-radius: --value(--radius-*, [length]);
+  border-top-right-radius: --value(--radius-*, [length]);
   corner-top-left-shape: round;
   corner-top-right-shape: round;
 }
@@ -1000,8 +1000,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-r-* {
-  border-top-right-radius: --value(--radius-*, [length], [*]);
-  border-bottom-right-radius: --value(--radius-*, [length], [*]);
+  border-top-right-radius: --value(--radius-*, [length]);
+  border-bottom-right-radius: --value(--radius-*, [length]);
   corner-top-right-shape: round;
   corner-bottom-right-shape: round;
 }
@@ -1012,8 +1012,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-b-* {
-  border-bottom-left-radius: --value(--radius-*, [length], [*]);
-  border-bottom-right-radius: --value(--radius-*, [length], [*]);
+  border-bottom-left-radius: --value(--radius-*, [length]);
+  border-bottom-right-radius: --value(--radius-*, [length]);
   corner-bottom-left-shape: round;
   corner-bottom-right-shape: round;
 }
@@ -1024,8 +1024,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-l-* {
-  border-top-left-radius: --value(--radius-*, [length], [*]);
-  border-bottom-left-radius: --value(--radius-*, [length], [*]);
+  border-top-left-radius: --value(--radius-*, [length]);
+  border-bottom-left-radius: --value(--radius-*, [length]);
   corner-top-left-shape: round;
   corner-bottom-left-shape: round;
 }
@@ -1036,8 +1036,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-s-* {
-  border-start-start-radius: --value(--radius-*, [length], [*]);
-  border-end-start-radius: --value(--radius-*, [length], [*]);
+  border-start-start-radius: --value(--radius-*, [length]);
+  border-end-start-radius: --value(--radius-*, [length]);
   corner-start-start-shape: round;
   corner-end-start-shape: round;
 }
@@ -1048,8 +1048,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-e-* {
-  border-start-end-radius: --value(--radius-*, [length], [*]);
-  border-end-end-radius: --value(--radius-*, [length], [*]);
+  border-start-end-radius: --value(--radius-*, [length]);
+  border-end-end-radius: --value(--radius-*, [length]);
   corner-start-end-shape: round;
   corner-end-end-shape: round;
 }
@@ -1059,7 +1059,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-tl-* {
-  border-top-left-radius: --value(--radius-*, [length], [*]);
+  border-top-left-radius: --value(--radius-*, [length]);
   corner-top-left-shape: round;
 }
 
@@ -1068,7 +1068,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-tr-* {
-  border-top-right-radius: --value(--radius-*, [length], [*]);
+  border-top-right-radius: --value(--radius-*, [length]);
   corner-top-right-shape: round;
 }
 
@@ -1077,7 +1077,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-br-* {
-  border-bottom-right-radius: --value(--radius-*, [length], [*]);
+  border-bottom-right-radius: --value(--radius-*, [length]);
   corner-bottom-right-shape: round;
 }
 
@@ -1086,7 +1086,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-bl-* {
-  border-bottom-left-radius: --value(--radius-*, [length], [*]);
+  border-bottom-left-radius: --value(--radius-*, [length]);
   corner-bottom-left-shape: round;
 }
 
@@ -1095,7 +1095,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-ss-* {
-  border-start-start-radius: --value(--radius-*, [length], [*]);
+  border-start-start-radius: --value(--radius-*, [length]);
   corner-start-start-shape: round;
 }
 
@@ -1104,7 +1104,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-se-* {
-  border-start-end-radius: --value(--radius-*, [length], [*]);
+  border-start-end-radius: --value(--radius-*, [length]);
   corner-start-end-shape: round;
 }
 
@@ -1113,7 +1113,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-es-* {
-  border-end-start-radius: --value(--radius-*, [length], [*]);
+  border-end-start-radius: --value(--radius-*, [length]);
   corner-end-start-shape: round;
 }
 
@@ -1122,7 +1122,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-ee-* {
-  border-end-end-radius: --value(--radius-*, [length], [*]);
+  border-end-end-radius: --value(--radius-*, [length]);
   corner-end-end-shape: round;
 }
 ```

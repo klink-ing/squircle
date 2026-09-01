@@ -20,10 +20,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const value = "--value(--radius-*, [length])";
 // The reset re-declares the radius purely so `--value()` still decides what
 // matches. Without it the utility would accept any suffix at all, turning a
-// typo like `rounded-tl-garbage` into a real class. `[*]` covers the `(--x)`
-// and `[var(--x)]` forms core accepts alongside theme keys and `[3px]`; the
-// value it emits is identical to the one core emits for the same class.
-const roundedValue = "--value(--radius-*, [length], [*])";
+// typo like `rounded-tl-garbage` into a real class. It accepts the same values
+// the squircle-* utilities do — theme keys and arbitrary lengths, not paren
+// refs — and the radius it emits is the one core emits for the same class.
+const roundedValue = value;
 
 /**
  * Re-declare a `rounded-*` utility so it also resets the corners it owns back
