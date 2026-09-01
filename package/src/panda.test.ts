@@ -98,7 +98,7 @@ describe("panda preset transform output", () => {
     `);
   });
 
-  it("squircleAmount sets the variable and gates corner-shape", () => {
+  it("squircleAmount sets only the variable, applying no shape of its own", () => {
     const out = preset.utilities!.extend!["squircleAmount"]!.transform!("3", {
       token: mockToken,
       raw: "3",
@@ -107,9 +107,6 @@ describe("panda preset transform output", () => {
     expect(out).toMatchInlineSnapshot(`
       {
         "--squircle-amt": "3",
-        "@supports (corner-shape: superellipse(2))": {
-          "cornerShape": "superellipse(var(--squircle-amt))",
-        },
       }
     `);
   });
@@ -142,11 +139,8 @@ describe("panda preset options", () => {
       mockArgs("3"),
     ) as Record<string, unknown>;
     expect(amtOut["--my-amt"]).toBe("3");
-    const amtSupports = amtOut["@supports (corner-shape: superellipse(2))"] as Record<
-      string,
-      string
-    >;
-    expect(amtSupports["cornerShape"]).toBe("superellipse(var(--my-amt))");
+    // The amount utility contributes no shape, so the variable is all it emits.
+    expect(Object.keys(amtOut)).toEqual(["--my-amt"]);
 
     const allOutput = JSON.stringify({ radiusOut, amtOut });
     expect(allOutput).not.toContain("--squircle-amt");

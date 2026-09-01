@@ -5,10 +5,10 @@ import { cornerShapeProp } from "./variants";
 const { compileCss } = createCompiler(import.meta.dirname);
 
 describe("squircle.css utilities", () => {
-  it("squircle-amt-* sets --squircle-amt and corner-shape", async () => {
+  it("squircle-amt-* sets only --squircle-amt, applying no shape of its own", async () => {
     const css = await compileCss(["squircle-amt-2"]);
     expect(css).toContain("--squircle-amt: 2");
-    expect(css).toContain("corner-shape: superellipse(var(--squircle-amt))");
+    expect(css).not.toContain("corner-shape:");
   });
 
   for (const [suffix, props] of Object.entries(VARIANTS)) {
@@ -122,7 +122,7 @@ describe("squircle.css utilities", () => {
     it("squircle-amt-[4.5] accepts arbitrary bare number", async () => {
       const css = await compileCss(["squircle-amt-[4.5]"]);
       expect(css).toContain("--squircle-amt: 4.5");
-      expect(css).toContain("corner-shape: superellipse(var(--squircle-amt))");
+      expect(css).not.toContain("corner-shape:");
     });
 
     it("squircle-amt-[1em] is rejected (unit-bearing values are not numbers)", async () => {

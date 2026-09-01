@@ -4,10 +4,10 @@ import { createCompiler, VARIANTS } from "./test-utils";
 const { compilePlugin } = createCompiler(import.meta.dirname);
 
 describe("plugin.ts utilities", () => {
-  it("squircle-amt-* sets --squircle-amt and corner-shape", async () => {
+  it("squircle-amt-* sets only --squircle-amt, applying no shape of its own", async () => {
     const css = await compilePlugin(["squircle-amt-[2]"]);
     expect(css).toContain("--squircle-amt: 2");
-    expect(css).toContain("corner-shape: superellipse(var(--squircle-amt))");
+    expect(css).not.toContain("corner-shape:");
   });
 
   for (const [suffix, props] of Object.entries(VARIANTS)) {
@@ -148,7 +148,7 @@ describe("plugin.ts custom options", () => {
   it("custom prefix works for amt utility", async () => {
     const css = await compilePlugin(["se-amt-[3]"], "prefix: se;");
     expect(css).toContain(".se-amt-\\[3\\]");
-    expect(css).toContain("corner-shape: superellipse");
+    expect(css).toContain("--squircle-amt: 3");
   });
 
   it("custom amt-var changes the CSS variable name", async () => {
@@ -160,7 +160,7 @@ describe("plugin.ts custom options", () => {
   it("custom amt-var applies to amt utility", async () => {
     const css = await compilePlugin(["squircle-amt-[3]"], "amt-var: --se-amt;");
     expect(css).toContain("--se-amt: 3");
-    expect(css).toContain("superellipse(var(--se-amt))");
+    expect(css).not.toContain("corner-shape:");
   });
 
   it("custom r-var changes the intermediate CSS variable name", async () => {

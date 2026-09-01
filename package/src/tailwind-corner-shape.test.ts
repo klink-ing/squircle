@@ -89,15 +89,54 @@ describe("rounded-* utilities reset the corner shape they own", () => {
           css.indexOf(".squircle-lg {"),
         );
       });
+
+      // Every value form Tailwind's own rounded-* accepts has to pick the
+      // reset up, or a corner silently keeps its squircle shape.
+      for (const value of ["lg", "[3px]", "[var(--my-r)]", "(--my-r)"]) {
+        it(`rounded-tl-${value} gets the reset`, async () => {
+          const css = await compile([`rounded-tl-${value}`]);
+          expect(css).toContain("corner-top-left-shape: round");
+        });
+      }
+
+      it("a value Tailwind itself rejects stays unmatched", async () => {
+        const css = await compile(["rounded-tl-garbage"]);
+        expect(css).not.toContain("rounded-tl-garbage");
+      });
     });
   }
 
-  // Tailwind's own rounded-* accepts `(--var)` refs. The generated CSS matches
-  // them with `--value(…, [*])`; the plugin's matchUtilities cannot (adding
-  // "any" to its type list disables the utility outright), so that one form
-  // keeps its shape on the plugin path.
-  it("css path also resets paren-ref values", async () => {
-    const css = await compileCss(["rounded-tl-(--my-r)"]);
-    expect(css).toContain("corner-top-left-shape: round");
+  // The plugin bounds matching with its `values` map, so its reset carries no
+  // radius. The generated CSS has no such map: it keeps a `--value()` radius
+  // purely so the utility stays bounded, and emits the value core emits anyway.
+  it("plugin: the reset rule carries no radius of its own", async () => {
+    const css = await compilePlugin(["rounded-tl-lg"]);
+    const resetRule = (css.match(/\.rounded-tl-lg \{[^}]*\}/g) ?? []).find((r) =>
+      r.includes("corner-top-left-shape"),
+    );
+    expect(resetRule).toBeDefined();
+    expect(resetRule).not.toContain("border-top-left-radius");
   });
+});
+
+describe("squircle-amt only sets the amount", () => {
+  for (const [pathName, compile] of paths) {
+    it(`${pathName}: squircle-amt applies no corner-shape of its own`, async () => {
+      const css = await compile(["squircle-amt-[2]"]);
+      expect(css).toContain("--squircle-amt: 2");
+      expect(css).not.toContain("corner-shape:");
+    });
+
+    it(`${pathName}: it does not reshape corners a side variant left alone`, async () => {
+      const css = await compile(["squircle-t-md", "squircle-amt-[3]"]);
+      expect(css).toContain("--squircle-amt: 3");
+      expect(css).not.toContain("corner-bottom");
+      expect(css).not.toContain(SHORTHAND_DECL);
+    });
+
+    it(`${pathName}: the amount still reaches the variants through the variable`, async () => {
+      const css = await compile(["squircle-t-md"]);
+      expect(css).toContain("corner-top-left-shape: superellipse(var(--squircle-amt, 2))");
+    });
+  }
 });

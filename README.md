@@ -108,6 +108,8 @@ The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners uti
 | `squircle-es-*`  | `rounded-es-*` | End-start corner (logical)        |
 | `squircle-ee-*`  | `rounded-ee-*` | End-end corner (logical)          |
 | `squircle-amt-*` | —              | Superellipse exponent (default 2) |
+| `squircle-none`  | `rounded-none` | Remove rounding                   |
+| `squircle-full`  | `rounded-full` | Fully rounded (pill)              |
 
 ### What values are accepted?
 
@@ -115,7 +117,7 @@ Values are validated strictly so typos fail at build time instead of producing i
 
 - **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, plus anything you add to `@theme`) and arbitrary lengths like `squircle-[16px]`. Non-length arbitraries (`[50%]`, `[foo]`) and paren refs (`squircle-(--my-radius)`) are rejected — use a theme key instead.
 - **`squircle-none` and `squircle-full`** (and their side/corner variants) are static utilities defined the same way as `rounded-none` and `rounded-full`: `0` and `calc(infinity * 1px)`. Neither needs the visual radius correction — correcting zero or infinity is a no-op — so `squircle-full` is just `rounded-full` plus the superellipse corner shape, and `squircle-none` is identical to `rounded-none`.
-- **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), and theme values. Unit-bearing arbitraries (`[1em]`) and paren refs (`(--my-amt)`) are rejected.
+- **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), and theme values. Unit-bearing arbitraries (`[1em]`) and paren refs (`(--my-amt)`) are rejected. It only sets the amount — exactly what writing `--squircle-amt` yourself does — and applies no corner shape of its own, so it never reshapes a corner no `squircle-*` utility claimed.
 
 ### Mixing squircled and rounded corners
 
@@ -133,7 +135,7 @@ Two things make that work. A `squircle-*` utility only shapes the corners it set
 
 Note that a corner reclaimed by `rounded-*` uses the plain radius, not the corrected one — the correction exists only to make a squircle look the same size as a rounded corner, so a genuinely round corner doesn't want it.
 
-One gap: Tailwind's `rounded-*` also accepts paren refs like `rounded-tl-(--my-radius)`. The CSS-import path resets those too; the JS plugin cannot, so on that path such a corner keeps its squircle shape. Use a theme key instead.
+Every value form `rounded-*` accepts picks the reset up, including `rounded-tl-[3px]` and paren refs like `rounded-tl-(--my-radius)`.
 
 ### What does `squircle-amt-*` control?
 
@@ -620,11 +622,11 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 /* squircle-* mirrors rounded-* variants: t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
 /* squircle-*-none and squircle-*-full are static, matching rounded-none and rounded-full */
 
+/* squircle-amt-[n] only sets the amount — the same thing writing
+   --squircle-amt yourself does. It applies no corner-shape of its own, so it
+   never reshapes corners that no squircle-* utility claimed. */
 @utility squircle-amt-* {
   --squircle-amt: --value(--squircle-amt-*, number, [number]);
-  @supports (corner-shape: superellipse(2)) {
-    corner-shape: superellipse(var(--squircle-amt));
-  }
 }
 
 @utility squircle-none {
@@ -972,7 +974,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
    visible corner to shape. */
 
 @utility rounded-full {
-  border-radius: calc(infinity * 1px);
   corner-shape: round;
 }
 
@@ -982,8 +983,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-t-full {
-  border-top-left-radius: calc(infinity * 1px);
-  border-top-right-radius: calc(infinity * 1px);
   corner-top-left-shape: round;
   corner-top-right-shape: round;
 }
@@ -996,8 +995,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-r-full {
-  border-top-right-radius: calc(infinity * 1px);
-  border-bottom-right-radius: calc(infinity * 1px);
   corner-top-right-shape: round;
   corner-bottom-right-shape: round;
 }
@@ -1010,8 +1007,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-b-full {
-  border-bottom-left-radius: calc(infinity * 1px);
-  border-bottom-right-radius: calc(infinity * 1px);
   corner-bottom-left-shape: round;
   corner-bottom-right-shape: round;
 }
@@ -1024,8 +1019,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-l-full {
-  border-top-left-radius: calc(infinity * 1px);
-  border-bottom-left-radius: calc(infinity * 1px);
   corner-top-left-shape: round;
   corner-bottom-left-shape: round;
 }
@@ -1038,8 +1031,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-s-full {
-  border-start-start-radius: calc(infinity * 1px);
-  border-end-start-radius: calc(infinity * 1px);
   corner-start-start-shape: round;
   corner-end-start-shape: round;
 }
@@ -1052,8 +1043,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-e-full {
-  border-start-end-radius: calc(infinity * 1px);
-  border-end-end-radius: calc(infinity * 1px);
   corner-start-end-shape: round;
   corner-end-end-shape: round;
 }
@@ -1066,7 +1055,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-tl-full {
-  border-top-left-radius: calc(infinity * 1px);
   corner-top-left-shape: round;
 }
 
@@ -1076,7 +1064,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-tr-full {
-  border-top-right-radius: calc(infinity * 1px);
   corner-top-right-shape: round;
 }
 
@@ -1086,7 +1073,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-br-full {
-  border-bottom-right-radius: calc(infinity * 1px);
   corner-bottom-right-shape: round;
 }
 
@@ -1096,7 +1082,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-bl-full {
-  border-bottom-left-radius: calc(infinity * 1px);
   corner-bottom-left-shape: round;
 }
 
@@ -1106,7 +1091,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-ss-full {
-  border-start-start-radius: calc(infinity * 1px);
   corner-start-start-shape: round;
 }
 
@@ -1116,7 +1100,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-se-full {
-  border-start-end-radius: calc(infinity * 1px);
   corner-start-end-shape: round;
 }
 
@@ -1126,7 +1109,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-es-full {
-  border-end-start-radius: calc(infinity * 1px);
   corner-end-start-shape: round;
 }
 
@@ -1136,7 +1118,6 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-ee-full {
-  border-end-end-radius: calc(infinity * 1px);
   corner-end-end-shape: round;
 }
 

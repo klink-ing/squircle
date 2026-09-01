@@ -55,15 +55,13 @@ export function squirclePandaPreset(options: SquirclePandaPresetOptions = {}) {
     };
   }
 
+  // Only sets the amount — the same thing writing the custom property yourself
+  // does. Applying a corner-shape here would reshape all four corners,
+  // including ones no squircle utility claimed.
   utilities["squircleAmount"] = {
     shorthand: "squircleAmt",
     values: { type: "number" },
-    transform: (value) => ({
-      [amtVar]: value,
-      [SUPPORTS_RULE]: {
-        cornerShape: `superellipse(var(${amtVar}))`,
-      },
-    }),
+    transform: (value) => ({ [amtVar]: value }),
   };
 
   return definePreset({
