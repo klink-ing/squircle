@@ -49,10 +49,13 @@ describe("plugin.ts utilities", () => {
   }
 
   describe("static none/full utilities (matching rounded-none/rounded-full)", () => {
-    it("squircle-full uses calc(infinity * 1px) with correction", async () => {
+    it("squircle-full uses calc(infinity * 1px) uncorrected, with corner-shape", async () => {
       const css = await compilePlugin(["squircle-full"]);
       expect(css).toContain("border-radius: calc(infinity * 1px)");
-      expect(css).toContain("calc(calc(infinity * 1px) *");
+      expect(css).toContain("corner-shape: superellipse(var(--squircle-amt, 2))");
+      // Correcting an infinite radius is a no-op, so no correction is emitted.
+      expect(css).not.toContain("pow(");
+      expect(css).not.toContain("--squircle-r");
     });
 
     it("squircle-full is emitted exactly once (no v3-compat theme duplicate)", async () => {

@@ -7,8 +7,8 @@ import plugin from "tailwindcss/plugin";
 import {
   DEFAULT_AMOUNT_VAR_NAME,
   DEFAULT_R_VAR_NAME,
-  FULL_RADIUS,
   NONE_RADIUS,
+  squircleFullCssObj,
   SUPPORTS_RULE,
   squircleCssObj,
   variantEntries,
@@ -60,7 +60,7 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
       // rather than theme values). -none needs no superellipse correction.
       addUtilities({
         [`.${name}-none`]: Object.fromEntries(props.map((p) => [p, NONE_RADIUS])),
-        [`.${name}-full`]: squircleCssObj(props, FULL_RADIUS, { amtVar, rVar }) as Record<
+        [`.${name}-full`]: squircleFullCssObj(props, { amtVar }) as Record<
           string,
           string | Record<string, string>
         >,

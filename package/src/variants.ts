@@ -19,6 +19,24 @@ export function correctedRadius(radius: string, amt: string = DEFAULT_AMT_CSS): 
   return `calc(${radius} * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * ${amt}))))` as const;
 }
 
+/**
+ * CSS object for the static `-full` utilities. The radius stays uncorrected —
+ * an infinite radius times any positive factor is still infinite, and the
+ * browser clamps it either way — so both branches share the same value, like
+ * `rounded-full`; the `@supports` block only adds the superellipse shape.
+ */
+export function squircleFullCssObj(
+  props: string[],
+  options: Pick<SquircleCssObjOptions, "amtVar"> = {},
+): CssLikeObject {
+  const obj: CssLikeObject = {};
+  for (const p of props) obj[p] = FULL_RADIUS;
+  obj[SUPPORTS_RULE] = {
+    "corner-shape": getCornerShape(options.amtVar ?? DEFAULT_AMOUNT_VAR_NAME),
+  };
+  return obj;
+}
+
 type SectionComment = { comment: string };
 type VariantEntry = string[] | SectionComment;
 

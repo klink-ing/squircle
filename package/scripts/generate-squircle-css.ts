@@ -3,8 +3,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_AMT,
-  FULL_RADIUS,
   NONE_RADIUS,
+  squircleFullCssObj,
   SUPPORTS_RULE,
   VARIANTS,
   isComment,
@@ -70,7 +70,7 @@ function generateCss(): string {
     blocks.push(
       renderUtility(`${root}-none`, Object.fromEntries(entry.map((p) => [p, NONE_RADIUS]))),
     );
-    blocks.push(renderUtility(`${root}-full`, squircleCssObj(entry, FULL_RADIUS)));
+    blocks.push(renderUtility(`${root}-full`, squircleFullCssObj(entry)));
     blocks.push(renderUtility(`${root}-*`, squircleCssObj(entry, value)));
   }
 
