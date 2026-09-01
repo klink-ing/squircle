@@ -36,13 +36,7 @@ export default defineConfig({
       },
       test: {
         command: "echo 'All tests passed'",
-        dependsOn: [
-          "test:tailwind",
-          "test:css",
-          "test:radius",
-          "test:panda",
-          "test:stylex",
-        ],
+        dependsOn: ["test:tailwind", "test:css", "test:radius", "test:panda", "test:stylex"],
       },
       "generate:stylex": {
         command: "tsx scripts/generate-stylex.ts",

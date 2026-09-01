@@ -38,9 +38,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-950 p-10 text-zinc-100">
       <h1 className="mb-2 text-2xl font-bold">squircle StyleX Demo</h1>
-      <p className="mb-8 text-zinc-400">
-        Squircle utilities authored as StyleX dynamic styles.
-      </p>
+      <p className="mb-8 text-zinc-400">Squircle utilities authored as StyleX dynamic styles.</p>
 
       <div className="space-y-10">
         <section>
@@ -87,9 +85,7 @@ export default function App() {
 
         <section>
           <h2 className="mb-4 text-lg font-semibold text-zinc-300">Squircle amount</h2>
-          <p className="mb-4 text-sm text-zinc-500">
-            Higher = more square. Default is 2.
-          </p>
+          <p className="mb-4 text-sm text-zinc-500">Higher = more square. Default is 2.</p>
           <div className="flex flex-wrap gap-6">
             <Box
               label="squircle.all(radii['3xl'], 1)"

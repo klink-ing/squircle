@@ -1,3 +1,8 @@
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
 import * as stylex from "@stylexjs/stylex";
 
 /**

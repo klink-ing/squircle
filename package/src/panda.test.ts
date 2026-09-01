@@ -17,10 +17,7 @@ describe("panda preset shape", () => {
 
   it("registers a utility for every CAMEL_VARIANTS entry plus squircleAmount", () => {
     const keys = Object.keys(preset.utilities!.extend!).sort();
-    const expected = [
-      ...CAMEL_VARIANTS.map((v) => v.property),
-      "squircleAmount",
-    ].sort();
+    const expected = [...CAMEL_VARIANTS.map((v) => v.property), "squircleAmount"].sort();
     expect(keys).toEqual(expected);
   });
 
@@ -119,23 +116,35 @@ describe("panda preset transform output", () => {
 
 describe("panda preset options", () => {
   const mockToken = Object.assign(() => "1rem", { raw: () => undefined }) as any;
-  const mockArgs = (raw: string) => ({ token: mockToken, raw, utils: { colorMix: () => ({ invalid: true, value: "" }) } });
+  const mockArgs = (raw: string) => ({
+    token: mockToken,
+    raw,
+    utils: { colorMix: () => ({ invalid: true, value: "" }) },
+  });
 
   it("custom amtVar lands in every place the default --squircle-amt does", () => {
     const preset = squirclePandaPreset({ amtVar: "--my-amt" });
 
-    const radiusOut = preset.utilities!.extend!["squircleRadius"]!.transform!("1rem", mockArgs("1rem")) as Record<string, unknown>;
-    const radiusSupports = radiusOut[
-      "@supports (corner-shape: superellipse(2))"
-    ] as Record<string, string>;
+    const radiusOut = preset.utilities!.extend!["squircleRadius"]!.transform!(
+      "1rem",
+      mockArgs("1rem"),
+    ) as Record<string, unknown>;
+    const radiusSupports = radiusOut["@supports (corner-shape: superellipse(2))"] as Record<
+      string,
+      string
+    >;
     expect(radiusSupports["--squircle-r"]).toContain("var(--my-amt, 2)");
     expect(radiusSupports["cornerShape"]).toBe("superellipse(var(--my-amt, 2))");
 
-    const amtOut = preset.utilities!.extend!["squircleAmount"]!.transform!("3", mockArgs("3")) as Record<string, unknown>;
+    const amtOut = preset.utilities!.extend!["squircleAmount"]!.transform!(
+      "3",
+      mockArgs("3"),
+    ) as Record<string, unknown>;
     expect(amtOut["--my-amt"]).toBe("3");
-    const amtSupports = amtOut[
-      "@supports (corner-shape: superellipse(2))"
-    ] as Record<string, string>;
+    const amtSupports = amtOut["@supports (corner-shape: superellipse(2))"] as Record<
+      string,
+      string
+    >;
     expect(amtSupports["cornerShape"]).toBe("superellipse(var(--my-amt))");
 
     const allOutput = JSON.stringify({ radiusOut, amtOut });
@@ -144,11 +153,11 @@ describe("panda preset options", () => {
 
   it("custom rVar threads through multi-prop side transforms", () => {
     const preset = squirclePandaPreset({ rVar: "--my-r" });
-    const out = preset.utilities!.extend!["squircleTopRadius"]!.transform!("1rem", mockArgs("1rem")) as Record<string, unknown>;
-    const supports = out["@supports (corner-shape: superellipse(2))"] as Record<
-      string,
-      string
-    >;
+    const out = preset.utilities!.extend!["squircleTopRadius"]!.transform!(
+      "1rem",
+      mockArgs("1rem"),
+    ) as Record<string, unknown>;
+    const supports = out["@supports (corner-shape: superellipse(2))"] as Record<string, string>;
     expect(supports["--my-r"]).toContain("calc(1rem");
     expect(supports["borderTopLeftRadius"]).toBe("var(--my-r)");
     expect(supports["borderTopRightRadius"]).toBe("var(--my-r)");
@@ -157,11 +166,11 @@ describe("panda preset options", () => {
 
   it("amtVar and rVar can both be overridden together", () => {
     const preset = squirclePandaPreset({ amtVar: "--a", rVar: "--r" });
-    const out = preset.utilities!.extend!["squircleRadius"]!.transform!("1rem", mockArgs("1rem")) as Record<string, unknown>;
-    const supports = out["@supports (corner-shape: superellipse(2))"] as Record<
-      string,
-      string
-    >;
+    const out = preset.utilities!.extend!["squircleRadius"]!.transform!(
+      "1rem",
+      mockArgs("1rem"),
+    ) as Record<string, unknown>;
+    const supports = out["@supports (corner-shape: superellipse(2))"] as Record<string, string>;
     expect(supports["--r"]).toContain("var(--a, 2)");
     expect(supports["borderRadius"]).toBe("var(--r)");
     expect(supports["cornerShape"]).toBe("superellipse(var(--a, 2))");

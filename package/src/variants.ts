@@ -1,3 +1,8 @@
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
 export const DEFAULT_AMT = 2 as const;
 export const DEFAULT_AMOUNT_VAR_NAME = "--squircle-amt" as const;
 export const DEFAULT_R_VAR_NAME = "--squircle-r" as const;
@@ -153,7 +158,10 @@ function toCamel(kebab: string): string {
   return camel;
 }
 
-export type CssLikeObject = Record<string, string | number | null | Record<string, string | number | null>>;
+export type CssLikeObject = Record<
+  string,
+  string | number | null | Record<string, string | number | null>
+>;
 
 export interface SquircleCssObjOptions {
   /** Override the `--squircle-amt` variable name (default `--squircle-amt`). */

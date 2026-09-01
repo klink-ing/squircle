@@ -32,6 +32,12 @@ function generateCss(): string {
   const blocks: string[] = [];
 
   blocks.push(`\
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */`);
+
+  blocks.push(`\
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default ${DEFAULT_AMT})    */
 /* squircle-* mirrors rounded-* variants: all, t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */

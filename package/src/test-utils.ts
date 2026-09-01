@@ -46,7 +46,8 @@ async function loadModule(id: string, base: string, _resourceHint: "plugin" | "c
 }
 
 function extractUtilitiesLayer(css: string): string {
-  const match = /@layer utilities \{([\s\S]*)\}\s*$/.exec(css);
+  // Tailwind preserves /*! ... */ license comments after the final layer.
+  const match = /@layer utilities \{([\s\S]*)\}\s*(?:\/\*![\s\S]*?\*\/\s*)*$/.exec(css);
   return match?.[1]?.trim() ?? "";
 }
 

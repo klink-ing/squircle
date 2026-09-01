@@ -5,8 +5,7 @@ export default defineConfig({
     cache: true,
     tasks: {
       fmt: {
-        command:
-          'bash -c \'OUT=$(vp fmt --check 2>&1); echo "$OUT"; ! echo "$OUT" | grep -q "Unable to load plugin"\'',
+        command: "vp fmt --check",
         dependsOn: ["@klinking/squircle#build"],
       },
       lint: {

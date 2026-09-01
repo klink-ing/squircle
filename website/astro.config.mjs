@@ -28,10 +28,7 @@ function stylexForExternalModules() {
     enforce: "pre",
     async transform(code, id) {
       if (!/\.m?jsx?$|\.tsx?$/.test(id)) return null;
-      if (
-        !id.includes("/package/dist/stylex/index.mjs") &&
-        !id.includes(".stylex.")
-      ) {
+      if (!id.includes("/package/dist/stylex/index.mjs") && !id.includes(".stylex.")) {
         return null;
       }
       const result = await babel.transformAsync(code, {
