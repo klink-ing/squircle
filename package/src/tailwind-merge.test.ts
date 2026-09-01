@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { extendTailwindMerge } from "tailwind-merge";
 import { squircleMergeConfig } from "./tailwind";
+import { createCompiler } from "./test-utils";
 
 const twMerge = extendTailwindMerge(squircleMergeConfig);
+const { compileCss, compilePlugin } = createCompiler(import.meta.dirname);
 
 describe("squircleMergeConfig", () => {
   describe("squircle vs squircle", () => {
@@ -77,4 +79,50 @@ describe("squircleMergeConfig", () => {
       expect(twMerge("squircle-amt-2 squircle-amt-3")).toBe("squircle-amt-3");
     });
   });
+});
+
+/**
+ * Keeping both classes only refines the corner if the narrower utility also
+ * wins the cascade — these all have single-class specificity, so it comes down
+ * to emission order. Tailwind sorts radius utilities by property breadth
+ * (`border-radius` shorthand, then two-corner sides, then single corners) and
+ * interleaves `squircle-*` with `rounded-*` in each tier, so the narrower
+ * utility lands later regardless of family. These cases pin that down.
+ */
+describe("cascade order agrees with merge semantics", () => {
+  // [broader utility, narrower utility that must win the overlapping corner]
+  const pairs: [string, string][] = [
+    ["squircle-md", "squircle-t-lg"],
+    ["squircle-md", "squircle-tl-sm"],
+    ["squircle-md", "squircle-tl-full"],
+    ["squircle-md", "squircle-tl-none"],
+    ["squircle-t-lg", "squircle-tl-sm"],
+    ["squircle-full", "squircle-tl-sm"],
+    ["squircle-none", "squircle-tl-full"],
+    ["squircle-t-full", "squircle-tl-none"],
+    ["squircle-s-md", "squircle-ss-sm"],
+    ["squircle-e-full", "squircle-ee-none"],
+    ["squircle-md", "rounded-tl-sm"],
+    ["rounded-lg", "squircle-tl-full"],
+    ["rounded-lg", "squircle-tl-none"],
+    ["rounded-full", "squircle-tl-sm"],
+    ["rounded-t-lg", "squircle-tl-sm"],
+  ];
+
+  function selectorIndex(css: string, className: string): number {
+    const index = css.indexOf(`.${className} {`);
+    expect(index, `${className} was not emitted`).toBeGreaterThan(-1);
+    return index;
+  }
+
+  for (const [broad, narrow] of pairs) {
+    it(`"${broad} ${narrow}" keeps both, and ${narrow} is emitted last`, async () => {
+      expect(twMerge(`${broad} ${narrow}`)).toBe(`${broad} ${narrow}`);
+
+      for (const compile of [compileCss, compilePlugin]) {
+        const css = await compile([broad, narrow]);
+        expect(selectorIndex(css, narrow)).toBeGreaterThan(selectorIndex(css, broad));
+      }
+    });
+  }
 });
