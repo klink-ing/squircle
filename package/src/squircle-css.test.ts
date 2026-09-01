@@ -105,5 +105,4 @@ describe("squircle.css utilities", () => {
       expect(css).not.toContain("squircle-amt-");
     });
   });
-
 });
