@@ -8,7 +8,8 @@ exports[`squircle.css utilities > squircle-b-md snapshot 1`] = `
       --squircle-r: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
       border-bottom-left-radius: var(--squircle-r);
       border-bottom-right-radius: var(--squircle-r);
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
+      corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -18,7 +19,7 @@ exports[`squircle.css utilities > squircle-bl-md snapshot 1`] = `
     border-bottom-left-radius: var(--radius-md);
     @supports (corner-shape: superellipse(2)) {
       border-bottom-left-radius: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -28,7 +29,7 @@ exports[`squircle.css utilities > squircle-br-md snapshot 1`] = `
     border-bottom-right-radius: var(--radius-md);
     @supports (corner-shape: superellipse(2)) {
       border-bottom-right-radius: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -41,7 +42,8 @@ exports[`squircle.css utilities > squircle-e-md snapshot 1`] = `
       --squircle-r: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
       border-start-end-radius: var(--squircle-r);
       border-end-end-radius: var(--squircle-r);
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-start-end-shape: superellipse(var(--squircle-amt, 2));
+      corner-end-end-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -51,7 +53,7 @@ exports[`squircle.css utilities > squircle-ee-md snapshot 1`] = `
     border-end-end-radius: var(--radius-md);
     @supports (corner-shape: superellipse(2)) {
       border-end-end-radius: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-end-end-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -61,7 +63,7 @@ exports[`squircle.css utilities > squircle-es-md snapshot 1`] = `
     border-end-start-radius: var(--radius-md);
     @supports (corner-shape: superellipse(2)) {
       border-end-start-radius: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-end-start-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -74,7 +76,8 @@ exports[`squircle.css utilities > squircle-l-md snapshot 1`] = `
       --squircle-r: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
       border-top-left-radius: var(--squircle-r);
       border-bottom-left-radius: var(--squircle-r);
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-top-left-shape: superellipse(var(--squircle-amt, 2));
+      corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -98,7 +101,8 @@ exports[`squircle.css utilities > squircle-r-md snapshot 1`] = `
       --squircle-r: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
       border-top-right-radius: var(--squircle-r);
       border-bottom-right-radius: var(--squircle-r);
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-top-right-shape: superellipse(var(--squircle-amt, 2));
+      corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -111,7 +115,8 @@ exports[`squircle.css utilities > squircle-s-md snapshot 1`] = `
       --squircle-r: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
       border-start-start-radius: var(--squircle-r);
       border-end-start-radius: var(--squircle-r);
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-start-start-shape: superellipse(var(--squircle-amt, 2));
+      corner-end-start-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -121,7 +126,7 @@ exports[`squircle.css utilities > squircle-se-md snapshot 1`] = `
     border-start-end-radius: var(--radius-md);
     @supports (corner-shape: superellipse(2)) {
       border-start-end-radius: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-start-end-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -131,7 +136,7 @@ exports[`squircle.css utilities > squircle-ss-md snapshot 1`] = `
     border-start-start-radius: var(--radius-md);
     @supports (corner-shape: superellipse(2)) {
       border-start-start-radius: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-start-start-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -144,7 +149,8 @@ exports[`squircle.css utilities > squircle-t-md snapshot 1`] = `
       --squircle-r: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
       border-top-left-radius: var(--squircle-r);
       border-top-right-radius: var(--squircle-r);
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-top-left-shape: superellipse(var(--squircle-amt, 2));
+      corner-top-right-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -154,7 +160,7 @@ exports[`squircle.css utilities > squircle-tl-md snapshot 1`] = `
     border-top-left-radius: var(--radius-md);
     @supports (corner-shape: superellipse(2)) {
       border-top-left-radius: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-top-left-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;
@@ -164,7 +170,7 @@ exports[`squircle.css utilities > squircle-tr-md snapshot 1`] = `
     border-top-right-radius: var(--radius-md);
     @supports (corner-shape: superellipse(2)) {
       border-top-right-radius: calc(var(--radius-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-      corner-shape: superellipse(var(--squircle-amt, 2));
+      corner-top-right-shape: superellipse(var(--squircle-amt, 2));
     }
   }"
 `;

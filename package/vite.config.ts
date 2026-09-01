@@ -18,7 +18,10 @@ export default defineConfig({
   run: {
     tasks: {
       "test:tailwind": {
+        // Matches tailwind.test.ts and tailwind-merge.test.ts; the latter
+        // compiles the generated utils.css, so the build has to run first.
         command: "vp test run tailwind",
+        dependsOn: ["build"],
       },
       "test:css": {
         command: "vp test run squircle-css",

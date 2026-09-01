@@ -7,7 +7,9 @@ import plugin from "tailwindcss/plugin";
 import {
   DEFAULT_AMOUNT_VAR_NAME,
   DEFAULT_R_VAR_NAME,
-  SUPPORTS_RULE,
+  NONE_RADIUS,
+  cornerShapeProp,
+  squircleFullCssObj,
   squircleCssObj,
   variantEntries,
 } from "./variants";
@@ -30,26 +32,35 @@ export interface SquirclePluginOptions {
 const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
   plugin.withOptions<SquirclePluginOptions>((options = {}) =>
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    ({ matchUtilities, theme }) => {
+    ({ addUtilities, matchUtilities, theme }) => {
     const amtVar = options.amtVar ?? options["amt-var"] ?? DEFAULT_AMOUNT_VAR_NAME;
     const rVar = options.rVar ?? options["r-var"] ?? DEFAULT_R_VAR_NAME;
     const prefix = options.prefix ?? "squircle";
-    const radiusValues = theme("borderRadius");
+    // Drop none/full from the functional values (the v3-compat theme still
+    // carries them) — they're registered as static utilities below instead,
+    // with the same values Tailwind uses for rounded-none/rounded-full.
+    const { none: _none, full: _full, ...radiusValues } = theme("borderRadius") ?? {};
 
+    // Only sets the amount — the same thing writing the custom property
+    // yourself does. Applying a corner-shape here would reshape all four
+    // corners, including ones no squircle-* utility claimed.
     matchUtilities(
-      {
-        [`${prefix}-amt`]: (value: string) => ({
-          [amtVar]: value,
-          [SUPPORTS_RULE]: {
-            "corner-shape": `superellipse(var(${amtVar}))`,
-          },
-        }),
-      },
+      { [`${prefix}-amt`]: (value: string) => ({ [amtVar]: value }) },
       { type: "number" },
     );
 
     for (const [suffix, props] of variantEntries()) {
       const name = suffix ? `${prefix}-${suffix}` : prefix;
+      // Static -none/-full utilities, registered the same way Tailwind
+      // defines rounded-none and rounded-full (0 and calc(infinity * 1px)
+      // rather than theme values). -none needs no superellipse correction.
+      addUtilities({
+        [`.${name}-none`]: Object.fromEntries(props.map((p) => [p, NONE_RADIUS])),
+        [`.${name}-full`]: squircleFullCssObj(props, { amtVar }) as Record<
+          string,
+          string | Record<string, string>
+        >,
+      });
       matchUtilities(
         {
           [name]: (value: string) =>
@@ -60,6 +71,20 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
         },
         { type: "length", values: radiusValues },
       );
+
+      // Re-declare the matching rounded-* utility so it also resets the
+      // corners it owns back to `round`. Tailwind keeps its own definition and
+      // emits it alongside this one, so the radius still comes from core and
+      // this contributes only the reset — the initial value, so it is inert
+      // unless a squircle class set a shape on the same element. Without it a
+      // rounded-* utility cannot take a corner back from a squircle, since it
+      // only ever sets a radius. Restricted to lengths, the same values the
+      // squircle-* utilities accept: a paren ref keeps its squircle shape, so
+      // reach for a theme key there as everywhere else in this package.
+      const roundedName = suffix ? `rounded-${suffix}` : "rounded";
+      const reset = Object.fromEntries(props.map((p) => [cornerShapeProp(p), "round"]));
+      addUtilities({ [`.${roundedName}-full`]: reset });
+      matchUtilities({ [roundedName]: () => reset }, { type: "length", values: radiusValues });
     }
   });
 
@@ -67,49 +92,50 @@ export default squircle;
 
 // --- tailwind-merge config ---------------------------------------------------
 
-const allRoundedGroups: string[] = [
-  "rounded",
-  "rounded-s",
-  "rounded-e",
-  "rounded-t",
-  "rounded-r",
-  "rounded-b",
-  "rounded-l",
-  "rounded-ss",
-  "rounded-se",
-  "rounded-es",
-  "rounded-ee",
-  "rounded-tl",
-  "rounded-tr",
-  "rounded-br",
-  "rounded-bl",
-];
+// Mirrors tailwind-merge's own `rounded` hierarchy: a later all-corners
+// utility cancels earlier side/corner utilities, a side cancels its two
+// corners, and a narrower utility never cancels a broader one — so
+// `squircle-md squircle-tl-sm` keeps both, refining one corner. Each squircle
+// group also conflicts with its `rounded` counterpart (and vice versa), since
+// both set the same border-radius properties. `squircle-amt-*` is orthogonal:
+// it controls corner shape, not radius, so radius classes never cancel it.
+const SIDE_CORNERS = {
+  t: ["tl", "tr"],
+  r: ["tr", "br"],
+  b: ["br", "bl"],
+  l: ["tl", "bl"],
+  s: ["ss", "es"],
+  e: ["se", "ee"],
+} as const;
+const CORNERS = ["tl", "tr", "br", "bl", "ss", "se", "es", "ee"] as const;
+const SIDES = Object.keys(SIDE_CORNERS) as (keyof typeof SIDE_CORNERS)[];
+const ALL_SUFFIXES: readonly string[] = ["", ...SIDES, ...CORNERS];
+
+const sq = (suffix: string) => (suffix ? `squircle-${suffix}` : "squircle");
+const rd = (suffix: string) => (suffix ? `rounded-${suffix}` : "rounded");
+
+const conflictingClassGroups: Record<string, string[]> = {
+  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd)],
+  rounded: ALL_SUFFIXES.map(sq),
+};
+for (const side of SIDES) {
+  const corners: readonly string[] = SIDE_CORNERS[side];
+  conflictingClassGroups[sq(side)] = [...corners.map(sq), rd(side), ...corners.map(rd)];
+  conflictingClassGroups[rd(side)] = [sq(side), ...corners.map(sq)];
+}
+for (const corner of CORNERS) {
+  conflictingClassGroups[sq(corner)] = [rd(corner)];
+  conflictingClassGroups[rd(corner)] = [sq(corner)];
+}
 
 export const squircleMergeConfig = {
   extend: {
     classGroups: {
-      squircle: [
-        { squircle: [() => true] },
-        { "squircle-t": [() => true] },
-        { "squircle-r": [() => true] },
-        { "squircle-b": [() => true] },
-        { "squircle-l": [() => true] },
-        { "squircle-s": [() => true] },
-        { "squircle-e": [() => true] },
-        { "squircle-tl": [() => true] },
-        { "squircle-tr": [() => true] },
-        { "squircle-br": [() => true] },
-        { "squircle-bl": [() => true] },
-        { "squircle-ss": [() => true] },
-        { "squircle-se": [() => true] },
-        { "squircle-es": [() => true] },
-        { "squircle-ee": [() => true] },
-      ],
+      ...Object.fromEntries(
+        ALL_SUFFIXES.map((suffix) => [sq(suffix), [{ [sq(suffix)]: [() => true] }]]),
+      ),
       "squircle-amt": [{ "squircle-amt": [() => true] }],
     },
-    conflictingClassGroups: {
-      squircle: [...allRoundedGroups, "squircle-amt"],
-      ...Object.fromEntries(allRoundedGroups.map((g) => [g, ["squircle", "squircle-amt"]])),
-    },
+    conflictingClassGroups,
   },
-} as const;
+};

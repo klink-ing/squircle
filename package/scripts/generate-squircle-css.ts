@@ -1,16 +1,44 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_AMT, SUPPORTS_RULE, VARIANTS, isComment, squircleCssObj } from "../src/variants";
+import {
+  DEFAULT_AMT,
+  NONE_RADIUS,
+  cornerShapeProp,
+  squircleFullCssObj,
+  SUPPORTS_RULE,
+  VARIANTS,
+  isComment,
+  squircleCssObj,
+  type CssLikeObject,
+} from "../src/variants";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Support arbitrary, bare, and theme values in one --value() call.
 // https://tailwindcss.com/docs/adding-custom-styles#functional-utilities
 const value = "--value(--radius-*, [length])";
+// The reset re-declares the radius purely so `--value()` still decides what
+// matches. Without it the utility would accept any suffix at all, turning a
+// typo like `rounded-tl-garbage` into a real class. It accepts the same values
+// the squircle-* utilities do — theme keys and arbitrary lengths, not paren
+// refs — and the radius it emits is the one core emits for the same class.
+const roundedValue = value;
 
-function renderUtility(name: string, props: string[]): string {
-  const obj = squircleCssObj(props, value);
+/**
+ * Re-declare a `rounded-*` utility so it also resets the corners it owns back
+ * to `round`. Tailwind keeps its own definition and emits it alongside this
+ * one, so this only has to contribute the reset — which is the initial value,
+ * hence inert unless a squircle class set a shape on the same element.
+ */
+function renderRoundedReset(name: string, props: string[], radius?: string): string {
+  const obj: CssLikeObject = {};
+  if (radius) for (const p of props) obj[p] = radius;
+  for (const p of props) obj[cornerShapeProp(p)] = "round";
+  return renderUtility(name, obj);
+}
+
+function renderUtility(name: string, obj: CssLikeObject): string {
   const lines: string[] = [`@utility ${name} {`];
 
   for (const [key, val] of Object.entries(obj)) {
@@ -40,13 +68,14 @@ function generateCss(): string {
   blocks.push(`\
 /* ── Squircle utilities ─────────────────────────────────────── */
 /* squircle-amt-[n] sets the superellipse amount (default ${DEFAULT_AMT})    */
-/* squircle-* mirrors rounded-* variants: all, t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
+/* squircle-* mirrors rounded-* variants: t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
+/* squircle-*-none and squircle-*-full are static, matching rounded-none and rounded-full */
 
+/* squircle-amt-[n] only sets the amount — the same thing writing
+   --squircle-amt yourself does. It applies no corner-shape of its own, so it
+   never reshapes corners that no squircle-* utility claimed. */
 @utility squircle-amt-* {
   --squircle-amt: --value(--squircle-amt-*, number, [number]);
-  ${SUPPORTS_RULE} {
-    corner-shape: superellipse(var(--squircle-amt));
-  }
 }`);
 
   for (const [suffix, entry] of Object.entries(VARIANTS)) {
@@ -55,8 +84,33 @@ function generateCss(): string {
       continue;
     }
 
-    const name = suffix ? `squircle-${suffix}-*` : "squircle-*";
-    blocks.push(renderUtility(name, entry));
+    const root = suffix ? `squircle-${suffix}` : "squircle";
+    // Static -none/-full first, then the functional utility — the same shape
+    // Tailwind uses for rounded-none/rounded-full. -none needs no correction.
+    blocks.push(
+      renderUtility(`${root}-none`, Object.fromEntries(entry.map((p) => [p, NONE_RADIUS]))),
+    );
+    blocks.push(renderUtility(`${root}-full`, squircleFullCssObj(entry)));
+    blocks.push(renderUtility(`${root}-*`, squircleCssObj(entry, value)));
+  }
+
+  blocks.push(`\
+/* ── rounded-* corner-shape resets ──────────────────────────── */
+/* Tailwind's rounded-* utilities only set a radius, so on their own they can't
+   take a corner back from a squircle. These re-declarations add the matching
+   corner-shape reset; Tailwind still emits its own rule for the radius. The
+   reset is the initial value, so it does nothing unless a squircle class set a
+   shape on the same element. rounded-*-none needs none: a zero radius has no
+   visible corner to shape. */`);
+
+  for (const [suffix, entry] of Object.entries(VARIANTS)) {
+    if (isComment(entry)) continue;
+
+    const root = suffix ? `rounded-${suffix}` : "rounded";
+    // The -full name is static, so it needs no value matching and can stay
+    // radius-free; the functional one has to keep --value() to stay bounded.
+    blocks.push(renderRoundedReset(`${root}-full`, entry));
+    blocks.push(renderRoundedReset(`${root}-*`, entry, roundedValue));
   }
 
   return blocks.join("\n\n") + "\n";

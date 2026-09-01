@@ -4,10 +4,10 @@ import { createCompiler, VARIANTS } from "./test-utils";
 const { compilePlugin } = createCompiler(import.meta.dirname);
 
 describe("plugin.ts utilities", () => {
-  it("squircle-amt-* sets --squircle-amt and corner-shape", async () => {
+  it("squircle-amt-* sets only --squircle-amt, applying no shape of its own", async () => {
     const css = await compilePlugin(["squircle-amt-[2]"]);
     expect(css).toContain("--squircle-amt: 2");
-    expect(css).toContain("corner-shape: superellipse(var(--squircle-amt))");
+    expect(css).not.toContain("corner-shape:");
   });
 
   for (const [suffix, props] of Object.entries(VARIANTS)) {
@@ -47,6 +47,49 @@ describe("plugin.ts utilities", () => {
       expect(css).toMatchSnapshot();
     });
   }
+
+  describe("static none/full utilities (matching rounded-none/rounded-full)", () => {
+    it("squircle-full uses calc(infinity * 1px) uncorrected, with corner-shape", async () => {
+      const css = await compilePlugin(["squircle-full"]);
+      expect(css).toContain("border-radius: calc(infinity * 1px)");
+      expect(css).toContain("corner-shape: superellipse(var(--squircle-amt, 2))");
+      // Correcting an infinite radius is a no-op, so no correction is emitted.
+      expect(css).not.toContain("pow(");
+      expect(css).not.toContain("--squircle-r");
+    });
+
+    it("squircle-full is emitted exactly once (no v3-compat theme duplicate)", async () => {
+      const css = await compilePlugin(["squircle-full"]);
+      expect(css.match(/\.squircle-full \{/g)).toHaveLength(1);
+      expect(css).not.toContain("9999px");
+    });
+
+    it("squircle-tl-full applies the full radius to corner variants", async () => {
+      const css = await compilePlugin(["squircle-tl-full"]);
+      expect(css).toContain("border-top-left-radius: calc(infinity * 1px)");
+    });
+
+    it("squircle-none is plain zero radius with no correction", async () => {
+      const css = await compilePlugin(["squircle-none"]);
+      expect(css).toContain("border-radius: 0");
+      expect(css).not.toContain("@supports");
+      expect(css).not.toContain("corner-shape");
+      expect(css.match(/\.squircle-none \{/g)).toHaveLength(1);
+    });
+
+    it("squircle-t-none zeroes side variants", async () => {
+      const css = await compilePlugin(["squircle-t-none"]);
+      expect(css).toContain("border-top-left-radius: 0");
+      expect(css).toContain("border-top-right-radius: 0");
+    });
+
+    it("custom prefix applies to static none/full utilities", async () => {
+      const css = await compilePlugin(["se-none", "se-full"], "prefix: se;");
+      expect(css).toContain(".se-none");
+      expect(css).toContain(".se-full");
+      expect(css).toContain("border-radius: calc(infinity * 1px)");
+    });
+  });
 
   describe("arbitrary and invalid values", () => {
     it("squircle-[1rem] emits literal length", async () => {
@@ -105,7 +148,7 @@ describe("plugin.ts custom options", () => {
   it("custom prefix works for amt utility", async () => {
     const css = await compilePlugin(["se-amt-[3]"], "prefix: se;");
     expect(css).toContain(".se-amt-\\[3\\]");
-    expect(css).toContain("corner-shape: superellipse");
+    expect(css).toContain("--squircle-amt: 3");
   });
 
   it("custom amt-var changes the CSS variable name", async () => {
@@ -117,7 +160,7 @@ describe("plugin.ts custom options", () => {
   it("custom amt-var applies to amt utility", async () => {
     const css = await compilePlugin(["squircle-amt-[3]"], "amt-var: --se-amt;");
     expect(css).toContain("--se-amt: 3");
-    expect(css).toContain("superellipse(var(--se-amt))");
+    expect(css).not.toContain("corner-shape:");
   });
 
   it("custom r-var changes the intermediate CSS variable name", async () => {
