@@ -82,49 +82,50 @@ export default squircle;
 
 // --- tailwind-merge config ---------------------------------------------------
 
-const allRoundedGroups: string[] = [
-  "rounded",
-  "rounded-s",
-  "rounded-e",
-  "rounded-t",
-  "rounded-r",
-  "rounded-b",
-  "rounded-l",
-  "rounded-ss",
-  "rounded-se",
-  "rounded-es",
-  "rounded-ee",
-  "rounded-tl",
-  "rounded-tr",
-  "rounded-br",
-  "rounded-bl",
-];
+// Mirrors tailwind-merge's own `rounded` hierarchy: a later all-corners
+// utility cancels earlier side/corner utilities, a side cancels its two
+// corners, and a narrower utility never cancels a broader one — so
+// `squircle-md squircle-tl-sm` keeps both, refining one corner. Each squircle
+// group also conflicts with its `rounded` counterpart (and vice versa), since
+// both set the same border-radius properties. `squircle-amt-*` is orthogonal:
+// it controls corner shape, not radius, so radius classes never cancel it.
+const SIDE_CORNERS = {
+  t: ["tl", "tr"],
+  r: ["tr", "br"],
+  b: ["br", "bl"],
+  l: ["tl", "bl"],
+  s: ["ss", "es"],
+  e: ["se", "ee"],
+} as const;
+const CORNERS = ["tl", "tr", "br", "bl", "ss", "se", "es", "ee"] as const;
+const SIDES = Object.keys(SIDE_CORNERS) as (keyof typeof SIDE_CORNERS)[];
+const ALL_SUFFIXES: readonly string[] = ["", ...SIDES, ...CORNERS];
+
+const sq = (suffix: string) => (suffix ? `squircle-${suffix}` : "squircle");
+const rd = (suffix: string) => (suffix ? `rounded-${suffix}` : "rounded");
+
+const conflictingClassGroups: Record<string, string[]> = {
+  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd)],
+  rounded: ALL_SUFFIXES.map(sq),
+};
+for (const side of SIDES) {
+  const corners: readonly string[] = SIDE_CORNERS[side];
+  conflictingClassGroups[sq(side)] = [...corners.map(sq), rd(side), ...corners.map(rd)];
+  conflictingClassGroups[rd(side)] = [sq(side), ...corners.map(sq)];
+}
+for (const corner of CORNERS) {
+  conflictingClassGroups[sq(corner)] = [rd(corner)];
+  conflictingClassGroups[rd(corner)] = [sq(corner)];
+}
 
 export const squircleMergeConfig = {
   extend: {
     classGroups: {
-      squircle: [
-        { squircle: [() => true] },
-        { "squircle-t": [() => true] },
-        { "squircle-r": [() => true] },
-        { "squircle-b": [() => true] },
-        { "squircle-l": [() => true] },
-        { "squircle-s": [() => true] },
-        { "squircle-e": [() => true] },
-        { "squircle-tl": [() => true] },
-        { "squircle-tr": [() => true] },
-        { "squircle-br": [() => true] },
-        { "squircle-bl": [() => true] },
-        { "squircle-ss": [() => true] },
-        { "squircle-se": [() => true] },
-        { "squircle-es": [() => true] },
-        { "squircle-ee": [() => true] },
-      ],
+      ...Object.fromEntries(
+        ALL_SUFFIXES.map((suffix) => [sq(suffix), [{ [sq(suffix)]: [() => true] }]]),
+      ),
       "squircle-amt": [{ "squircle-amt": [() => true] }],
     },
-    conflictingClassGroups: {
-      squircle: [...allRoundedGroups, "squircle-amt"],
-      ...Object.fromEntries(allRoundedGroups.map((g) => [g, ["squircle", "squircle-amt"]])),
-    },
+    conflictingClassGroups,
   },
-} as const;
+};
