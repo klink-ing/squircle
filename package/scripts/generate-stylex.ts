@@ -1,7 +1,13 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CAMEL_VARIANTS, VARIANTS, isComment, SUPPORTS_RULE } from "../src/variants";
+import {
+  CAMEL_VARIANTS,
+  VARIANTS,
+  cornerShapeProp,
+  isComment,
+  SUPPORTS_RULE,
+} from "../src/variants";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -30,7 +36,7 @@ function toCamel(kebab: string): string {
 /**
  * Render one `key: (radius, amt) => ({ ... })` entry for the
  * `stylex.create({...})` literal. The body is one CSS-property block per
- * radius prop plus a single `cornerShape` block, both gated by `@supports`.
+ * radius prop plus a matching shape block for each, both gated by `@supports`.
  *
  * Tweak the indentation, comment style, or fallback expression here — the
  * template file just stamps these strings into its create() call.
@@ -49,13 +55,24 @@ function renderVariant(side: string, kebabProps: string[]): string {
     })
     .join("\n");
 
+  // One shape block per radius prop, so a variant only reshapes the corners it
+  // actually sets a radius on. `border-radius` maps to the `cornerShape`
+  // shorthand, the narrower props to their per-corner longhands.
+  const shapeBlocks = kebabProps
+    .map((prop) =>
+      [
+        `${indent}${indent}${toCamel(cornerShapeProp(prop))}: {`,
+        `${indent}${indent}${indent}default: null,`,
+        `${indent}${indent}${indent}"${SUPPORTS_RULE}": \`superellipse(\${amt ?? 2})\`,`,
+        `${indent}${indent}},`,
+      ].join("\n"),
+    )
+    .join("\n");
+
   return [
     `${indent}${side}: (radius: string | number, amt: string | number | undefined) => ({`,
     radiusBlocks,
-    `${indent}${indent}cornerShape: {`,
-    `${indent}${indent}${indent}default: null,`,
-    `${indent}${indent}${indent}"${SUPPORTS_RULE}": \`superellipse(\${amt ?? 2})\`,`,
-    `${indent}${indent}},`,
+    shapeBlocks,
     `${indent}}),`,
   ].join("\n");
 }

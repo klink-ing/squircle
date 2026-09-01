@@ -7,7 +7,9 @@ import plugin from "tailwindcss/plugin";
 import {
   DEFAULT_AMOUNT_VAR_NAME,
   DEFAULT_R_VAR_NAME,
+  FULL_RADIUS,
   NONE_RADIUS,
+  cornerShapeProp,
   squircleFullCssObj,
   SUPPORTS_RULE,
   squircleCssObj,
@@ -72,6 +74,31 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
               string,
               string | Record<string, string>
             >,
+        },
+        { type: "length", values: radiusValues },
+      );
+
+      // Re-declare the matching rounded-* utility so it also resets the
+      // corners it owns back to `round`. Tailwind keeps its own definition and
+      // emits it after this one, so the radius still comes from core and this
+      // only contributes the reset — the initial value, so it is inert unless
+      // a squircle class set a shape on the same element. Without it a
+      // rounded-* utility cannot take a corner back from a squircle, since it
+      // only ever sets a radius.
+      const roundedName = suffix ? `rounded-${suffix}` : "rounded";
+      const reset = Object.fromEntries(props.map((p) => [cornerShapeProp(p), "round"]));
+      addUtilities({
+        [`.${roundedName}-full`]: {
+          ...Object.fromEntries(props.map((p) => [p, FULL_RADIUS])),
+          ...reset,
+        },
+      });
+      matchUtilities(
+        {
+          [roundedName]: (value: string) => ({
+            ...Object.fromEntries(props.map((p) => [p, value])),
+            ...reset,
+          }),
         },
         { type: "length", values: radiusValues },
       );

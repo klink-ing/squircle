@@ -20,6 +20,17 @@ export function correctedRadius(radius: string, amt: string = DEFAULT_AMT_CSS): 
 }
 
 /**
+ * The corner-shape property matching a radius property: `border-radius` maps to
+ * the four-corner `corner-shape` shorthand, `border-top-left-radius` to
+ * `corner-top-left-shape`, and so on. A utility that owns fewer than four
+ * corners has to use the longhands, or it reshapes corners whose radius it
+ * never set — `squircle-t-lg rounded-b-lg` would squircle the bottom corners.
+ */
+export function cornerShapeProp(radiusProp: string): string {
+  return radiusProp.replace(/^border-/, "corner-").replace(/radius$/, "shape");
+}
+
+/**
  * CSS object for the static `-full` utilities. The radius stays uncorrected —
  * an infinite radius times any positive factor is still infinite, and the
  * browser clamps it either way — so both branches share the same value, like
@@ -31,9 +42,10 @@ export function squircleFullCssObj(
 ): CssLikeObject {
   const obj: CssLikeObject = {};
   for (const p of props) obj[p] = FULL_RADIUS;
-  obj[SUPPORTS_RULE] = {
-    "corner-shape": getCornerShape(options.amtVar ?? DEFAULT_AMOUNT_VAR_NAME),
-  };
+  const shape = getCornerShape(options.amtVar ?? DEFAULT_AMOUNT_VAR_NAME);
+  const supportsBlock: Record<string, string> = {};
+  for (const p of props) supportsBlock[cornerShapeProp(p)] = shape;
+  obj[SUPPORTS_RULE] = supportsBlock;
   return obj;
 }
 
@@ -230,7 +242,6 @@ export function squircleCssObj(
   const cornerShape = getCornerShape(amtVar);
   const corrected = correctedRadius(radius, amtCss);
 
-  const cornerShapeKey = keyCase === "camel" ? "cornerShape" : "corner-shape";
   const propKey = (p: string) => (keyCase === "camel" ? toCamel(p) : p);
 
   const fallback: Record<string, string> = {};
@@ -243,7 +254,7 @@ export function squircleCssObj(
   } else {
     for (const p of props) supportsBlock[propKey(p)] = corrected;
   }
-  supportsBlock[cornerShapeKey] = cornerShape;
+  for (const p of props) supportsBlock[propKey(cornerShapeProp(p))] = cornerShape;
 
   return {
     ...fallback,

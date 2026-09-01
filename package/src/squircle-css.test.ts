@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCompiler, VARIANTS } from "./test-utils";
+import { cornerShapeProp } from "./variants";
 
 const { compileCss } = createCompiler(import.meta.dirname);
 
@@ -23,7 +24,11 @@ describe("squircle.css utilities", () => {
     it(`${className} applies corrected radius in @supports block`, async () => {
       const css = await compileCss([className]);
       expect(css).toContain("@supports (corner-shape: superellipse(2))");
-      expect(css).toContain("corner-shape: superellipse(var(--squircle-amt, 2))");
+      // Only the corners this variant sets a radius on get reshaped, so the
+      // all-corners utility uses the shorthand and the rest use longhands.
+      for (const prop of props) {
+        expect(css).toContain(`${cornerShapeProp(prop)}: superellipse(var(--squircle-amt, 2))`);
+      }
       expect(css).toContain("pow(2, -0.5)");
     });
 

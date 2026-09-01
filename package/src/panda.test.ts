@@ -70,7 +70,7 @@ describe("panda preset transform output", () => {
       {
         "@supports (corner-shape: superellipse(2))": {
           "borderTopLeftRadius": "calc(var(--radii-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))))",
-          "cornerShape": "superellipse(var(--squircle-amt, 2))",
+          "cornerTopLeftShape": "superellipse(var(--squircle-amt, 2))",
         },
         "borderTopLeftRadius": "var(--radii-md)",
       }
@@ -89,7 +89,8 @@ describe("panda preset transform output", () => {
           "--squircle-r": "calc(var(--radii-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))))",
           "borderTopLeftRadius": "var(--squircle-r)",
           "borderTopRightRadius": "var(--squircle-r)",
-          "cornerShape": "superellipse(var(--squircle-amt, 2))",
+          "cornerTopLeftShape": "superellipse(var(--squircle-amt, 2))",
+          "cornerTopRightShape": "superellipse(var(--squircle-amt, 2))",
         },
         "borderTopLeftRadius": "var(--radii-md)",
         "borderTopRightRadius": "var(--radii-md)",
