@@ -2,11 +2,17 @@
 import Layout from "../../components/Layout.astro";
 import DemoEmbed from "../../components/DemoEmbed";
 import StyleXDemo from "../../components/StyleXDemo";
+import PillStyleXDemo from "../../components/PillStyleXDemo";
 ---
 
 <Layout title="Demo: StyleX — @klinking/squircle">
   <h2 class="mb-2 text-2xl font-bold">StyleX</h2>
   <p class="mb-8 text-zinc-400">
+    Explore StyleX utilities for squircles and pills with visual examples.
+  </p>
+
+  <h3 class="mt-8 mb-4 text-lg font-semibold text-zinc-300">Squircle Corners</h3>
+  <p class="mb-6 text-sm text-zinc-400">
     Squircle utilities authored as StyleX <em>dynamic styles</em>. Each variant is a
     function that takes a <code class="text-zinc-300">radius</code> (and an optional
     superellipse <code class="text-zinc-300">amt</code>) and produces a
@@ -18,6 +24,13 @@ import StyleXDemo from "../../components/StyleXDemo";
   </p>
 
   <StyleXDemo client:only="react" />
+
+  <h3 class="mt-12 mb-6 text-lg font-semibold text-zinc-300">Pill Shapes</h3>
+  <p class="mb-6 text-sm text-zinc-400">
+    Pill-shaped rectangles with G2-continuous transitions using Houdini CSS Paint API.
+  </p>
+
+  <PillStyleXDemo client:only="react" />
 
   <h3 class="mt-12 mb-4 text-lg font-semibold text-zinc-300">Edit on StackBlitz</h3>
   <DemoEmbed

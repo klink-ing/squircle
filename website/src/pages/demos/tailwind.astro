@@ -2,17 +2,29 @@
 import Layout from "../../components/Layout.astro";
 import DemoEmbed from "../../components/DemoEmbed";
 import TailwindDemo from "../../components/TailwindDemo";
+import PillTailwindDemo from "../../components/PillTailwindDemo";
 ---
 
 <Layout title="Demo: Tailwind — @klinking/squircle">
   <h2 class="mb-2 text-2xl font-bold">Tailwind</h2>
   <p class="mb-8 text-zinc-400">
-    This demo compares regular <code class="text-zinc-300">rounded-*</code> corners
-    with squircle <code class="text-zinc-300">squircle-*</code> corners at several
-    radii.
+    Explore Tailwind utilities for squircles and pills with visual examples.
+  </p>
+
+  <h3 class="mt-12 mb-6 text-lg font-semibold text-zinc-300">Squircle Corners</h3>
+  <p class="mb-6 text-sm text-zinc-400">
+    Compare regular <code class="text-zinc-300">rounded-*</code> corners
+    with squircle <code class="text-zinc-300">squircle-*</code> corners at several radii.
   </p>
 
   <TailwindDemo client:load />
+
+  <h3 class="mt-12 mb-6 text-lg font-semibold text-zinc-300">Pill Shapes</h3>
+  <p class="mb-6 text-sm text-zinc-400">
+    Pill-shaped rectangles with G2-continuous transitions using Houdini CSS Paint API.
+  </p>
+
+  <PillTailwindDemo client:load />
 
   <h3 class="mt-12 mb-4 text-lg font-semibold text-zinc-300">Edit on StackBlitz</h3>
   <DemoEmbed
