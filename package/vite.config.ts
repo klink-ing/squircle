@@ -13,7 +13,7 @@ export default defineConfig({
       "panda/index": "./src/panda.ts",
       "panda-pill/index": "./src/panda-pill.ts",
       "stylex/index": "./src/stylex.ts",
-      "stylex-pill/index": "./src/stylex-pill.template.ts",
+      "stylex-pill/index": "./src/stylex-pill.ts",
       "pill-shape.worklet": "./src/pill-shape.worklet.ts",
     },
     format: "esm",
@@ -46,7 +46,14 @@ export default defineConfig({
       },
       test: {
         command: "echo 'All tests passed'",
-        dependsOn: ["test:tailwind", "test:css", "test:radius", "test:panda", "test:stylex", "test:pill"],
+        dependsOn: [
+          "test:tailwind",
+          "test:css",
+          "test:radius",
+          "test:panda",
+          "test:stylex",
+          "test:pill",
+        ],
       },
       "generate:stylex": {
         command: "tsx scripts/generate-stylex.ts",

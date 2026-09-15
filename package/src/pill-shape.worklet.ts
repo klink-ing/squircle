@@ -3,10 +3,6 @@
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 
-type PaintRenderingContext2D = CanvasRenderingContext2D & {
-  fillRect: (x: number, y: number, w: number, h: number) => void;
-};
-
 interface PaintSize {
   width: number;
   height: number;
@@ -18,16 +14,10 @@ interface PaintProps {
 
 export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
-    return [
-      "--pill-radius",
-      "--pill-width",
-      "--pill-height",
-      "--pill-squircle-amt",
-    ];
+    return ["--pill-radius", "--pill-width", "--pill-height", "--pill-squircle-amt"];
   }
 
-  // Parse CSS length value (e.g., "12px" -> 12)
-  private parseLength(value: unknown): number {
+  parseLength(value: unknown): number {
     if (typeof value === "string") {
       return parseFloat(value);
     }
@@ -37,14 +27,8 @@ export const paintDef = class PillShape implements PaintWorklet {
     return 0;
   }
 
-  paint(
-    ctx: CanvasRenderingContext2D,
-    size: PaintSize,
-    props: PaintProps,
-  ): void {
-    const radius = this.parseLength(
-      props.get("--pill-radius").toString(),
-    );
+  paint(ctx: CanvasRenderingContext2D, size: PaintSize, props: PaintProps): void {
+    const radius = this.parseLength(props.get("--pill-radius").toString());
     const width = size.width;
     const height = size.height;
 
@@ -70,7 +54,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     ctx.fill();
   }
 
-  private drawHorizontalPill(
+  drawHorizontalPill(
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
@@ -111,7 +95,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     ctx.closePath();
   }
 
-  private drawVerticalPill(
+  drawVerticalPill(
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
