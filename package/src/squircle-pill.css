@@ -1,0 +1,70 @@
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
+/* ── Register paint worklet input properties ──────────────────
+ * These must be registered for the paint function to receive them
+ * as dynamic values (animate, transition, etc.).
+ * ──────────────────────────────────────────────────────────── */
+
+@supports (background-image: paint(pill-shape)) {
+  @property --pill-radius {
+    syntax: "<length>";
+    initial-value: 0px;
+    inherits: false;
+  }
+
+  @property --pill-width {
+    syntax: "<length>";
+    initial-value: 100%;
+    inherits: false;
+  }
+
+  @property --pill-height {
+    syntax: "<length>";
+    initial-value: 100%;
+    inherits: false;
+  }
+
+  @property --pill-squircle-amt {
+    syntax: "<number>";
+    initial-value: 2;
+    inherits: false;
+  }
+
+  /* ── Base pill shape utility ──────────────────────────────
+   * Sets up the element to use the pill-shape paint worklet.
+   * The radius value determines both the corner radius and the
+   * pill shape curvature.
+   *
+   * Works with any radius value from Tailwind's scale:
+   *   squircle-pill-sm, squircle-pill-md, squircle-pill-lg, etc.
+   * ──────────────────────────────────────────────────────── */
+  [data-squircle-pill] {
+    /* Only use paint worklet for pill shape border */
+    background-image: paint(pill-shape);
+    /* Ensure the element can be painted (has dimensions) */
+    min-width: 1px;
+    min-height: 1px;
+    /* Size variables for paint function */
+    --pill-width: 100%;
+    --pill-height: 100%;
+  }
+}
+
+/* ── Fallback for browsers without Paint Worklet support ──────
+ * Use standard corner-shape and radius correction instead.
+ * The pill effect won't be perfect, but it will be close.
+ * ──────────────────────────────────────────────────────────── */
+
+@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape)) {
+  [data-squircle-pill] {
+    /* Use the squircle radius correction formula */
+    border-radius: calc(
+      var(--squircle-r, var(--pill-radius)) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
+    corner-shape: superellipse(var(--squircle-amt, 2));
+  }
+}

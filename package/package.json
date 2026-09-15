@@ -26,14 +26,28 @@
       "import": "./dist/tailwind/index.mjs"
     },
     "./tailwind/utils.css": "./dist/tailwind/utils.css",
+    "./tailwind-pill": {
+      "types": "./dist/tailwind-pill/index.d.mts",
+      "import": "./dist/tailwind-pill/index.mjs"
+    },
     "./radius-function.css": "./dist/radius-function.css",
+    "./squircle-pill.css": "./dist/squircle-pill.css",
+    "./pill-shape.worklet.js": "./dist/pill-shape.worklet.js",
     "./panda": {
       "types": "./dist/panda/index.d.mts",
       "import": "./dist/panda/index.mjs"
     },
+    "./panda-pill": {
+      "types": "./dist/panda-pill/index.d.mts",
+      "import": "./dist/panda-pill/index.mjs"
+    },
     "./stylex": {
       "types": "./dist/stylex/index.d.mts",
       "import": "./dist/stylex/index.mjs"
+    },
+    "./stylex-pill": {
+      "types": "./dist/stylex-pill/index.d.mts",
+      "import": "./dist/stylex-pill/index.mjs"
     }
   },
   "scripts": {

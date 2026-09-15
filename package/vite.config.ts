@@ -9,8 +9,12 @@ export default defineConfig({
   pack: {
     entry: {
       "tailwind/index": "./src/tailwind.ts",
+      "tailwind-pill/index": "./src/tailwind-pill.ts",
       "panda/index": "./src/panda.ts",
+      "panda-pill/index": "./src/panda-pill.ts",
       "stylex/index": "./src/stylex.ts",
+      "stylex-pill/index": "./src/stylex-pill.template.ts",
+      "pill-shape.worklet": "./src/pill-shape.worklet.ts",
     },
     format: "esm",
     dts: true,
@@ -37,16 +41,19 @@ export default defineConfig({
       "test:stylex": {
         command: "vp test run stylex",
       },
+      "test:pill": {
+        command: "vp test run pill-shape",
+      },
       test: {
         command: "echo 'All tests passed'",
-        dependsOn: ["test:tailwind", "test:css", "test:radius", "test:panda", "test:stylex"],
+        dependsOn: ["test:tailwind", "test:css", "test:radius", "test:panda", "test:stylex", "test:pill"],
       },
       "generate:stylex": {
         command: "tsx scripts/generate-stylex.ts",
       },
       build: {
         command:
-          "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts",
+          "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts && tsx scripts/copy-pill-assets.ts",
       },
     },
   },
