@@ -12,6 +12,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 
 - [Requirements](#requirements)
 - [Install & setup](#install--setup)
+- [Pill Shapes with Houdini CSS Paint Worklet](#pill-shapes-with-houdini-css-paint-worklet)
 - [How the radius correction works](#how-the-radius-correction-works)
 - [Browser support & fallback strategy](#browser-support--fallback-strategy)
 - [Why it called "squircle" when it use "superellipse()"?](#why-it-called-squircle-when-it-use-superellipse)
