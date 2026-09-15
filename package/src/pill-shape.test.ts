@@ -52,7 +52,6 @@ describe("pill-shape worklet", () => {
   describe("pill shape algorithms", () => {
     it("should handle horizontal pills (width > height)", () => {
       // Verify the algorithm logic: left/right semicircles, straight top/bottom
-      const width = 200;
       const height = 100;
       const radius = 50; // Should clamp to height/2 = 50
 
@@ -69,7 +68,6 @@ describe("pill-shape worklet", () => {
     it("should handle vertical pills (height > width)", () => {
       // Verify the algorithm logic: top/bottom semicircles, straight left/right
       const width = 100;
-      const height = 200;
       const radius = 50; // Should clamp to width/2 = 50
 
       expect(Math.min(radius, width / 2)).toBe(50);

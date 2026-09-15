@@ -4,13 +4,7 @@
  */
 
 import { definePreset, type PropertyConfig } from "@pandacss/dev";
-import {
-  CAMEL_VARIANTS,
-  DEFAULT_AMOUNT_VAR_NAME,
-  NONE_RADIUS,
-  SUPPORTS_RULE,
-  variantEntries,
-} from "./variants";
+import { CAMEL_VARIANTS, DEFAULT_AMOUNT_VAR_NAME, NONE_RADIUS, variantEntries } from "./variants";
 
 export interface SquirclePillPandaPresetOptions {
   /** CSS custom property name for the pill radius (default: "--pill-radius") */
