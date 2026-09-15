@@ -443,6 +443,226 @@ The parameters are deliberately untyped so relative units (`em`, `rem`, containe
 
 </details>
 
+## Pill Shapes with Houdini CSS Paint Worklet
+
+The standard `corner-shape: superellipse()` can't perfectly render pill shapes because it creates hard corners where the curved ends meet the straight sides. **Pill shapes** use a Houdini CSS Paint API worklet to render mathematically smooth, G2-continuous transitions from semicircular ends to straight edges—ideal for button pills, badge pills, and other pill-shaped UI elements.
+
+<details>
+<summary><strong>Tailwind CSS v4</strong></summary>
+
+### 1. Install the pill plugin
+
+```bash
+npm install @klinking/squircle
+```
+
+### 2. Add the pill plugin to your CSS
+
+```css
+@import "tailwindcss";
+@import "@klinking/squircle/tailwind-pill";
+@import "@klinking/squircle/squircle-pill.css";
+```
+
+Or with the JS plugin version:
+
+```css
+@import "tailwindcss";
+@plugin "@klinking/squircle/tailwind-pill";
+@import "@klinking/squircle/squircle-pill.css";
+```
+
+### 3. Register the paint worklet
+
+In your entry point (e.g., `main.ts`), register the Houdini paint worklet:
+
+```typescript
+import pillWorklet from "@klinking/squircle/pill-shape.worklet";
+
+// Register the paint worklet
+CSS.paintWorklet.addModule(
+  URL.createObjectURL(
+    new Blob([await (await fetch(pillWorklet)).text()], {
+      type: "application/javascript",
+    })
+  )
+);
+```
+
+Or via a module worker:
+
+```typescript
+// Create a blob URL for the worklet
+const workletUrl = new URL("@klinking/squircle/pill-shape.worklet", import.meta.url);
+CSS.paintWorklet.addModule(workletUrl.href);
+```
+
+### 4. Use the pill utilities
+
+Use `squircle-pill-*` classes just like `squircle-*`, with all the same variants:
+
+```html
+<!-- Pill-shaped button -->
+<button class="squircle-pill-full px-4 py-2 bg-blue-500 text-white">
+  Click me
+</button>
+
+<!-- Pill badge with custom radius -->
+<div class="squircle-pill-md bg-green-100 text-green-900">New</div>
+
+<!-- Pill with side variants -->
+<div class="squircle-pill-t-lg squircle-pill-b-sm">…</div>
+
+<!-- Customize superellipse transition smoothness -->
+<div class="squircle-pill-lg squircle-pill-amt-2.5">…</div>
+```
+
+All values (`sm`, `md`, `lg`, `xl`, arbitrary lengths) work the same as `squircle-*`.
+
+### Browser support and fallback
+
+- **Chrome/Edge 89+**: Full Houdini CSS Paint API support — perfect pill shapes with G2-continuous curves
+- **Safari/Firefox**: Graceful fallback to `corner-shape: superellipse()` which approximates a pill shape
+
+</details>
+
+<details>
+<summary><strong>Panda CSS</strong></summary>
+
+### 1. Install Panda and the pill preset
+
+```bash
+npm install -D @pandacss/dev @klinking/squircle
+```
+
+### 2. Register the pill preset
+
+```ts
+// panda.config.ts
+import { defineConfig } from "@pandacss/dev";
+import squirclePillPreset from "@klinking/squircle/panda-pill";
+
+export default defineConfig({
+  presets: ["@pandacss/dev/presets", squirclePillPreset()],
+  // ... your other config
+});
+```
+
+### 3. Register the paint worklet
+
+In your entry point:
+
+```typescript
+import pillWorklet from "@klinking/squircle/pill-shape.worklet";
+
+const workletUrl = new URL("@klinking/squircle/pill-shape.worklet", import.meta.url);
+CSS.paintWorklet.addModule(workletUrl.href);
+```
+
+### 4. Import the CSS
+
+```css
+@import "@klinking/squircle/squircle-pill.css";
+```
+
+### 5. Use the pill properties
+
+The naming mirrors Panda's border-radius convention — substitute `squirclePill` ↔ `squircle`:
+
+```tsx
+import { css, cva } from "../styled-system/css";
+
+// All four corners
+<div className={css({ squirclePill: "md", padding: "4" })} />
+
+// Single corner
+<div className={css({ squirclePillTopLeft: "lg" })} />
+
+// Customize transition smoothness
+<div className={css({ squirclePill: "full", squirclePillAmt: 2.5 })} />
+
+// In a recipe
+const pillButton = cva({
+  base: { squirclePill: "full", paddingInline: "4" },
+  variants: { size: { sm: { squirclePill: "sm" } } },
+});
+```
+
+</details>
+
+<details>
+<summary><strong>StyleX</strong></summary>
+
+### 1. Install StyleX and the pill utilities
+
+```bash
+npm install @stylexjs/stylex @klinking/squircle
+```
+
+### 2. Register the paint worklet
+
+In your entry point:
+
+```typescript
+import pillWorklet from "@klinking/squircle/pill-shape.worklet";
+
+const workletUrl = new URL("@klinking/squircle/pill-shape.worklet", import.meta.url);
+CSS.paintWorklet.addModule(workletUrl.href);
+```
+
+### 3. Import the CSS and utilities
+
+```css
+@import "@klinking/squircle/squircle-pill.css";
+```
+
+```typescript
+import * as stylex from "@stylexjs/stylex";
+import { squirclePill } from "@klinking/squircle/stylex-pill";
+```
+
+### 4. Use the pill functions
+
+Each function takes a radius and optional superellipse amount:
+
+```tsx
+// Pill-shaped button
+<button {...stylex.props(squirclePill.all("100%"), styles.button)}>
+  Click me
+</button>
+
+// Pill badge with custom radius
+<div {...stylex.props(squirclePill.all("1rem"))}>
+  New
+</div>
+
+// Customize transition smoothness
+<div {...stylex.props(squirclePill.all("1.5rem", 2.5))}>
+  …
+</div>
+
+// Single corner variant
+<div {...stylex.props(squirclePill.topLeft("0.75rem"))}>
+  …
+</div>
+```
+
+All 15 variants are available: `all`, `top`, `right`, `bottom`, `left`, `start`, `end`, `topLeft`, `topRight`, `bottomRight`, `bottomLeft`, `startStart`, `startEnd`, `endStart`, `endEnd`.
+
+</details>
+
+### How pill shapes work
+
+Pill shapes render using Houdini's CSS Paint API to draw:
+
+- **Horizontal pills** (width > height): Semicircles on left and right, straight top and bottom edges
+- **Vertical pills** (height > width): Semicircles on top and bottom, straight left and right edges
+- **Circular pills** (width = height): Full circles
+
+The worklet computes G2-continuous Bezier curves at junctions between the semicircles and straight edges, using cubic Bezier approximation (magic constant `0.55228`) to smoothly transition from the semicircle's constant curvature to the straight edge's zero curvature.
+
+**Fallback for unsupported browsers:** Falls back to `corner-shape: superellipse()` which approximates a pill shape without perfect mathematical continuity.
+
 ## How the radius correction works
 
 A superellipse at the same outer `border-radius` as a circular arc pokes further into the corner. The fix is to scale the radius up by some maths, so the _apparent_ roundness matches what you'd get from `rounded-*`. That is, the distance from the corner to the maximum pokage will match for both the superelliptical corner and the circular corner.
