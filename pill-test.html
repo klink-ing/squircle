@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pill Shape Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./package/dist/squircle-pill.css" />
+    <script>
+      // Register the paint worklet
+      if ("paintWorklet" in CSS) {
+        CSS.paintWorklet.addModule("./package/dist/pill-shape.worklet.js");
+      }
+    </script>
+    <style>
+      body {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        min-height: 100vh;
+        padding: 2rem;
+      }
+
+      .demo-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 2rem;
+      }
+
+      .pill {
+        width: 200px;
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+      }
+
+      .bg-blue {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      }
+      .bg-purple {
+        background: linear-gradient(135deg, #a855f7, #7e22ce);
+      }
+      .bg-pink {
+        background: linear-gradient(135deg, #ec4899, #be185d);
+      }
+      .bg-green {
+        background: linear-gradient(135deg, #10b981, #047857);
+      }
+
+      section {
+        margin: 3rem 0;
+      }
+
+      h2 {
+        color: #e2e8f0;
+        margin-bottom: 2rem;
+        font-size: 1.5rem;
+        font-weight: bold;
+      }
+
+      .demo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+      }
+
+      label {
+        color: #94a3b8;
+        font-size: 0.875rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mx-auto max-w-6xl">
+      <h1 class="mb-8 text-4xl font-bold text-white">Pill Shape Demo with Houdini Paint Worklet</h1>
+
+      <section>
+        <h2>Perfect Pills (Tailwind)</h2>
+        <p class="mb-6 text-gray-400">
+          Automatic radius calculation — radius = min(width, height) / 2
+        </p>
+        <div class="demo-grid">
+          <div class="demo-box">
+            <div class="pill bg-blue squircle-pill">Perfect Pill</div>
+            <label>squircle-pill</label>
+          </div>
+
+          <div class="demo-box">
+            <div class="pill bg-purple squircle-pill-t">Top Only</div>
+            <label>squircle-pill-t</label>
+          </div>
+
+          <div class="demo-box">
+            <div class="pill bg-pink squircle-pill-b">Bottom Only</div>
+            <label>squircle-pill-b</label>
+          </div>
+
+          <div class="demo-box">
+            <div class="pill bg-green squircle-pill-l">Left Only</div>
+            <label>squircle-pill-l</label>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Different Aspect Ratios</h2>
+        <div class="demo-grid">
+          <div class="demo-box">
+            <div
+              style="
+                width: 300px;
+                height: 80px;
+                background: linear-gradient(135deg, #06b6d4, #0891b2);
+              "
+              class="squircle-pill flex items-center justify-center rounded-lg font-bold text-white"
+            >
+              Wide Pill
+            </div>
+            <label>300×80px</label>
+          </div>
+
+          <div class="demo-box">
+            <div
+              style="
+                width: 80px;
+                height: 300px;
+                background: linear-gradient(135deg, #f59e0b, #d97706);
+              "
+              class="squircle-pill flex items-center justify-center rounded-lg font-bold text-white"
+            >
+              Tall Pill
+            </div>
+            <label>80×300px</label>
+          </div>
+
+          <div class="demo-box">
+            <div
+              style="
+                width: 100px;
+                height: 100px;
+                background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+              "
+              class="squircle-pill flex items-center justify-center rounded-lg font-bold text-white"
+            >
+              Circle
+            </div>
+            <label>100×100px (circle)</label>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Use Cases</h2>
+        <div class="space-y-4">
+          <div>
+            <p class="mb-3 text-gray-400">Button</p>
+            <button
+              class="squircle-pill rounded-lg bg-blue-500 px-6 py-3 font-medium text-white hover:bg-blue-600"
+            >
+              Click Me
+            </button>
+          </div>
+
+          <div>
+            <p class="mb-3 text-gray-400">Badge</p>
+            <span
+              class="squircle-pill inline-block rounded-lg bg-green-500 px-4 py-2 font-semibold text-white"
+            >
+              New
+            </span>
+          </div>
+
+          <div>
+            <p class="mb-3 text-gray-400">Avatar Pill</p>
+            <div
+              class="squircle-pill inline-flex items-center gap-3 rounded-lg bg-purple-500 px-4 py-2 text-white"
+            >
+              <div class="squircle-pill h-8 w-8 rounded-lg bg-purple-300"></div>
+              <span>User</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>No CSS Variables Needed!</h2>
+        <p class="text-gray-400">
+          The paint worklet automatically calculates the perfect pill radius from element
+          dimensions. No need to pass --pill-width, --pill-height, or --pill-radius.
+        </p>
+      </section>
+    </div>
+  </body>
+</html>

@@ -8,13 +8,9 @@ interface PaintSize {
   height: number;
 }
 
-interface PaintProps {
-  get: (name: string) => Record<string, unknown>;
-}
-
 export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
-    return ["--pill-radius", "--pill-width", "--pill-height", "--pill-squircle-amt"];
+    return ["--pill-squircle-amt"];
   }
 
   parseLength(value: unknown): number {
@@ -27,10 +23,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     return 0;
   }
 
-  paint(ctx: CanvasRenderingContext2D, size: PaintSize, props: PaintProps): void {
-    const radius = this.parseLength(props.get("--pill-radius").toString());
+  paint(ctx: CanvasRenderingContext2D, size: PaintSize): void {
     const width = size.width;
     const height = size.height;
+    const radius = Math.min(width, height) / 2;
 
     ctx.fillStyle = "currentColor";
     ctx.beginPath();

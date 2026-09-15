@@ -8,173 +8,180 @@ import * as stylex from "@stylexjs/stylex";
 /**
  * StyleX pill shape utilities — for use with Houdini paint worklet.
  *
- * Each variant is a *dynamic* style — a function that takes a `radius`
- * and produces paint worklet configuration with fallback to corner-shape.
+ * Single base pill utility with automatic radius calculation and side-specific variants.
  *
  * ```tsx
  * import * as stylex from '@stylexjs/stylex';
  * import { squirclePill } from '@klinking/squircle/stylex-pill';
  *
- * <div {...stylex.props(squirclePill.all('1rem'))} />
- * <div {...stylex.props(squirclePill.topLeft('0.5rem', 2.5))} />
+ * <div {...stylex.props(squirclePill.all())} />
+ * <div {...stylex.props(squirclePill.top())} />
+ * <div {...stylex.props(squirclePill.all(2.5))} /> // with amt parameter
  * ```
  *
- * If `amt` is omitted, the pill transition uses the default exponent of `2`.
- * Pass `amt` explicitly to tune the superellipse transition curves.
- *
- * **Constraint** — StyleX's babel plugin requires `stylex.create(...)` to
- * receive a fully-static object literal. All 15 variants are spelled out
- * in the generated output.
- *
- * This is a template file. To regenerate the actual stylex-pill.ts:
- * Update scripts/generate-stylex.ts to support pill generation, then run:
- * `tsx package/scripts/generate-stylex.ts`
+ * The `amt` parameter is optional and controls the superellipse transition smoothness.
+ * If omitted, defaults to `2`.
  */
 export const squirclePill = stylex.create({
-  // --- All corners ---
-
-  all: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
-    "--pill-width": "100%",
-    "--pill-height": "100%",
+  all: (amt: string | number | undefined = 2) => ({
     "@supports (background-image: paint(pill-shape))": {
       backgroundImage: "paint(pill-shape)",
     },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderRadius: radius,
-      cornerShape: `superellipse(${amt ?? 2})`,
+      borderRadius: "50%",
+      cornerShape: `superellipse(${amt})`,
     },
   }),
 
-  // --- Per-side physical variants ---
-
-  top: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  top: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderTopLeftRadius: radius,
-      borderTopRightRadius: radius,
-      cornerTopLeftShape: `superellipse(${amt ?? 2})`,
-      cornerTopRightShape: `superellipse(${amt ?? 2})`,
+      borderTopLeftRadius: "50%",
+      borderTopRightRadius: "50%",
+      cornerTopLeftShape: `superellipse(${amt})`,
+      cornerTopRightShape: `superellipse(${amt})`,
     },
   }),
 
-  right: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  right: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderTopRightRadius: radius,
-      borderBottomRightRadius: radius,
-      cornerTopRightShape: `superellipse(${amt ?? 2})`,
-      cornerBottomRightShape: `superellipse(${amt ?? 2})`,
+      borderTopRightRadius: "50%",
+      borderBottomRightRadius: "50%",
+      cornerTopRightShape: `superellipse(${amt})`,
+      cornerBottomRightShape: `superellipse(${amt})`,
     },
   }),
 
-  bottom: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  bottom: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderBottomLeftRadius: radius,
-      borderBottomRightRadius: radius,
-      cornerBottomLeftShape: `superellipse(${amt ?? 2})`,
-      cornerBottomRightShape: `superellipse(${amt ?? 2})`,
+      borderBottomLeftRadius: "50%",
+      borderBottomRightRadius: "50%",
+      cornerBottomLeftShape: `superellipse(${amt})`,
+      cornerBottomRightShape: `superellipse(${amt})`,
     },
   }),
 
-  left: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  left: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderTopLeftRadius: radius,
-      borderBottomLeftRadius: radius,
-      cornerTopLeftShape: `superellipse(${amt ?? 2})`,
-      cornerBottomLeftShape: `superellipse(${amt ?? 2})`,
+      borderTopLeftRadius: "50%",
+      borderBottomLeftRadius: "50%",
+      cornerTopLeftShape: `superellipse(${amt})`,
+      cornerBottomLeftShape: `superellipse(${amt})`,
     },
   }),
 
-  // --- Per-side logical variants ---
-
-  start: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  start: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderStartStartRadius: radius,
-      borderEndStartRadius: radius,
-      cornerStartStartShape: `superellipse(${amt ?? 2})`,
-      cornerEndStartShape: `superellipse(${amt ?? 2})`,
+      borderStartStartRadius: "50%",
+      borderEndStartRadius: "50%",
+      cornerStartStartShape: `superellipse(${amt})`,
+      cornerEndStartShape: `superellipse(${amt})`,
     },
   }),
 
-  end: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  end: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderStartEndRadius: radius,
-      borderEndEndRadius: radius,
-      cornerStartEndShape: `superellipse(${amt ?? 2})`,
-      cornerEndEndShape: `superellipse(${amt ?? 2})`,
+      borderStartEndRadius: "50%",
+      borderEndEndRadius: "50%",
+      cornerStartEndShape: `superellipse(${amt})`,
+      cornerEndEndShape: `superellipse(${amt})`,
     },
   }),
 
-  // --- Per-corner physical variants ---
-
-  topLeft: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  topLeft: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderTopLeftRadius: radius,
-      cornerTopLeftShape: `superellipse(${amt ?? 2})`,
+      borderTopLeftRadius: "50%",
+      cornerTopLeftShape: `superellipse(${amt})`,
     },
   }),
 
-  topRight: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  topRight: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderTopRightRadius: radius,
-      cornerTopRightShape: `superellipse(${amt ?? 2})`,
+      borderTopRightRadius: "50%",
+      cornerTopRightShape: `superellipse(${amt})`,
     },
   }),
 
-  bottomRight: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  bottomRight: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderBottomRightRadius: radius,
-      cornerBottomRightShape: `superellipse(${amt ?? 2})`,
+      borderBottomRightRadius: "50%",
+      cornerBottomRightShape: `superellipse(${amt})`,
     },
   }),
 
-  bottomLeft: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  bottomLeft: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderBottomLeftRadius: radius,
-      cornerBottomLeftShape: `superellipse(${amt ?? 2})`,
+      borderBottomLeftRadius: "50%",
+      cornerBottomLeftShape: `superellipse(${amt})`,
     },
   }),
 
-  // --- Per-corner logical variants ---
-
-  startStart: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  startStart: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderStartStartRadius: radius,
-      cornerStartStartShape: `superellipse(${amt ?? 2})`,
+      borderStartStartRadius: "50%",
+      cornerStartStartShape: `superellipse(${amt})`,
     },
   }),
 
-  startEnd: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  startEnd: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderStartEndRadius: radius,
-      cornerStartEndShape: `superellipse(${amt ?? 2})`,
+      borderStartEndRadius: "50%",
+      cornerStartEndShape: `superellipse(${amt})`,
     },
   }),
 
-  endStart: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  endStart: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderEndStartRadius: radius,
-      cornerEndStartShape: `superellipse(${amt ?? 2})`,
+      borderEndStartRadius: "50%",
+      cornerEndStartShape: `superellipse(${amt})`,
     },
   }),
 
-  endEnd: (radius: string | number, amt: string | number | undefined) => ({
-    "--pill-radius": radius,
+  endEnd: (amt: string | number | undefined = 2) => ({
+    "@supports (background-image: paint(pill-shape))": {
+      backgroundImage: "paint(pill-shape)",
+    },
     "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-      borderEndEndRadius: radius,
-      cornerEndEndShape: `superellipse(${amt ?? 2})`,
+      borderEndEndRadius: "50%",
+      cornerEndEndShape: `superellipse(${amt})`,
     },
   }),
 });
