@@ -62,9 +62,12 @@ export default defineConfig({
         command:
           "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts && tsx scripts/copy-pill-assets.ts",
       },
+      "build:pill": {
+        command: "vp pack",
+      },
       "pill-dev": {
-        command: "vp pack && vp dev",
-        dependsOn: [],
+        command: "vp dev",
+        dependsOn: ["build:pill"],
       },
     },
   },
