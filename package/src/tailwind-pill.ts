@@ -27,7 +27,9 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
         "background-image": "paint(pill-shape)",
       },
       "@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape))": {
-        "border-radius": "50%",
+        // A pill is a fully-rounded rectangle. `50%` resolves to an ellipse on
+        // any non-square element, which is never the intended shape.
+        "border-radius": "9999px",
         "corner-shape": `superellipse(var(${amtVar}, 2))`,
       },
     };

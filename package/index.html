@@ -5,39 +5,139 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pill Shape Dev</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      // Register the paint worklet from the dev build
+    <script type="module">
+      // Load the worklet straight from source: Vite compiles the TypeScript on
+      // the fly, so edits to src/pill-shape.worklet.ts take effect on reload
+      // without a dist/ rebuild. (Editing it triggers a full reload, because a
+      // registered paint worklet can never be replaced in a live document.)
       if ("paintWorklet" in CSS) {
-        CSS.paintWorklet.addModule("./dist/pill-shape.worklet.js");
+        try {
+          await CSS.paintWorklet.addModule("/src/pill-shape.worklet.ts");
+          document.documentElement.dataset.worklet = "loaded";
+        } catch (error) {
+          document.documentElement.dataset.worklet = "failed";
+          console.error("[pill-dev] paint worklet failed to load:", error);
+        }
+      } else {
+        document.documentElement.dataset.worklet = "unsupported";
       }
     </script>
     <style>
-      .pill-shape {
-        border-radius: 50%;
-        background-image: paint(pill-shape);
+      /* Registering the property lets the paint worklet see typed values and
+         repaint as the amount animates. `inherits: true` so one control on the
+         page can drive every pill at once. */
+      @property --pill-squircle-amt {
+        syntax: "<number>";
+        initial-value: 2;
+        inherits: true;
       }
 
+      @property --pill-ease-falloff {
+        syntax: "<number>";
+        initial-value: 2;
+        inherits: true;
+      }
+
+      .pill-shape {
+        /* No border-radius here on purpose: the worklet paints the pill, and a
+           border-radius would clip that painting back into an ellipse. */
+        background-image: paint(pill-shape);
+        min-width: 1px;
+        min-height: 1px;
+      }
+
+      /* Fallback: a pill is a large corner radius. `50%` is an ellipse on any
+         non-square box, which is never the shape we want. */
       @supports not (background-image: paint(pill-shape)) {
         .pill-shape {
-          border-radius: 50%;
+          border-radius: 9999px;
         }
+      }
+
+      .fill-blue {
+        --pill-fill: #3b82f6;
+      }
+      .fill-green {
+        --pill-fill: #22c55e;
+      }
+      .fill-purple {
+        --pill-fill: #a855f7;
+      }
+      .fill-indigo {
+        --pill-fill: #6366f1;
+      }
+      .fill-pink {
+        --pill-fill: #ec4899;
+      }
+      .fill-orange {
+        --pill-fill: #f97316;
+      }
+      .fill-red {
+        --pill-fill: #dc2626;
+      }
+      .fill-slate {
+        --pill-fill: #e2e8f0;
+      }
+      .fill-blue-soft {
+        --pill-fill: #dbeafe;
+      }
+      .fill-green-soft {
+        --pill-fill: #dcfce7;
+      }
+      .fill-yellow-soft {
+        --pill-fill: #fef9c3;
       }
     </style>
   </head>
   <body class="bg-gray-50 p-8">
     <div class="mx-auto max-w-4xl">
       <h1 class="mb-2 text-4xl font-bold">Pill Shape Dev</h1>
-      <p class="mb-8 text-gray-600">
+      <p class="mb-6 text-gray-600">
         Testing squircle-pill utilities with Houdini paint worklet (hot reload enabled)
       </p>
+
+      <label class="mb-2 flex max-w-xl items-center gap-3 text-sm">
+        <span class="w-44 font-semibold text-gray-700">--pill-squircle-amt</span>
+        <input id="amt" type="range" min="1" max="4" step="0.05" value="2" class="flex-1" />
+        <code id="amtOut" class="w-32 text-right text-gray-600">2.00</code>
+      </label>
+      <label class="mb-6 flex max-w-xl items-center gap-3 text-sm">
+        <span class="w-44 font-semibold text-gray-700">--pill-ease-falloff</span>
+        <input id="falloff" type="range" min="2" max="8" step="0.05" value="2" class="flex-1" />
+        <code id="falloffOut" class="w-32 text-right text-gray-600">2.00</code>
+      </label>
+      <p class="mb-8 max-w-xl text-xs leading-relaxed text-gray-500">
+        The caps stay <strong>circular arcs</strong>. <strong>amt</strong> sets how much of each cap
+        is handed to the easing — <strong>1</strong> is a bare semicircle, identical to
+        <code>border-radius: 9999px</code> and only G1. <strong>falloff</strong> stretches that
+        easing further along the flat edge <em>without</em> spending more of the arc, so raise it
+        for a long, soft transition with ends that stay round. Both are capped by the room
+        available, so a square renders as a plain circle regardless.
+      </p>
+
+      <script>
+        const controls = [
+          ["amt", "--pill-squircle-amt"],
+          ["falloff", "--pill-ease-falloff"],
+        ];
+        const sync = () => {
+          for (const [id, prop] of controls) {
+            const input = document.getElementById(id);
+            document.documentElement.style.setProperty(prop, input.value);
+            document.getElementById(`${id}Out`).textContent = (+input.value).toFixed(2);
+          }
+        };
+        for (const [id] of controls) document.getElementById(id).addEventListener("input", sync);
+        sync();
+      </script>
 
       <section class="mb-12">
         <h2 class="mb-4 text-2xl font-bold">Perfect Pills</h2>
         <div class="flex flex-wrap gap-4">
-          <button class="pill-shape bg-blue-500 px-6 py-2 font-semibold text-white">Button</button>
-          <div class="pill-shape bg-green-500 px-8 py-3 text-white">Badge</div>
+          <button class="pill-shape fill-blue px-6 py-2 font-semibold text-white">Button</button>
+          <div class="pill-shape fill-green px-8 py-3 text-white">Badge</div>
           <div
-            class="pill-shape flex h-16 w-16 items-center justify-center bg-purple-500 px-4 py-4 text-white"
+            class="pill-shape fill-purple flex h-16 w-16 items-center justify-center px-4 py-4 text-white"
           >
             ✓
           </div>
@@ -47,11 +147,9 @@
       <section class="mb-12">
         <h2 class="mb-4 text-2xl font-bold">Different Aspect Ratios</h2>
         <div class="flex flex-wrap items-center gap-4">
-          <div class="pill-shape bg-indigo-500 px-12 py-2 text-white">Wide</div>
-          <div class="pill-shape bg-pink-500 px-2 py-12 text-white">Tall</div>
-          <div
-            class="pill-shape flex items-center justify-center bg-orange-500 px-4 py-4 text-white"
-          >
+          <div class="pill-shape fill-indigo px-12 py-2 text-white">Wide</div>
+          <div class="pill-shape fill-pink px-2 py-12 text-white">Tall</div>
+          <div class="pill-shape fill-orange flex items-center justify-center px-4 py-4 text-white">
             Square
           </div>
         </div>
@@ -63,34 +161,27 @@
           <div>
             <p class="mb-3 font-semibold text-gray-600">Buttons</p>
             <div class="flex gap-2">
-              <button
-                class="pill-shape bg-blue-600 px-6 py-2 font-semibold text-white transition hover:bg-blue-700"
-              >
+              <button class="pill-shape fill-blue px-6 py-2 font-semibold text-white">
                 Primary
               </button>
-              <button
-                class="pill-shape bg-gray-200 px-6 py-2 font-semibold text-gray-800 transition hover:bg-gray-300"
-              >
+              <button class="pill-shape fill-slate px-6 py-2 font-semibold text-gray-800">
                 Secondary
               </button>
-              <button
-                class="pill-shape bg-red-600 px-6 py-2 font-semibold text-white transition hover:bg-red-700"
-              >
-                Danger
-              </button>
+              <button class="pill-shape fill-red px-6 py-2 font-semibold text-white">Danger</button>
             </div>
           </div>
 
           <div>
             <p class="mb-3 font-semibold text-gray-600">Tags & Badges</p>
             <div class="flex flex-wrap gap-2">
-              <span class="pill-shape bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800"
+              <span class="pill-shape fill-blue-soft px-3 py-1 text-sm font-medium text-blue-800"
                 >Tag</span
               >
-              <span class="pill-shape bg-green-100 px-3 py-1 text-sm font-medium text-green-800"
+              <span class="pill-shape fill-green-soft px-3 py-1 text-sm font-medium text-green-800"
                 >Status</span
               >
-              <span class="pill-shape bg-yellow-100 px-3 py-1 text-sm font-medium text-yellow-800"
+              <span
+                class="pill-shape fill-yellow-soft px-3 py-1 text-sm font-medium text-yellow-800"
                 >Warning</span
               >
             </div>
@@ -100,17 +191,17 @@
             <p class="mb-3 font-semibold text-gray-600">Icon Buttons</p>
             <div class="flex gap-2">
               <button
-                class="pill-shape flex h-10 w-10 items-center justify-center bg-gray-100 text-gray-800 transition hover:bg-gray-200"
+                class="pill-shape fill-slate flex h-10 w-10 items-center justify-center text-gray-800"
               >
                 ✓
               </button>
               <button
-                class="pill-shape flex h-10 w-10 items-center justify-center bg-gray-100 text-gray-800 transition hover:bg-gray-200"
+                class="pill-shape fill-slate flex h-10 w-10 items-center justify-center text-gray-800"
               >
                 ×
               </button>
               <button
-                class="pill-shape flex h-10 w-10 items-center justify-center bg-gray-100 text-gray-800 transition hover:bg-gray-200"
+                class="pill-shape fill-slate flex h-10 w-10 items-center justify-center text-gray-800"
               >
                 +
               </button>
@@ -121,8 +212,10 @@
 
       <div class="mt-12 rounded bg-gray-100 p-4 text-sm text-gray-600">
         <p>
-          <strong>Note:</strong> Open DevTools to check if paint(pill-shape) is being used or if
-          fallback to border-radius is active.
+          <strong>Note:</strong> <code>@supports (background-image: paint(anything))</code> is true
+          in Chrome for <em>any</em> paint name, registered or not — so DevTools showing
+          <code>paint(pill-shape)</code> as applied does <em>not</em> mean the worklet loaded. Check
+          <code>document.documentElement.dataset.worklet</code> (or the console) instead.
         </p>
       </div>
     </div>

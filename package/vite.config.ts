@@ -1,8 +1,23 @@
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite-plus";
 
+/**
+ * A registered paint worklet cannot be replaced or unregistered, so the worklet
+ * cannot be hot-swapped in place. Editing it therefore triggers a full page
+ * reload, which re-runs CSS.paintWorklet.addModule() against the fresh source.
+ */
+const pillWorkletHmr = () => ({
+  name: "pill-worklet-hmr",
+  handleHotUpdate({ file, server }: { file: string; server: { ws: { send(p: unknown): void } } }) {
+    if (file.replace(/\\/g, "/").endsWith("src/pill-shape.worklet.ts")) {
+      server.ws.send({ type: "full-reload", path: "*" });
+      return [];
+    }
+  },
+});
+
 export default defineConfig({
-  plugins: [tailwindcss()],
+  plugins: [tailwindcss(), pillWorkletHmr()],
   test: {
     include: ["src/**/*.test.ts"],
   },
@@ -66,8 +81,10 @@ export default defineConfig({
         command: "vp pack",
       },
       "pill-dev": {
+        // The dev page loads the worklet straight from src/, which Vite
+        // compiles on the fly, so no build step is needed (and a stale dist/
+        // can no longer mask source edits).
         command: "vp dev",
-        dependsOn: ["build:pill"],
       },
     },
   },

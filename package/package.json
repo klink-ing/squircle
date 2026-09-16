@@ -32,7 +32,11 @@
     },
     "./radius-function.css": "./dist/radius-function.css",
     "./squircle-pill.css": "./dist/squircle-pill.css",
-    "./pill-shape.worklet.js": "./dist/pill-shape.worklet.js",
+    "./pill-shape.worklet": {
+      "types": "./dist/pill-shape.worklet.d.mts",
+      "import": "./dist/pill-shape.worklet.mjs"
+    },
+    "./pill-shape.worklet.js": "./dist/pill-shape.worklet.mjs",
     "./panda": {
       "types": "./dist/panda/index.d.mts",
       "import": "./dist/panda/index.mjs"
