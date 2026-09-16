@@ -14,16 +14,34 @@ const compilePillAll = (candidates: string[], block = "") =>
   compilePluginAll(candidates, block, "./tailwind-pill.ts");
 
 describe("tailwind-pill.ts utilities", () => {
-  it("paints the pill where the worklet is available", async () => {
+  it("masks the element to the pill where the worklet is available", async () => {
     const css = await compilePill(["squircle-pill"]);
-    expect(css).toContain("@supports (background-image: paint(pill-shape))");
-    expect(css).toContain("background-image: paint(pill-shape)");
+    expect(css).toContain("@supports (mask-image: paint(pill-shape))");
+    expect(css).toContain("mask-image: paint(pill-shape)");
+    expect(css).toContain("-webkit-mask-image: paint(pill-shape)");
+  });
+
+  it("never paints the shape as a background", async () => {
+    // A painted background covers whatever background the element already had.
+    // Masking keeps the element's own background — colour, gradient, image —
+    // and shapes that instead.
+    const css = await compilePill(["squircle-pill"]);
+    expect(css).not.toContain("background-image: paint(");
+  });
+
+  it("draws a border the shape can actually follow", async () => {
+    // A CSS border would be a rectangle clipped to the pill, so the worklet
+    // strokes one on ::after instead.
+    const css = await compilePill(["squircle-pill"]);
+    expect(css).toContain("&::after");
+    expect(css).toContain("--pill-stroke-width: var(--pill-border-width, 0px)");
+    expect(css).toContain("background: var(--pill-border-color, transparent)");
   });
 
   describe("fallback without the paint worklet", () => {
     it("is a plain fully-rounded rectangle", async () => {
       const css = await compilePill(["squircle-pill"]);
-      expect(css).toContain("@supports not (background-image: paint(pill-shape))");
+      expect(css).toContain("@supports not (mask-image: paint(pill-shape))");
       // The same radius the `-full` utilities use, matching `rounded-full`.
       expect(css).toContain(`border-radius: ${FULL_RADIUS}`);
     });

@@ -12,6 +12,7 @@ import {
   DEFAULT_PILL_EASE_SPREAD,
   PILL_AMT_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
+  PILL_STROKE_WIDTH_VAR_NAME,
 } from "./variants";
 
 const stylesheet = readFileSync(join(import.meta.dirname, "squircle-pill.css"), "utf-8");
@@ -28,10 +29,9 @@ const customInputs = inputProperties.filter((p) => p.startsWith("--"));
 describe("pill-shape worklet contract", () => {
   it("reads exactly the properties it needs", () => {
     expect(inputProperties).toEqual([
-      "color",
-      "--pill-fill",
       PILL_AMT_VAR_NAME,
       PILL_EASE_SPREAD_VAR_NAME,
+      PILL_STROKE_WIDTH_VAR_NAME,
     ]);
   });
 
@@ -51,11 +51,18 @@ describe("pill-shape worklet contract", () => {
       }
     });
 
-    it("leaves --pill-fill unregistered on purpose", () => {
-      // A registered property always resolves to its initial value when unset,
-      // which would mean the worklet could never tell "no fill given" from a
-      // real one, and the fall back to the element's `color` would never fire.
-      expect(registeredProperties(stylesheet)).not.toContain("--pill-fill");
+    it("leaves the stroke width unregistered on purpose", () => {
+      // The ring sets it inline on ::after. Registering it with an initial
+      // value of 0 would be harmless, but registering it as inherited would
+      // make every nested pill draw its parent's border.
+      expect(registeredProperties(stylesheet)).not.toContain(PILL_STROKE_WIDTH_VAR_NAME);
+    });
+
+    it("never paints the shape as a background", () => {
+      // Painting it as a background covers whatever background the element
+      // already had; masking keeps it and shapes it instead.
+      expect(stylesheet).not.toContain("background-image: paint(");
+      expect(stylesheet).toContain("mask-image: paint(pill-shape)");
     });
 
     it("starts the properties where the worklet's own fallbacks do", () => {

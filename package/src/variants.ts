@@ -15,6 +15,11 @@ export const DEFAULT_AMT = 2 as const;
 export const PILL_AMT_VAR_NAME = "--pill-squircle-amt" as const;
 export const PILL_EASE_SPREAD_VAR_NAME = "--pill-ease-spread" as const;
 export const DEFAULT_PILL_AMT = 2 as const;
+/** Border the worklet draws itself, since a CSS border cannot follow the shape. */
+export const PILL_BORDER_WIDTH_VAR_NAME = "--pill-border-width" as const;
+export const PILL_BORDER_COLOR_VAR_NAME = "--pill-border-color" as const;
+/** Internal: what the worklet keys stroke mode off, set on the ring only. */
+export const PILL_STROKE_WIDTH_VAR_NAME = "--pill-stroke-width" as const;
 export const DEFAULT_PILL_EASE_SPREAD = 1 as const;
 export const DEFAULT_AMOUNT_VAR_NAME = "--squircle-amt" as const;
 export const DEFAULT_R_VAR_NAME = "--squircle-r" as const;

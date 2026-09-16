@@ -39,54 +39,77 @@
       }
 
       .pill-shape {
-        /* No border-radius here on purpose: the worklet paints the pill, and a
-           border-radius would clip that painting back into an ellipse. */
-        background-image: paint(pill-shape);
+        /* Masked, not painted: the element keeps its own background — colour,
+           gradient, image — and that is what gets pill-shaped. A border is
+           drawn on ::after by the same worklet in stroke mode, because no CSS
+           border can follow this shape. */
+        -webkit-mask-image: paint(pill-shape);
+        mask-image: paint(pill-shape);
+        -webkit-mask-size: 100% 100%;
+        mask-size: 100% 100%;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        mask-mode: alpha;
         min-width: 1px;
         min-height: 1px;
+        position: relative;
       }
 
-      /* Fallback, mirroring the shipped stylesheet: a plain fully-rounded
-         rectangle and nothing else. `50%` would be an ellipse on any
-         non-square box, which is never the shape we want. */
-      @supports not (background-image: paint(pill-shape)) {
+      .pill-shape::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: var(--pill-border-color, transparent);
+        --pill-stroke-width: var(--pill-border-width, 0px);
+        -webkit-mask-image: paint(pill-shape);
+        mask-image: paint(pill-shape);
+        -webkit-mask-size: 100% 100%;
+        mask-size: 100% 100%;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        mask-mode: alpha;
+      }
+
+      /* Fallback, mirroring the shipped stylesheet. */
+      @supports not (mask-image: paint(pill-shape)) {
         .pill-shape {
           border-radius: calc(infinity * 1px);
         }
       }
 
       .fill-blue {
-        --pill-fill: #3b82f6;
+        background: #3b82f6;
       }
       .fill-green {
-        --pill-fill: #22c55e;
+        background: #22c55e;
       }
       .fill-purple {
-        --pill-fill: #a855f7;
+        background: #a855f7;
       }
       .fill-indigo {
-        --pill-fill: #6366f1;
+        background: #6366f1;
       }
       .fill-pink {
-        --pill-fill: #ec4899;
+        background: #ec4899;
       }
       .fill-orange {
-        --pill-fill: #f97316;
+        background: #f97316;
       }
       .fill-red {
-        --pill-fill: #dc2626;
+        background: #dc2626;
       }
       .fill-slate {
-        --pill-fill: #e2e8f0;
+        background: #e2e8f0;
       }
       .fill-blue-soft {
-        --pill-fill: #dbeafe;
+        background: #dbeafe;
       }
       .fill-green-soft {
-        --pill-fill: #dcfce7;
+        background: #dcfce7;
       }
       .fill-yellow-soft {
-        --pill-fill: #fef9c3;
+        background: #fef9c3;
       }
     </style>
   </head>

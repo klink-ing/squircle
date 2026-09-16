@@ -81,16 +81,18 @@ export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
     // `color` is needed because a paint worklet cannot resolve the
     // `currentColor` keyword itself — it has to be passed in as a property.
-    return ["color", "--pill-fill", "--pill-squircle-amt", "--pill-ease-spread"];
+    return ["--pill-squircle-amt", "--pill-ease-spread", "--pill-stroke-width"];
   }
 
   /**
-   * Resolve the paint colour: an explicit `--pill-fill` wins, otherwise the
-   * element's computed `color` (what `currentColor` would have meant).
+   * Stroke width, in pixels. Zero fills the shape; anything larger draws the
+   * outline instead, centred on the path, so a ring sits half inside and half
+   * outside. Rendering it inside an element already masked to the same shape
+   * clips the outer half, leaving an exact inset band.
    */
-  resolveFill(props?: PaintProperties): string {
-    const read = (name: string): string => props?.get(name)?.toString().trim() ?? "";
-    return read("--pill-fill") || read("color") || "black";
+  resolveStrokeWidth(props?: PaintProperties): number {
+    const raw = Number.parseFloat(props?.get("--pill-stroke-width")?.toString() ?? "");
+    return Number.isFinite(raw) && raw > 0 ? raw : 0;
   }
 
   /** The requested easing angle, in radians, before it is fitted to the box. */
@@ -270,7 +272,18 @@ export const paintDef = class PillShape implements PaintWorklet {
     const { width, height } = size;
     if (width <= 0 || height <= 0) return;
 
-    ctx.fillStyle = this.resolveFill(props);
+    /*
+     * Opaque, always. The shape is consumed as a mask, where only the alpha
+     * channel counts, and the element's own background supplies the colour.
+     * Reading `color` here would mean `color: transparent` erased the element.
+     */
+    const stroke = this.resolveStrokeWidth(props);
+    if (stroke > 0) {
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = stroke * 2;
+    } else {
+      ctx.fillStyle = "#000";
+    }
     ctx.beginPath();
 
     // Work along the pill's long axis, then transpose for a vertical pill.
@@ -295,7 +308,8 @@ export const paintDef = class PillShape implements PaintWorklet {
     }
 
     ctx.closePath();
-    ctx.fill();
+    if (stroke > 0) ctx.stroke();
+    else ctx.fill();
   }
 
   /** Mirror one quadrant into the full outline, walking clockwise. */
