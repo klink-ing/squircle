@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pill Shape Dev</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Register the paint worklet from the dev build
+      if ("paintWorklet" in CSS) {
+        CSS.paintWorklet.addModule("./dist/pill-shape.worklet.js");
+      }
+    </script>
+    <style>
+      .pill-shape {
+        border-radius: 50%;
+        background-image: paint(pill-shape);
+      }
+
+      @supports not (background-image: paint(pill-shape)) {
+        .pill-shape {
+          border-radius: 50%;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 p-8">
+    <div class="mx-auto max-w-4xl">
+      <h1 class="mb-2 text-4xl font-bold">Pill Shape Dev</h1>
+      <p class="mb-8 text-gray-600">
+        Testing squircle-pill utilities with Houdini paint worklet (hot reload enabled)
+      </p>
+
+      <section class="mb-12">
+        <h2 class="mb-4 text-2xl font-bold">Perfect Pills</h2>
+        <div class="flex flex-wrap gap-4">
+          <button class="pill-shape bg-blue-500 px-6 py-2 font-semibold text-white">Button</button>
+          <div class="pill-shape bg-green-500 px-8 py-3 text-white">Badge</div>
+          <div
+            class="pill-shape flex h-16 w-16 items-center justify-center bg-purple-500 px-4 py-4 text-white"
+          >
+            ✓
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-4 text-2xl font-bold">Different Aspect Ratios</h2>
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="pill-shape bg-indigo-500 px-12 py-2 text-white">Wide</div>
+          <div class="pill-shape bg-pink-500 px-2 py-12 text-white">Tall</div>
+          <div
+            class="pill-shape flex items-center justify-center bg-orange-500 px-4 py-4 text-white"
+          >
+            Square
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-4 text-2xl font-bold">Use Cases</h2>
+        <div class="space-y-6">
+          <div>
+            <p class="mb-3 font-semibold text-gray-600">Buttons</p>
+            <div class="flex gap-2">
+              <button
+                class="pill-shape bg-blue-600 px-6 py-2 font-semibold text-white transition hover:bg-blue-700"
+              >
+                Primary
+              </button>
+              <button
+                class="pill-shape bg-gray-200 px-6 py-2 font-semibold text-gray-800 transition hover:bg-gray-300"
+              >
+                Secondary
+              </button>
+              <button
+                class="pill-shape bg-red-600 px-6 py-2 font-semibold text-white transition hover:bg-red-700"
+              >
+                Danger
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-3 font-semibold text-gray-600">Tags & Badges</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="pill-shape bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800"
+                >Tag</span
+              >
+              <span class="pill-shape bg-green-100 px-3 py-1 text-sm font-medium text-green-800"
+                >Status</span
+              >
+              <span class="pill-shape bg-yellow-100 px-3 py-1 text-sm font-medium text-yellow-800"
+                >Warning</span
+              >
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-3 font-semibold text-gray-600">Icon Buttons</p>
+            <div class="flex gap-2">
+              <button
+                class="pill-shape flex h-10 w-10 items-center justify-center bg-gray-100 text-gray-800 transition hover:bg-gray-200"
+              >
+                ✓
+              </button>
+              <button
+                class="pill-shape flex h-10 w-10 items-center justify-center bg-gray-100 text-gray-800 transition hover:bg-gray-200"
+              >
+                ×
+              </button>
+              <button
+                class="pill-shape flex h-10 w-10 items-center justify-center bg-gray-100 text-gray-800 transition hover:bg-gray-200"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mt-12 rounded bg-gray-100 p-4 text-sm text-gray-600">
+        <p>
+          <strong>Note:</strong> Open DevTools to check if paint(pill-shape) is being used or if
+          fallback to border-radius is active.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

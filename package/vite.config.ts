@@ -6,6 +6,9 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
   },
+  dev: {
+    entry: "./dev-pill.html",
+  },
   pack: {
     entry: {
       "tailwind/index": "./src/tailwind.ts",
@@ -61,6 +64,9 @@ export default defineConfig({
       build: {
         command:
           "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts && tsx scripts/copy-pill-assets.ts",
+      },
+      "pill-dev": {
+        command: "vp dev",
       },
     },
   },

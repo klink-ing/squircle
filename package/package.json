@@ -51,6 +51,7 @@
     }
   },
   "scripts": {
+    "dev": "vp run pill-dev",
     "prepublishOnly": "vp run build"
   },
   "devDependencies": {
