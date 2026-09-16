@@ -63,7 +63,8 @@ export default defineConfig({
           "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts && tsx scripts/copy-pill-assets.ts",
       },
       "pill-dev": {
-        command: "vp dev",
+        command: "vp pack && vp dev",
+        dependsOn: [],
       },
     },
   },
