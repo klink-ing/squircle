@@ -45,12 +45,13 @@ const MAX_EASE = Math.PI / 3;
  */
 const DEFAULT_FALLOFF = 2;
 /**
- * The clothoid is the floor: below 2 the curvature still reaches zero, but
- * `dk/ds` diverges as it arrives, which looks worse than the linear ramp and
- * shortens the transition — the opposite of what this control is for.
+ * 2 is the clothoid and the sane floor for real use: below it the curvature
+ * still reaches zero, but `dk/ds` diverges as it arrives, and at 1 curvature
+ * never decays at all, leaving the same corner a bare stadium has. Lower values
+ * are still honoured so the effect can be seen. Negative exponents are not
+ * defined here — `u ** q` blows up at `u = 0` — so 0 is the hard floor.
  */
-const MIN_FALLOFF = 2;
-const MAX_FALLOFF = 10;
+const MIN_FALLOFF = 0;
 
 /** Integration steps along one transition. Trapezoid error here is sub-pixel. */
 const EASE_STEPS = 512;
@@ -95,7 +96,7 @@ export const paintDef = class PillShape implements PaintWorklet {
   resolveFalloff(props?: PaintProperties): number {
     const raw = Number.parseFloat(props?.get("--pill-ease-falloff")?.toString() ?? "");
     const falloff = Number.isFinite(raw) ? raw : DEFAULT_FALLOFF;
-    return Math.min(Math.max(falloff, MIN_FALLOFF), MAX_FALLOFF);
+    return Math.max(falloff, MIN_FALLOFF);
   }
 
   /**
@@ -174,11 +175,17 @@ export const paintDef = class PillShape implements PaintWorklet {
   ): { beta: number; falloff: number } {
     if (wantedBeta <= 0) return { beta: 0, falloff: wantedFalloff };
 
-    const rate = (wantedFalloff - 1) / (wantedFalloff * wantedBeta);
+    // There is only something to trade above the clothoid. At or below it the
+    // requested falloff is passed through and the amount absorbs the shortfall,
+    // which also keeps the rate away from the 0 and 1 singularities.
+    const tradeable = wantedFalloff > DEFAULT_FALLOFF;
+    const rate = tradeable ? (wantedFalloff - 1) / (wantedFalloff * wantedBeta) : 0;
     // rate * beta <= rate * wantedBeta = (falloff - 1) / falloff < 1, so the
     // denominator stays positive.
     const falloffFor = (beta: number): number =>
-      Math.min(Math.max(1 / (1 - rate * beta), MIN_FALLOFF), wantedFalloff);
+      tradeable
+        ? Math.min(Math.max(1 / (1 - rate * beta), DEFAULT_FALLOFF), wantedFalloff)
+        : wantedFalloff;
 
     const fits = (beta: number): boolean => {
       const falloff = falloffFor(beta);
@@ -219,6 +226,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     }
 
     if (beta <= 0) return points;
+
+    // A falloff of 0 gives the transition no length at all: the arc alone spans
+    // the height and meets the flat edge at a corner.
+    if (q <= 0) return points;
 
     // Curvature ramps from 1 / radius down to 0 across the transition, which
     // the falloff makes q * beta * radius long. Vertices land where the chord

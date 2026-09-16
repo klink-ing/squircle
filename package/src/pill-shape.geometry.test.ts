@@ -311,7 +311,7 @@ describe("pill-shape worklet geometry", () => {
       expect(arcOf(thrifty).r).toBeGreaterThan(arcOf(spendy).r);
     });
 
-    it("keeps curvature continuous at every falloff", () => {
+    it("keeps curvature continuous at every falloff at or above the clothoid", () => {
       for (const q of [2, 3, 4, 8]) {
         const profile = capCurvature(paint(WIDTH, HEIGHT, 2, q));
         const peak = Math.max(...profile);
@@ -323,12 +323,42 @@ describe("pill-shape worklet geometry", () => {
       }
     });
 
-    it("defaults to the plain clothoid, and clamps below it", () => {
-      const implicit = paint(WIDTH, HEIGHT, 2);
-      expect(implicit.vertices).toEqual(paint(WIDTH, HEIGHT, 2, 2).vertices);
-      // Below 2 the curvature derivative diverges at the flat edge, so the
-      // clothoid is the floor.
-      expect(paint(WIDTH, HEIGHT, 2, 1.2).vertices).toEqual(implicit.vertices);
+    it("defaults to the plain clothoid", () => {
+      expect(paint(WIDTH, HEIGHT, 2).vertices).toEqual(paint(WIDTH, HEIGHT, 2, 2).vertices);
+    });
+
+    it("honours falloffs below the clothoid, corner and all", () => {
+      // Below 2 the transition is shorter and arrives ever more steeply, until
+      // at 0 it has no length and the arc meets the flat edge at a corner.
+      // Ugly, but it renders rather than being silently clamped away.
+      const angles = [0, 0.5, 1, 1.5, 2].map((q) => arrivalAngle(paint(WIDTH, HEIGHT, 4, q)));
+      for (let i = 1; i < angles.length; i++) {
+        expect(angles[i], `falloff step ${i}`).toBeLessThan(angles[i - 1]);
+      }
+      // A falloff of 0 is a genuine corner, not an easing.
+      expect(angles[0]).toBeGreaterThan(30);
+    });
+
+    it("stays finite and inside the box at every falloff", () => {
+      for (const q of [0, 0.25, 0.5, 1, 1.5, 2, 20]) {
+        for (const [w, h] of [
+          [600, 60],
+          [140, 60],
+          [60, 60],
+          [60, 600],
+        ]) {
+          const v = paint(w, h, 4, q).vertices;
+          expect(v.length, `falloff ${q} @ ${w}x${h}`).toBeGreaterThan(3);
+          for (const p of v) {
+            const tag = `falloff ${q} @ ${w}x${h}`;
+            expect(Number.isFinite(p.x) && Number.isFinite(p.y), tag).toBe(true);
+            expect(p.x, tag).toBeGreaterThanOrEqual(-1e-6);
+            expect(p.x, tag).toBeLessThanOrEqual(w + 1e-6);
+            expect(p.y, tag).toBeGreaterThanOrEqual(-1e-6);
+            expect(p.y, tag).toBeLessThanOrEqual(h + 1e-6);
+          }
+        }
+      }
     });
 
     it("still fits the box, and still collapses a square to a circle", () => {

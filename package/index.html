@@ -110,17 +110,19 @@
         The caps stay <strong>circular arcs</strong>. <strong>amt</strong> sets how much of each cap
         is handed to the easing — <strong>1</strong> is a bare semicircle, identical to
         <code>border-radius: 9999px</code> and only G1. <strong>falloff</strong> stretches that
-        easing further along the flat edge <em>without</em> spending more of the arc, so raise it
-        for a long, soft transition with ends that stay round. Both are capped by the room
-        available, so a square renders as a plain circle regardless.
+        easing along the flat edge <em>without</em> spending more of the arc. <strong>2</strong> is
+        the clothoid and the sane floor: below it the easing shortens and arrives ever more steeply,
+        and at <strong>0</strong> it is a bare corner. When the element is too narrow for the
+        request, both are eased down together so the curvature rate stays put; a square has no flat
+        edge at all and renders as a plain circle.
       </p>
 
       <script>
         const controls = [
           ["amt", "--pill-squircle-amt", (v) => Math.min(Math.max(v, 1), 4)],
-          // The worklet floors the falloff at the plain clothoid; show that
-          // rather than letting the slider silently lie.
-          ["falloff", "--pill-ease-falloff", (v) => Math.min(Math.max(v, 2), 10)],
+          // Unclamped on purpose: below 2 the easing degrades, and at 0 it
+          // becomes a corner. Worth being able to see.
+          ["falloff", "--pill-ease-falloff", (v) => v],
         ];
         const sync = () => {
           for (const [id, prop, clamp] of controls) {
