@@ -42,8 +42,11 @@ const MAX_EASE = Math.PI / 3;
  * `k(t) = (1 / R) * (1 - t)^(q - 1)` with `q = spread + 2`, which makes the
  * transition `q * beta * R` long. Any spread above -1 still starts at `1 / R`
  * and ends at `0`, so G2 holds throughout.
+ *
+ * The default sits one step above the clothoid, which reads as a softer join
+ * without noticeably flattening the cap.
  */
-const DEFAULT_SPREAD = 0;
+const DEFAULT_SPREAD = 1;
 /** The exponent a spread of 0 means: curvature falling linearly, a clothoid. */
 const CLOTHOID_EXPONENT = 2;
 /**

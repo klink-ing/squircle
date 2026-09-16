@@ -33,6 +33,14 @@
     inherits: false;
   }
 
+  /* How far the easing is spread along the flat edge. Offsets the curvature
+   * exponent, so 0 is a plain clothoid; see the pill-shape worklet. */
+  @property --pill-ease-spread {
+    syntax: "<number>";
+    initial-value: 1;
+    inherits: false;
+  }
+
   /* ── Base pill shape utility ──────────────────────────────
    * Sets up the element to use the pill-shape paint worklet.
    * The radius value determines both the corner radius and the

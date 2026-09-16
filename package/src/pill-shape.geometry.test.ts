@@ -323,8 +323,16 @@ describe("pill-shape worklet geometry", () => {
       }
     });
 
-    it("defaults to the plain clothoid", () => {
-      expect(paint(WIDTH, HEIGHT, 2).vertices).toEqual(paint(WIDTH, HEIGHT, 2, 0).vertices);
+    it("defaults to one step above the clothoid", () => {
+      expect(paint(WIDTH, HEIGHT, 2).vertices).toEqual(paint(WIDTH, HEIGHT, 2, 1).vertices);
+      // ...which is a real easing, not the clothoid itself.
+      expect(paint(WIDTH, HEIGHT, 2).vertices).not.toEqual(paint(WIDTH, HEIGHT, 2, 0).vertices);
+    });
+
+    it("defaults the amount to 2", () => {
+      const ctx = paint(WIDTH, HEIGHT);
+      expect(ctx.vertices).toEqual(paint(WIDTH, HEIGHT, 2, 1).vertices);
+      expect(ctx.vertices).not.toEqual(paint(WIDTH, HEIGHT, 1, 1).vertices);
     });
 
     it("honours spreads below the clothoid, corner and all", () => {
