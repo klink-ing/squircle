@@ -62,17 +62,20 @@
 }
 
 /* ── Fallback for browsers without Paint Worklet support ──────
- * Use standard corner-shape and radius correction instead.
- * The pill effect won't be perfect, but it will be close.
+ * A plain fully-rounded rectangle, and nothing else. A superellipse
+ * corner reads as more wrong than a stadium here: on a pill the cap
+ * is the whole shape, so reshaping it changes the silhouette rather
+ * than just softening a corner.
+ *
+ * Gated only on the worklet being absent, so browsers with neither
+ * feature still get a pill. `9999px` rather than the package's
+ * `calc(infinity * 1px)` because this branch is the one running in
+ * browsers old enough that the infinity keyword may not parse, and
+ * an invalid radius would leave a rectangle.
  * ──────────────────────────────────────────────────────────── */
 
-@supports (corner-shape: superellipse()) and not (background-image: paint(pill-shape)) {
+@supports not (background-image: paint(pill-shape)) {
   [data-squircle-pill] {
-    /* Use the squircle radius correction formula */
-    border-radius: calc(
-      var(--squircle-r, var(--pill-radius)) * (1 - pow(2, -0.5)) /
-        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
-    );
-    corner-shape: superellipse(var(--squircle-amt, 2));
+    border-radius: 9999px;
   }
 }

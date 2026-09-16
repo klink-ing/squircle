@@ -65,10 +65,14 @@ export function createCompiler(srcDir: string) {
     return extractUtilitiesLayer(compiler.build(candidates));
   }
 
-  async function compilePlugin(candidates: string[], pluginBlock = ""): Promise<string> {
+  async function compilePlugin(
+    candidates: string[],
+    pluginBlock = "",
+    plugin = "./tailwind.ts",
+  ): Promise<string> {
     const pluginDecl = pluginBlock
-      ? `@plugin "./tailwind.ts" {\n${pluginBlock}\n}`
-      : `@plugin "./tailwind.ts";`;
+      ? `@plugin "${plugin}" {\n${pluginBlock}\n}`
+      : `@plugin "${plugin}";`;
     const input = `
 @import "tailwindcss";
 ${pluginDecl}
