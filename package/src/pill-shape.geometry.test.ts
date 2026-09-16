@@ -33,24 +33,24 @@ class RecordingContext {
   }
 }
 
-const props = (amt?: number, falloff?: number) => ({
+const props = (amt?: number, spread?: number) => ({
   get(name: string) {
     if (name === "--pill-squircle-amt" && amt !== undefined) {
       return { toString: () => String(amt) };
     }
-    if (name === "--pill-ease-falloff" && falloff !== undefined) {
-      return { toString: () => String(falloff) };
+    if (name === "--pill-ease-spread" && spread !== undefined) {
+      return { toString: () => String(spread) };
     }
     return undefined;
   },
 });
 
-const paint = (width: number, height: number, amt?: number, falloff?: number): RecordingContext => {
+const paint = (width: number, height: number, amt?: number, spread?: number): RecordingContext => {
   const ctx = new RecordingContext();
   const instance = new (paintDef as new () => {
     paint(c: unknown, s: { width: number; height: number }, p: unknown): void;
   })();
-  instance.paint(ctx, { width, height }, props(amt, falloff));
+  instance.paint(ctx, { width, height }, props(amt, spread));
   return ctx;
 };
 
@@ -278,13 +278,13 @@ describe("pill-shape worklet geometry", () => {
     });
   });
 
-  describe("--pill-ease-falloff", () => {
+  describe("--pill-ease-spread", () => {
     const arcOf = (ctx: RecordingContext) =>
       circleThrough(ctx.vertices[0], ctx.vertices[6], ctx.vertices[12]);
     const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)].x;
 
     it("stretches the transition along the flat edge", () => {
-      const reach = [2, 3, 4, 6].map((q) => flatEdgeStart(paint(WIDTH, HEIGHT, 2, q)));
+      const reach = [0, 1, 2, 4].map((q) => flatEdgeStart(paint(WIDTH, HEIGHT, 2, q)));
       for (let i = 1; i < reach.length; i++) {
         expect(reach[i]).toBeGreaterThan(reach[i - 1]);
       }
@@ -292,7 +292,7 @@ describe("pill-shape worklet geometry", () => {
 
     it("leaves the cap arc alone while doing so", () => {
       // The whole point: a longer transition must not eat into the circle.
-      const caps = [2, 3, 4, 6].map((q) => arcOf(paint(WIDTH, HEIGHT, 2, q)));
+      const caps = [0, 1, 2, 4].map((q) => arcOf(paint(WIDTH, HEIGHT, 2, q)));
       for (const cap of caps) {
         expect(cap.y).toBeCloseTo(R, 4);
         // Radius barely moves, and stays close to a true semicircle...
@@ -303,44 +303,44 @@ describe("pill-shape worklet geometry", () => {
 
     it("reaches further than a high amount while keeping rounder ends", () => {
       // The motivating case: amt 3 buys reach by spending the arc; a high
-      // falloff buys the same reach and keeps the arc.
-      const spendy = paint(WIDTH, HEIGHT, 3, 2);
-      const thrifty = paint(WIDTH, HEIGHT, 1.5, 6);
+      // a wide spread buys the same reach and keeps the arc.
+      const spendy = paint(WIDTH, HEIGHT, 3, 0);
+      const thrifty = paint(WIDTH, HEIGHT, 1.5, 4);
 
       expect(flatEdgeStart(thrifty)).toBeGreaterThan(0.9 * flatEdgeStart(spendy));
       expect(arcOf(thrifty).r).toBeGreaterThan(arcOf(spendy).r);
     });
 
-    it("keeps curvature continuous at every falloff at or above the clothoid", () => {
-      for (const q of [2, 3, 4, 8]) {
+    it("keeps curvature continuous at every spread at or above the clothoid", () => {
+      for (const q of [0, 1, 2, 6]) {
         const profile = capCurvature(paint(WIDTH, HEIGHT, 2, q));
         const peak = Math.max(...profile);
 
         // Starts on the arc at 1 / cap radius, arrives flat, with no cliff.
-        expect(peak, `falloff ${q}`).toBeGreaterThan(0);
-        expect(arrivalAngle(paint(WIDTH, HEIGHT, 2, q)), `falloff ${q}`).toBeLessThan(3);
-        expect(curvatureGradient(paint(WIDTH, HEIGHT, 2, q), R), `falloff ${q}`).toBeLessThan(3);
+        expect(peak, `spread ${q}`).toBeGreaterThan(0);
+        expect(arrivalAngle(paint(WIDTH, HEIGHT, 2, q)), `spread ${q}`).toBeLessThan(3);
+        expect(curvatureGradient(paint(WIDTH, HEIGHT, 2, q), R), `spread ${q}`).toBeLessThan(3);
       }
     });
 
     it("defaults to the plain clothoid", () => {
-      expect(paint(WIDTH, HEIGHT, 2).vertices).toEqual(paint(WIDTH, HEIGHT, 2, 2).vertices);
+      expect(paint(WIDTH, HEIGHT, 2).vertices).toEqual(paint(WIDTH, HEIGHT, 2, 0).vertices);
     });
 
-    it("honours falloffs below the clothoid, corner and all", () => {
+    it("honours spreads below the clothoid, corner and all", () => {
       // Below 2 the transition is shorter and arrives ever more steeply, until
       // at 0 it has no length and the arc meets the flat edge at a corner.
       // Ugly, but it renders rather than being silently clamped away.
-      const angles = [0, 0.5, 1, 1.5, 2].map((q) => arrivalAngle(paint(WIDTH, HEIGHT, 4, q)));
+      const angles = [-2, -1.5, -1, -0.5, 0].map((q) => arrivalAngle(paint(WIDTH, HEIGHT, 4, q)));
       for (let i = 1; i < angles.length; i++) {
-        expect(angles[i], `falloff step ${i}`).toBeLessThan(angles[i - 1]);
+        expect(angles[i], `spread step ${i}`).toBeLessThan(angles[i - 1]);
       }
-      // A falloff of 0 is a genuine corner, not an easing.
+      // The lowest spread is a genuine corner, not an easing.
       expect(angles[0]).toBeGreaterThan(30);
     });
 
-    it("stays finite and inside the box at every falloff", () => {
-      for (const q of [0, 0.25, 0.5, 1, 1.5, 2, 20]) {
+    it("stays finite and inside the box at every spread", () => {
+      for (const q of [-2, -1.75, -1.5, -1, -0.5, 0, 18]) {
         for (const [w, h] of [
           [600, 60],
           [140, 60],
@@ -348,9 +348,9 @@ describe("pill-shape worklet geometry", () => {
           [60, 600],
         ]) {
           const v = paint(w, h, 4, q).vertices;
-          expect(v.length, `falloff ${q} @ ${w}x${h}`).toBeGreaterThan(3);
+          expect(v.length, `spread ${q} @ ${w}x${h}`).toBeGreaterThan(3);
           for (const p of v) {
-            const tag = `falloff ${q} @ ${w}x${h}`;
+            const tag = `spread ${q} @ ${w}x${h}`;
             expect(Number.isFinite(p.x) && Number.isFinite(p.y), tag).toBe(true);
             expect(p.x, tag).toBeGreaterThanOrEqual(-1e-6);
             expect(p.x, tag).toBeLessThanOrEqual(w + 1e-6);
@@ -369,14 +369,14 @@ describe("pill-shape worklet geometry", () => {
           [60, 240],
         ]) {
           for (const p of paint(w, h, 3, q).vertices) {
-            expect(p.x, `falloff ${q} @ ${w}x${h}`).toBeGreaterThanOrEqual(-1e-6);
-            expect(p.x, `falloff ${q} @ ${w}x${h}`).toBeLessThanOrEqual(w + 1e-6);
-            expect(p.y, `falloff ${q} @ ${w}x${h}`).toBeGreaterThanOrEqual(-1e-6);
-            expect(p.y, `falloff ${q} @ ${w}x${h}`).toBeLessThanOrEqual(h + 1e-6);
+            expect(p.x, `spread ${q} @ ${w}x${h}`).toBeGreaterThanOrEqual(-1e-6);
+            expect(p.x, `spread ${q} @ ${w}x${h}`).toBeLessThanOrEqual(w + 1e-6);
+            expect(p.y, `spread ${q} @ ${w}x${h}`).toBeGreaterThanOrEqual(-1e-6);
+            expect(p.y, `spread ${q} @ ${w}x${h}`).toBeLessThanOrEqual(h + 1e-6);
           }
         }
         for (const p of paint(100, 100, 3, q).vertices) {
-          expect(Math.hypot(p.x - 50, p.y - 50), `falloff ${q}`).toBeCloseTo(50, 4);
+          expect(Math.hypot(p.x - 50, p.y - 50), `spread ${q}`).toBeCloseTo(50, 4);
         }
       }
     });
@@ -389,17 +389,17 @@ describe("pill-shape worklet geometry", () => {
     const WIDTHS = [600, 300, 240, 180, 140, 110];
 
     it("holds the curvature rate steady as the pill narrows", () => {
-      const rates = WIDTHS.map((w) => curvatureGradient(paint(w, HEIGHT, 4, 6), R));
+      const rates = WIDTHS.map((w) => curvatureGradient(paint(w, HEIGHT, 4, 4), R));
       const widest = rates[0];
       for (let i = 0; i < rates.length; i++) {
         expect(rates[i], `width ${WIDTHS[i]}`).toBeLessThan(1.3 * widest);
       }
     });
 
-    it("gives up falloff as well as amount", () => {
+    it("gives up spread as well as amount", () => {
       // At 180 the requested easing does not fit, so both must come down.
-      const roomy = paint(600, HEIGHT, 4, 6);
-      const tight = paint(180, HEIGHT, 4, 6);
+      const roomy = paint(600, HEIGHT, 4, 4);
+      const tight = paint(180, HEIGHT, 4, 4);
 
       const capOf = (ctx: RecordingContext) =>
         circleThrough(ctx.vertices[0], ctx.vertices[3], ctx.vertices[6]);
@@ -412,9 +412,9 @@ describe("pill-shape worklet geometry", () => {
     });
 
     it("keeps more of the amount than backing off the amount alone would", () => {
-      // Trading falloff for amount is the whole point: the cap should stay
+      // Trading spread for amount is the whole point: the cap should stay
       // meaningfully eased rather than snapping back to a bare semicircle.
-      const tight = paint(140, HEIGHT, 4, 6);
+      const tight = paint(140, HEIGHT, 4, 4);
       const profile = capCurvature(tight);
       const peak = Math.max(...profile);
 
@@ -424,11 +424,11 @@ describe("pill-shape worklet geometry", () => {
       expect(profile.length).toBeGreaterThan(8);
     });
 
-    it("leaves the default falloff alone", () => {
-      // With falloff already at the clothoid floor there is nothing to trade,
+    it("leaves the default spread alone", () => {
+      // With the spread already at the clothoid there is nothing to trade,
       // so narrowing may only reduce the amount.
       for (const w of [600, 240, 140, 90]) {
-        const ctx = paint(w, HEIGHT, 4, 2);
+        const ctx = paint(w, HEIGHT, 4, 0);
         for (const p of ctx.vertices) {
           expect(p.x, `width ${w}`).toBeGreaterThanOrEqual(-1e-6);
           expect(p.x, `width ${w}`).toBeLessThanOrEqual(w + 1e-6);
@@ -437,10 +437,10 @@ describe("pill-shape worklet geometry", () => {
     });
 
     it("still fits the box while trading the two off", () => {
-      for (const [amt, falloff] of [
-        [4, 6],
-        [3, 8],
-        [2, 10],
+      for (const [amt, spread] of [
+        [4, 4],
+        [3, 6],
+        [2, 8],
       ]) {
         for (const [w, h] of [
           [600, 60],
@@ -450,8 +450,8 @@ describe("pill-shape worklet geometry", () => {
           [60, 60],
           [60, 600],
         ]) {
-          for (const p of paint(w, h, amt, falloff).vertices) {
-            const tag = `amt ${amt} falloff ${falloff} @ ${w}x${h}`;
+          for (const p of paint(w, h, amt, spread).vertices) {
+            const tag = `amt ${amt} spread ${spread} @ ${w}x${h}`;
             expect(p.x, tag).toBeGreaterThanOrEqual(-1e-6);
             expect(p.x, tag).toBeLessThanOrEqual(w + 1e-6);
             expect(p.y, tag).toBeGreaterThanOrEqual(-1e-6);
@@ -466,13 +466,13 @@ describe("pill-shape worklet geometry", () => {
     it("never lets a chord drift far from the curve", () => {
       // Sagitta of each segment: ds * dphi / 8. Sampling that starves the
       // start of the transition shows up here as a visible facet.
-      for (const [w, h, amt, falloff] of [
-        [600, 60, 4, 6],
-        [240, 60, 4, 6],
-        [1200, 200, 4, 6],
-        [600, 60, 2, 2],
+      for (const [w, h, amt, spread] of [
+        [600, 60, 4, 4],
+        [240, 60, 4, 4],
+        [1200, 200, 4, 4],
+        [600, 60, 2, 0],
       ]) {
-        const ctx = paint(w, h, amt, falloff);
+        const ctx = paint(w, h, amt, spread);
         const v = ctx.vertices;
         const cap = junctionIndex(ctx);
         for (let i = 1; i < cap; i++) {
@@ -481,7 +481,7 @@ describe("pill-shape worklet geometry", () => {
           const l1 = Math.hypot(d1.x, d1.y);
           if (l1 < 1e-9 || Math.hypot(d2.x, d2.y) < 1e-9) continue;
           const turn = Math.abs(Math.atan2(d1.x * d2.y - d1.y * d2.x, d1.x * d2.x + d1.y * d2.y));
-          expect((l1 * turn) / 8, `${w}x${h} amt ${amt} falloff ${falloff}`).toBeLessThan(0.1);
+          expect((l1 * turn) / 8, `${w}x${h} amt ${amt} spread ${spread}`).toBeLessThan(0.1);
         }
       }
     });

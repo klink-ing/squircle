@@ -32,26 +32,28 @@ const EASE_PER_AMOUNT = Math.PI / 6;
 const MAX_EASE = Math.PI / 3;
 
 /**
- * `--pill-ease-falloff` sets how fast the curvature leaves the circle, and so
- * how far the transition is drawn out along the flat edge — independently of
- * how much of the cap it consumes.
+ * `--pill-ease-spread` smooths the join into the flat edge: it draws the
+ * transition further along that edge without spending any more of the arc, so
+ * a softer join no longer costs you a rounder cap. Raising it lets
+ * `--pill-squircle-amt` come down.
  *
- * Curvature runs `k(t) = (1 / R) * (1 - t)^(falloff - 1)` across the
- * transition, which makes it `falloff * beta * R` long. `2` is the plain
- * clothoid, where curvature falls linearly. Raising it lengthens the
- * transition while leaving the arc — and so how circular the ends look —
- * alone. Any value above 1 still starts at `1 / R` and ends at `0`, so G2
- * holds throughout.
+ * `0` is a clothoid, where curvature falls linearly from the arc to the edge.
+ * The spread offsets the exponent that governs that fall,
+ * `k(t) = (1 / R) * (1 - t)^(q - 1)` with `q = spread + 2`, which makes the
+ * transition `q * beta * R` long. Any spread above -1 still starts at `1 / R`
+ * and ends at `0`, so G2 holds throughout.
  */
-const DEFAULT_FALLOFF = 2;
+const DEFAULT_SPREAD = 0;
+/** The exponent a spread of 0 means: curvature falling linearly, a clothoid. */
+const CLOTHOID_EXPONENT = 2;
 /**
- * 2 is the clothoid and the sane floor for real use: below it the curvature
- * still reaches zero, but `dk/ds` diverges as it arrives, and at 1 curvature
- * never decays at all, leaving the same corner a bare stadium has. Lower values
- * are still honoured so the effect can be seen. Negative exponents are not
- * defined here — `u ** q` blows up at `u = 0` — so 0 is the hard floor.
+ * 0 is the sane floor for real use. Below it the curvature still reaches zero,
+ * but `dk/ds` diverges as it arrives; at -1 curvature never decays at all,
+ * leaving the same corner a bare stadium has; and at -2 the transition has no
+ * length. Those are still honoured so the effect can be seen. Lower would need
+ * a negative exponent, where `u ** q` blows up at `u = 0`.
  */
-const MIN_FALLOFF = 0;
+const MIN_SPREAD = -CLOTHOID_EXPONENT;
 
 /** Integration steps along one transition. Trapezoid error here is sub-pixel. */
 const EASE_STEPS = 512;
@@ -63,7 +65,7 @@ const EASE_STEPS = 512;
  * about `ds * dphi / 8`, so bounding that product places vertices densely where
  * the outline turns hardest and sparsely down the near-straight tail. Sampling
  * at a fixed rate instead starves the start of the transition, which is exactly
- * where a high falloff piles up all of the curvature.
+ * where a wide spread piles up all of the curvature.
  */
 const MAX_SAGITTA = 0.03;
 const MIN_SEGMENTS = 4;
@@ -73,7 +75,7 @@ export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
     // `color` is needed because a paint worklet cannot resolve the
     // `currentColor` keyword itself — it has to be passed in as a property.
-    return ["color", "--pill-fill", "--pill-squircle-amt", "--pill-ease-falloff"];
+    return ["color", "--pill-fill", "--pill-squircle-amt", "--pill-ease-spread"];
   }
 
   /**
@@ -92,11 +94,14 @@ export const paintDef = class PillShape implements PaintWorklet {
     return Math.min(Math.max(amt - 1, 0) * EASE_PER_AMOUNT, MAX_EASE);
   }
 
-  /** How sharply curvature leaves the arc; see `DEFAULT_FALLOFF`. */
-  resolveFalloff(props?: PaintProperties): number {
-    const raw = Number.parseFloat(props?.get("--pill-ease-falloff")?.toString() ?? "");
-    const falloff = Number.isFinite(raw) ? raw : DEFAULT_FALLOFF;
-    return Math.max(falloff, MIN_FALLOFF);
+  /**
+   * How far the join is spread along the flat edge, as the curvature exponent
+   * it offsets; see `DEFAULT_SPREAD`.
+   */
+  resolveExponent(props?: PaintProperties): number {
+    const raw = Number.parseFloat(props?.get("--pill-ease-spread")?.toString() ?? "");
+    const spread = Number.isFinite(raw) ? raw : DEFAULT_SPREAD;
+    return Math.max(spread, MIN_SPREAD) + CLOTHOID_EXPONENT;
   }
 
   /**
@@ -150,49 +155,48 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * The softest easing that still fits, backing off the amount and the falloff
+   * The softest easing that still fits, backing off the amount and the spread
    * together.
    *
    * What reads as a smooth transition is the rate curvature changes,
-   * `|dk/ds| * R^2 = (falloff - 1) / (falloff * beta)`. Surrendering beta alone
-   * sends that rate up like `1 / beta`, so a pill too narrow for the requested
-   * easing ends up looking abruptly cornered even though it is still formally
-   * G2. Holding the rate fixed instead pins the falloff to whatever beta
-   * survives:
+   * `|dk/ds| * R^2 = (q - 1) / (q * beta)`. Surrendering beta alone sends that
+   * rate up like `1 / beta`, so a pill too narrow for the requested easing ends
+   * up looking abruptly cornered even though it is still formally G2. Holding
+   * the rate fixed instead pins the exponent to whatever beta survives:
    *
-   *     falloff = 1 / (1 - rate * beta)
+   *     q = 1 / (1 - rate * beta)
    *
-   * which returns the requested falloff at the requested beta and eases down
-   * towards the plain clothoid as the room runs out. Once the falloff bottoms
-   * out at 2 the rate does climb, on the way to the bare semicircle a square
-   * has no choice but to be.
+   * which returns the requested exponent at the requested beta and eases down
+   * towards the plain clothoid as the room runs out. Once it bottoms out there
+   * the rate does climb, on the way to the bare semicircle a square has no
+   * choice but to be.
    */
   fitEasing(
     r: number,
     half: number,
     wantedBeta: number,
-    wantedFalloff: number,
-  ): { beta: number; falloff: number } {
-    if (wantedBeta <= 0) return { beta: 0, falloff: wantedFalloff };
+    wantedExponent: number,
+  ): { beta: number; exponent: number } {
+    if (wantedBeta <= 0) return { beta: 0, exponent: wantedExponent };
 
     // There is only something to trade above the clothoid. At or below it the
-    // requested falloff is passed through and the amount absorbs the shortfall,
-    // which also keeps the rate away from the 0 and 1 singularities.
-    const tradeable = wantedFalloff > DEFAULT_FALLOFF;
-    const rate = tradeable ? (wantedFalloff - 1) / (wantedFalloff * wantedBeta) : 0;
-    // rate * beta <= rate * wantedBeta = (falloff - 1) / falloff < 1, so the
-    // denominator stays positive.
-    const falloffFor = (beta: number): number =>
+    // requested exponent is passed through and the amount absorbs the
+    // shortfall, which also keeps the rate away from the 0 and 1 singularities.
+    const tradeable = wantedExponent > CLOTHOID_EXPONENT;
+    const rate = tradeable ? (wantedExponent - 1) / (wantedExponent * wantedBeta) : 0;
+    // rate * beta <= rate * wantedBeta = (q - 1) / q < 1, so the denominator
+    // stays positive.
+    const exponentFor = (beta: number): number =>
       tradeable
-        ? Math.min(Math.max(1 / (1 - rate * beta), DEFAULT_FALLOFF), wantedFalloff)
-        : wantedFalloff;
+        ? Math.min(Math.max(1 / (1 - rate * beta), CLOTHOID_EXPONENT), wantedExponent)
+        : wantedExponent;
 
     const fits = (beta: number): boolean => {
-      const falloff = falloffFor(beta);
-      return this.capMetrics(r, beta, falloff, this.fresnel(beta, falloff)).junction <= half;
+      const exponent = exponentFor(beta);
+      return this.capMetrics(r, beta, exponent, this.fresnel(beta, exponent)).junction <= half;
     };
 
-    if (fits(wantedBeta)) return { beta: wantedBeta, falloff: wantedFalloff };
+    if (fits(wantedBeta)) return { beta: wantedBeta, exponent: wantedExponent };
 
     let low = 0;
     let high = wantedBeta;
@@ -201,7 +205,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       if (fits(mid)) low = mid;
       else high = mid;
     }
-    return { beta: low, falloff: falloffFor(low) };
+    return { beta: low, exponent: exponentFor(low) };
   }
 
   /**
@@ -227,12 +231,12 @@ export const paintDef = class PillShape implements PaintWorklet {
 
     if (beta <= 0) return points;
 
-    // A falloff of 0 gives the transition no length at all: the arc alone spans
-    // the height and meets the flat edge at a corner.
+    // The lowest spread gives the transition no length at all: the arc alone
+    // spans the height and meets the flat edge at a corner.
     if (q <= 0) return points;
 
     // Curvature ramps from 1 / radius down to 0 across the transition, which
-    // the falloff makes q * beta * radius long. Vertices land where the chord
+    // the exponent makes q * beta * radius long. Vertices land where the chord
     // would otherwise drift off the curve.
     const length = q * radius * beta;
     const start = points[points.length - 1];
@@ -268,14 +272,14 @@ export const paintDef = class PillShape implements PaintWorklet {
     const long = vertical ? height : width;
     const short = vertical ? width : height;
     const r = short / 2;
-    const { beta, falloff } = this.fitEasing(
+    const { beta, exponent } = this.fitEasing(
       r,
       long / 2,
       this.resolveEase(props),
-      this.resolveFalloff(props),
+      this.resolveExponent(props),
     );
 
-    const outline = this.outline(long, short, this.quadrant(r, beta, falloff));
+    const outline = this.outline(long, short, this.quadrant(r, beta, exponent));
     for (let i = 0; i < outline.length; i++) {
       const p = outline[i];
       const x = vertical ? p.y : p.x;
