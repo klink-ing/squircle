@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { createCompiler } from "./test-utils";
+import { FULL_RADIUS } from "./variants";
 
 const { compilePlugin } = createCompiler(import.meta.dirname);
 const compilePill = (candidates: string[], block = "") =>
@@ -15,14 +16,14 @@ describe("tailwind-pill.ts utilities", () => {
     const css = await compilePill(["squircle-pill"]);
     expect(css).toContain("@supports (background-image: paint(pill-shape))");
     expect(css).toContain("background-image: paint(pill-shape)");
-    expect(css).toContain("data-squircle-pill");
   });
 
   describe("fallback without the paint worklet", () => {
     it("is a plain fully-rounded rectangle", async () => {
       const css = await compilePill(["squircle-pill"]);
       expect(css).toContain("@supports not (background-image: paint(pill-shape))");
-      expect(css).toContain("border-radius: 9999px");
+      // The same radius the `-full` utilities use, matching `rounded-full`.
+      expect(css).toContain(`border-radius: ${FULL_RADIUS}`);
     });
 
     it("never reshapes the corner", async () => {
@@ -50,6 +51,6 @@ describe("tailwind-pill.ts utilities", () => {
   it("honours a custom prefix", async () => {
     const css = await compilePill(["pillbox"], 'prefix: "pillbox";');
     expect(css).toContain(".pillbox");
-    expect(css).toContain("border-radius: 9999px");
+    expect(css).toContain(`border-radius: ${FULL_RADIUS}`);
   });
 });

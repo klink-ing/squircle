@@ -4,7 +4,7 @@
  */
 
 import plugin from "tailwindcss/plugin";
-import { variantEntries } from "./variants";
+import { FULL_RADIUS, variantEntries } from "./variants";
 
 export interface SquirclePillPluginOptions {
   /** Class name prefix for utilities (default: "squircle-pill") */
@@ -27,13 +27,11 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
        * silhouette rather than just softening a corner.
        *
        * Gated only on the worklet being absent, so browsers with neither
-       * feature still get a pill. `9999px` rather than the package's
-       * `calc(infinity * 1px)` because this branch is the one running in
-       * browsers old enough that the infinity keyword may not parse, and an
-       * invalid radius would leave a rectangle.
+       * feature still get a pill. The radius is the same `FULL_RADIUS` the
+       * `-full` utilities use, matching Tailwind's `rounded-full`.
        */
       "@supports not (background-image: paint(pill-shape))": {
-        "border-radius": "9999px",
+        "border-radius": FULL_RADIUS,
       },
     };
 
