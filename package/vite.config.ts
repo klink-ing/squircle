@@ -6,9 +6,6 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
   },
-  dev: {
-    entry: "./dev-pill.html",
-  },
   pack: {
     entry: {
       "tailwind/index": "./src/tailwind.ts",
