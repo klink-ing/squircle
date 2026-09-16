@@ -4,6 +4,18 @@
  */
 
 export const DEFAULT_AMT = 2 as const;
+
+/* ── Pill custom properties ───────────────────────────────────
+ * The pill paint worklet reads these by name through
+ * `inputProperties`, so they cannot be renamed per-project the way
+ * `--squircle-amt` can. Both the Tailwind plugin and
+ * squircle-pill.css register them with these initial values, which
+ * must match the worklet's own fallbacks.
+ * ──────────────────────────────────────────────────────────── */
+export const PILL_AMT_VAR_NAME = "--pill-squircle-amt" as const;
+export const PILL_EASE_SPREAD_VAR_NAME = "--pill-ease-spread" as const;
+export const DEFAULT_PILL_AMT = 2 as const;
+export const DEFAULT_PILL_EASE_SPREAD = 1 as const;
 export const DEFAULT_AMOUNT_VAR_NAME = "--squircle-amt" as const;
 export const DEFAULT_R_VAR_NAME = "--squircle-r" as const;
 /** Static value for `squircle-full`; matches Tailwind's `rounded-full`. */

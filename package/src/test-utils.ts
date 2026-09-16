@@ -85,5 +85,22 @@ ${pluginDecl}
     return extractUtilitiesLayer(compiler.build(candidates));
   }
 
-  return { compileCss, compilePlugin };
+  /** The whole build, not just the utilities layer — for base-layer output. */
+  async function compilePluginAll(
+    candidates: string[],
+    pluginBlock = "",
+    plugin = "./tailwind.ts",
+  ): Promise<string> {
+    const pluginDecl = pluginBlock
+      ? `@plugin "${plugin}" {\n${pluginBlock}\n}`
+      : `@plugin "${plugin}";`;
+    const compiler = await compile(`\n@import "tailwindcss";\n${pluginDecl}\n`, {
+      base: srcDir,
+      loadStylesheet,
+      loadModule,
+    });
+    return compiler.build(candidates);
+  }
+
+  return { compileCss, compilePlugin, compilePluginAll };
 }

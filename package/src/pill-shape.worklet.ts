@@ -27,6 +27,8 @@ interface Point {
  * The request is only ever honoured up to what the element's aspect ratio can
  * fit; see `fitEase`.
  */
+// Kept in step with DEFAULT_PILL_AMT in variants.ts by a test; this module is
+// deliberately import-free so the worklet stays a standalone module script.
 const DEFAULT_AMOUNT = 2;
 const EASE_PER_AMOUNT = Math.PI / 6;
 const MAX_EASE = Math.PI / 3;
@@ -44,7 +46,8 @@ const MAX_EASE = Math.PI / 3;
  * and ends at `0`, so G2 holds throughout.
  *
  * The default sits one step above the clothoid, which reads as a softer join
- * without noticeably flattening the cap.
+ * without noticeably flattening the cap. Kept in step with
+ * DEFAULT_PILL_EASE_SPREAD in variants.ts by a test.
  */
 const DEFAULT_SPREAD = 1;
 /** The exponent a spread of 0 means: curvature falling linearly, a clothoid. */
