@@ -90,6 +90,36 @@ const junctionIndex = (ctx: RecordingContext): number => {
   return best;
 };
 
+/**
+ * Largest rate of curvature change over the cap, scaled to be size-independent.
+ * This is what reads as a smooth or an abrupt transition.
+ */
+const curvatureGradient = (ctx: RecordingContext, r: number): number => {
+  const j = junctionIndex(ctx);
+  const v = ctx.vertices;
+  let worst = 0;
+  for (let i = 2; i < j; i++) {
+    const before = curvature(v[i - 2], v[i - 1], v[i]);
+    const after = curvature(v[i - 1], v[i], v[i + 1]);
+    const ds = Math.hypot(v[i].x - v[i - 1].x, v[i].y - v[i - 1].y);
+    if (ds > 1e-9) worst = Math.max(worst, Math.abs(after - before) / ds);
+  }
+  return worst * r * r;
+};
+
+/**
+ * Angle, in degrees, at which the outline arrives at the flat edge. Curvature
+ * decaying to zero shows up here as arriving tangent; a cliff arrives steeply.
+ * Unlike a curvature sample, this does not depend on where vertices happen to
+ * land.
+ */
+const arrivalAngle = (ctx: RecordingContext): number => {
+  const j = junctionIndex(ctx);
+  const dx = ctx.vertices[j].x - ctx.vertices[j - 1].x;
+  const dy = ctx.vertices[j].y - ctx.vertices[j - 1].y;
+  return Math.abs((Math.atan2(dy, dx) * 180) / Math.PI);
+};
+
 /** Curvature profile over the cap, ending at the flat-edge junction. */
 const capCurvature = (ctx: RecordingContext): number[] => {
   const j = junctionIndex(ctx);
@@ -168,14 +198,12 @@ describe("pill-shape worklet geometry", () => {
       const eased = capCurvature(paint(WIDTH, HEIGHT));
       const peak = Math.max(...eased);
 
-      // Last sample before the flat edge is essentially straight...
-      expect(eased[eased.length - 1]).toBeLessThan(0.15 * peak);
-      // ...and no single step sheds a large share of the curvature.
-      let maxDrop = 0;
-      for (let i = 1; i < eased.length; i++) {
-        maxDrop = Math.max(maxDrop, Math.abs(eased[i] - eased[i - 1]));
-      }
-      expect(maxDrop).toBeLessThan(0.2 * peak);
+      // It arrives at the flat edge already flattened...
+      expect(peak).toBeGreaterThan(0);
+      expect(arrivalAngle(paint(WIDTH, HEIGHT))).toBeLessThan(3);
+      // ...and curvature sheds at a bounded rate. Measured per unit arc length,
+      // so it does not depend on how densely the outline happens to be sampled.
+      expect(curvatureGradient(paint(WIDTH, HEIGHT), R)).toBeLessThan(3);
     });
 
     it("falls monotonically once the easing starts", () => {
@@ -193,6 +221,10 @@ describe("pill-shape worklet geometry", () => {
       // A bare semicircle holds 1 / R right up to the edge.
       expect(peak).toBeCloseTo(1 / R, 3);
       expect(stadium[stadium.length - 1]).toBeCloseTo(1 / R, 3);
+      // ...so unlike an eased cap it does not arrive flattened.
+      expect(arrivalAngle(paint(WIDTH, HEIGHT, 1))).toBeGreaterThan(
+        arrivalAngle(paint(WIDTH, HEIGHT, 3)),
+      );
     });
 
     it("eases more softly as the amount rises", () => {
@@ -284,13 +316,10 @@ describe("pill-shape worklet geometry", () => {
         const profile = capCurvature(paint(WIDTH, HEIGHT, 2, q));
         const peak = Math.max(...profile);
 
-        // Starts on the arc at 1 / cap radius, ends flat, with no cliff.
-        expect(profile[profile.length - 1], `falloff ${q}`).toBeLessThan(0.15 * peak);
-        let maxDrop = 0;
-        for (let i = 1; i < profile.length; i++) {
-          maxDrop = Math.max(maxDrop, Math.abs(profile[i] - profile[i - 1]));
-        }
-        expect(maxDrop, `falloff ${q}`).toBeLessThan(0.25 * peak);
+        // Starts on the arc at 1 / cap radius, arrives flat, with no cliff.
+        expect(peak, `falloff ${q}`).toBeGreaterThan(0);
+        expect(arrivalAngle(paint(WIDTH, HEIGHT, 2, q)), `falloff ${q}`).toBeLessThan(3);
+        expect(curvatureGradient(paint(WIDTH, HEIGHT, 2, q), R), `falloff ${q}`).toBeLessThan(3);
       }
     });
 
@@ -318,6 +347,111 @@ describe("pill-shape worklet geometry", () => {
         }
         for (const p of paint(100, 100, 3, q).vertices) {
           expect(Math.hypot(p.x - 50, p.y - 50), `falloff ${q}`).toBeCloseTo(50, 4);
+        }
+      }
+    });
+  });
+
+  describe("fitting both controls together", () => {
+    // A pill too narrow for the requested easing has to give something up.
+    // Surrendering the amount alone drives the curvature rate up like 1 / beta,
+    // which is what makes a narrow pill look abruptly cornered.
+    const WIDTHS = [600, 300, 240, 180, 140, 110];
+
+    it("holds the curvature rate steady as the pill narrows", () => {
+      const rates = WIDTHS.map((w) => curvatureGradient(paint(w, HEIGHT, 4, 6), R));
+      const widest = rates[0];
+      for (let i = 0; i < rates.length; i++) {
+        expect(rates[i], `width ${WIDTHS[i]}`).toBeLessThan(1.3 * widest);
+      }
+    });
+
+    it("gives up falloff as well as amount", () => {
+      // At 180 the requested easing does not fit, so both must come down.
+      const roomy = paint(600, HEIGHT, 4, 6);
+      const tight = paint(180, HEIGHT, 4, 6);
+
+      const capOf = (ctx: RecordingContext) =>
+        circleThrough(ctx.vertices[0], ctx.vertices[3], ctx.vertices[6]);
+      const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)].x;
+
+      // The tight pill still eases — it has not collapsed to a stadium...
+      expect(flatEdgeStart(tight)).toBeGreaterThan(capOf(tight).r * 1.2);
+      // ...and it eases over less room than the roomy one.
+      expect(flatEdgeStart(tight)).toBeLessThan(flatEdgeStart(roomy));
+    });
+
+    it("keeps more of the amount than backing off the amount alone would", () => {
+      // Trading falloff for amount is the whole point: the cap should stay
+      // meaningfully eased rather than snapping back to a bare semicircle.
+      const tight = paint(140, HEIGHT, 4, 6);
+      const profile = capCurvature(tight);
+      const peak = Math.max(...profile);
+
+      // A real ramp, not a cliff, at a width where beta-only fitting collapses.
+      expect(peak).toBeGreaterThan(0);
+      expect(arrivalAngle(tight)).toBeLessThan(3);
+      expect(profile.length).toBeGreaterThan(8);
+    });
+
+    it("leaves the default falloff alone", () => {
+      // With falloff already at the clothoid floor there is nothing to trade,
+      // so narrowing may only reduce the amount.
+      for (const w of [600, 240, 140, 90]) {
+        const ctx = paint(w, HEIGHT, 4, 2);
+        for (const p of ctx.vertices) {
+          expect(p.x, `width ${w}`).toBeGreaterThanOrEqual(-1e-6);
+          expect(p.x, `width ${w}`).toBeLessThanOrEqual(w + 1e-6);
+        }
+      }
+    });
+
+    it("still fits the box while trading the two off", () => {
+      for (const [amt, falloff] of [
+        [4, 6],
+        [3, 8],
+        [2, 10],
+      ]) {
+        for (const [w, h] of [
+          [600, 60],
+          [140, 60],
+          [70, 60],
+          [61, 60],
+          [60, 60],
+          [60, 600],
+        ]) {
+          for (const p of paint(w, h, amt, falloff).vertices) {
+            const tag = `amt ${amt} falloff ${falloff} @ ${w}x${h}`;
+            expect(p.x, tag).toBeGreaterThanOrEqual(-1e-6);
+            expect(p.x, tag).toBeLessThanOrEqual(w + 1e-6);
+            expect(p.y, tag).toBeGreaterThanOrEqual(-1e-6);
+            expect(p.y, tag).toBeLessThanOrEqual(h + 1e-6);
+          }
+        }
+      }
+    });
+  });
+
+  describe("outline sampling", () => {
+    it("never lets a chord drift far from the curve", () => {
+      // Sagitta of each segment: ds * dphi / 8. Sampling that starves the
+      // start of the transition shows up here as a visible facet.
+      for (const [w, h, amt, falloff] of [
+        [600, 60, 4, 6],
+        [240, 60, 4, 6],
+        [1200, 200, 4, 6],
+        [600, 60, 2, 2],
+      ]) {
+        const ctx = paint(w, h, amt, falloff);
+        const v = ctx.vertices;
+        const cap = junctionIndex(ctx);
+        for (let i = 1; i < cap; i++) {
+          const d1 = { x: v[i].x - v[i - 1].x, y: v[i].y - v[i - 1].y };
+          const d2 = { x: v[i + 1].x - v[i].x, y: v[i + 1].y - v[i].y };
+          const l1 = Math.hypot(d1.x, d1.y);
+          if (l1 < 1e-9 || Math.hypot(d2.x, d2.y) < 1e-9) continue;
+          const turn = Math.abs(Math.atan2(d1.x * d2.y - d1.y * d2.x, d1.x * d2.x + d1.y * d2.y));
+          expect((l1 * turn) / 8, `${w}x${h} amt ${amt} falloff ${falloff}`).toBeLessThan(0.1);
         }
       }
     });

@@ -53,10 +53,20 @@ const MIN_FALLOFF = 2;
 const MAX_FALLOFF = 10;
 
 /** Integration steps along one transition. Trapezoid error here is sub-pixel. */
-const EASE_STEPS = 192;
-/** Vertices emitted per transition and per cap arc. */
-const EASE_VERTICES = 24;
-const ARC_VERTICES = 32;
+const EASE_STEPS = 512;
+
+/**
+ * How far the emitted polyline may sit from the true curve, in pixels.
+ *
+ * A chord spanning arc length `ds` while the curve turns `dphi` misses it by
+ * about `ds * dphi / 8`, so bounding that product places vertices densely where
+ * the outline turns hardest and sparsely down the near-straight tail. Sampling
+ * at a fixed rate instead starves the start of the transition, which is exactly
+ * where a high falloff piles up all of the curvature.
+ */
+const MAX_SAGITTA = 0.03;
+const MIN_SEGMENTS = 4;
+const MAX_SEGMENTS = 256;
 
 export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
@@ -139,22 +149,52 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * The softest easing that still fits. A stubby pill has less room, so it eases
-   * harder than asked; at width === height there is no flat edge to ease into
-   * and this returns 0, leaving a plain circle.
+   * The softest easing that still fits, backing off the amount and the falloff
+   * together.
+   *
+   * What reads as a smooth transition is the rate curvature changes,
+   * `|dk/ds| * R^2 = (falloff - 1) / (falloff * beta)`. Surrendering beta alone
+   * sends that rate up like `1 / beta`, so a pill too narrow for the requested
+   * easing ends up looking abruptly cornered even though it is still formally
+   * G2. Holding the rate fixed instead pins the falloff to whatever beta
+   * survives:
+   *
+   *     falloff = 1 / (1 - rate * beta)
+   *
+   * which returns the requested falloff at the requested beta and eases down
+   * towards the plain clothoid as the room runs out. Once the falloff bottoms
+   * out at 2 the rate does climb, on the way to the bare semicircle a square
+   * has no choice but to be.
    */
-  fitEase(r: number, half: number, wanted: number, q: number): number {
-    if (wanted <= 0) return 0;
-    if (this.capMetrics(r, wanted, q, this.fresnel(wanted, q)).junction <= half) return wanted;
+  fitEasing(
+    r: number,
+    half: number,
+    wantedBeta: number,
+    wantedFalloff: number,
+  ): { beta: number; falloff: number } {
+    if (wantedBeta <= 0) return { beta: 0, falloff: wantedFalloff };
+
+    const rate = (wantedFalloff - 1) / (wantedFalloff * wantedBeta);
+    // rate * beta <= rate * wantedBeta = (falloff - 1) / falloff < 1, so the
+    // denominator stays positive.
+    const falloffFor = (beta: number): number =>
+      Math.min(Math.max(1 / (1 - rate * beta), MIN_FALLOFF), wantedFalloff);
+
+    const fits = (beta: number): boolean => {
+      const falloff = falloffFor(beta);
+      return this.capMetrics(r, beta, falloff, this.fresnel(beta, falloff)).junction <= half;
+    };
+
+    if (fits(wantedBeta)) return { beta: wantedBeta, falloff: wantedFalloff };
 
     let low = 0;
-    let high = wanted;
+    let high = wantedBeta;
     for (let i = 0; i < 24; i++) {
       const mid = (low + high) / 2;
-      if (this.capMetrics(r, mid, q, this.fresnel(mid, q)).junction <= half) low = mid;
+      if (fits(mid)) low = mid;
       else high = mid;
     }
-    return low;
+    return { beta: low, falloff: falloffFor(low) };
   }
 
   /**
@@ -167,25 +207,40 @@ export const paintDef = class PillShape implements PaintWorklet {
     const points: Point[] = [];
 
     // Circular cap, from the leftmost point to where the easing takes over.
+    // Constant radius, so a constant step keeps the chord error in bounds.
     const sweep = Math.PI / 2 - beta;
-    for (let i = 0; i <= ARC_VERTICES; i++) {
-      const theta = Math.PI + (sweep * i) / ARC_VERTICES;
+    const arcSteps = Math.min(
+      Math.max(Math.ceil(sweep / Math.sqrt((8 * MAX_SAGITTA) / radius)), MIN_SEGMENTS),
+      MAX_SEGMENTS,
+    );
+    for (let i = 0; i <= arcSteps; i++) {
+      const theta = Math.PI + (sweep * i) / arcSteps;
       points.push({ x: radius + radius * Math.cos(theta), y: r + radius * Math.sin(theta) });
     }
 
     if (beta <= 0) return points;
 
     // Curvature ramps from 1 / radius down to 0 across the transition, which
-    // the falloff makes q * beta * radius long.
+    // the falloff makes q * beta * radius long. Vertices land where the chord
+    // would otherwise drift off the curve.
     const length = q * radius * beta;
     const start = points[points.length - 1];
-    for (let i = 1; i <= EASE_VERTICES; i++) {
-      const k = Math.round((i * EASE_STEPS) / EASE_VERTICES);
-      points.push({
-        x: start.x + length * fresnel.cos[k],
-        y: start.y - length * fresnel.sin[k],
-      });
+    const at = (k: number): Point => ({
+      x: start.x + length * fresnel.cos[k],
+      y: start.y - length * fresnel.sin[k],
+    });
+    const turnTo = (t: number): number => beta * (1 - (1 - t) ** q);
+
+    let anchor = 0;
+    for (let k = 1; k < EASE_STEPS; k++) {
+      const span = length * ((k - anchor) / EASE_STEPS);
+      const turn = turnTo(k / EASE_STEPS) - turnTo(anchor / EASE_STEPS);
+      if (span * turn >= 8 * MAX_SAGITTA) {
+        points.push(at(k));
+        anchor = k;
+      }
     }
+    points.push(at(EASE_STEPS));
 
     return points;
   }
@@ -202,10 +257,14 @@ export const paintDef = class PillShape implements PaintWorklet {
     const long = vertical ? height : width;
     const short = vertical ? width : height;
     const r = short / 2;
-    const q = this.resolveFalloff(props);
-    const beta = this.fitEase(r, long / 2, this.resolveEase(props), q);
+    const { beta, falloff } = this.fitEasing(
+      r,
+      long / 2,
+      this.resolveEase(props),
+      this.resolveFalloff(props),
+    );
 
-    const outline = this.outline(long, short, this.quadrant(r, beta, q));
+    const outline = this.outline(long, short, this.quadrant(r, beta, falloff));
     for (let i = 0; i < outline.length; i++) {
       const p = outline[i];
       const x = vertical ? p.y : p.x;
