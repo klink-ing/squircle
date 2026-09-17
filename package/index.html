@@ -62,6 +62,10 @@
         pointer-events: none;
         background: var(--pill-border-color, transparent);
         --pill-stroke-width: var(--pill-border-width, 0px);
+        /* Read Tailwind's own variable where it exposes one. Registered as
+           non-inheriting, hence the explicit inherit. */
+        --tw-border-style: inherit;
+        --pill-border-style: var(--tw-border-style, solid);
         -webkit-mask-image: paint(pill-shape);
         mask-image: paint(pill-shape);
         -webkit-mask-size: 100% 100%;
@@ -100,6 +104,7 @@
         pointer-events: none;
         background: var(--inner-ring-color, #fff);
         --pill-stroke-width: var(--inner-ring-width, 2px);
+        --pill-border-style: var(--inner-ring-style, solid);
         -webkit-mask-image: paint(pill-shape);
         mask-image: paint(pill-shape);
         -webkit-mask-size: 100% 100%;
@@ -308,6 +313,36 @@
                 background: transparent;
                 --pill-border-width: 3px;
                 --pill-border-color: #1e293b;
+              "
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">
+              Dashed — from <code>--tw-border-style</code>
+            </p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="
+                background: #fef3c7;
+                --pill-border-width: 3px;
+                --pill-border-color: #b45309;
+                --tw-border-style: dashed;
+              "
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">
+              Dotted — from <code>--tw-border-style</code>
+            </p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="
+                background: #e0e7ff;
+                --pill-border-width: 3px;
+                --pill-border-color: #3730a3;
+                --tw-border-style: dotted;
               "
             ></div>
           </div>

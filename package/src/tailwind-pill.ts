@@ -10,6 +10,8 @@ import {
   FULL_RADIUS,
   PILL_AMT_VAR_NAME,
   PILL_BORDER_COLOR_VAR_NAME,
+  PILL_BORDER_STYLE_FALLBACK,
+  PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
@@ -87,6 +89,18 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
           "pointer-events": "none",
           background: `var(${PILL_BORDER_COLOR_VAR_NAME}, transparent)`,
           [PILL_STROKE_WIDTH_VAR_NAME]: `var(${PILL_BORDER_WIDTH_VAR_NAME}, 0px)`,
+          /*
+           * Where a Tailwind border utility exposes a variable, read it rather
+           * than asking for a second source of truth: `border-dashed` and
+           * friends set `--tw-border-style`, so the drawn ring picks up the
+           * style straight from it. Tailwind registers that property as
+           * non-inheriting, hence the explicit `inherit` to pull the element's
+           * value onto the pseudo. Width and colour have no such variable —
+           * those utilities set `border-width`/`border-color` directly — so
+           * they still come from the pill's own properties.
+           */
+          "--tw-border-style": "inherit",
+          [PILL_BORDER_STYLE_VAR_NAME]: `var(--tw-border-style, ${PILL_BORDER_STYLE_FALLBACK})`,
           ...mask,
         },
       },

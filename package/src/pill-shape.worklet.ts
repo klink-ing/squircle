@@ -81,7 +81,28 @@ export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
     // `color` is needed because a paint worklet cannot resolve the
     // `currentColor` keyword itself — it has to be passed in as a property.
-    return ["--pill-squircle-amt", "--pill-ease-spread", "--pill-stroke-width"];
+    return [
+      "--pill-squircle-amt",
+      "--pill-ease-spread",
+      "--pill-stroke-width",
+      "--pill-border-style",
+    ];
+  }
+
+  /**
+   * Dash pattern for the stroke, in multiples of its width, for
+   * `--pill-border-style`. `none` and `hidden` suppress the ring entirely,
+   * matching what those keywords do to a real border.
+   *
+   * The worklet keeps its own vocabulary rather than reading a framework's
+   * variables directly; the Tailwind layer maps `--tw-border-style` onto this.
+   */
+  resolveDash(props: PaintProperties | undefined, width: number): number[] | null {
+    const style = props?.get("--pill-border-style")?.toString().trim();
+    if (style === "none" || style === "hidden") return null;
+    if (style === "dashed") return [width * 3, width * 2];
+    if (style === "dotted") return [width, width * 2];
+    return [];
   }
 
   /**
@@ -276,10 +297,15 @@ export const paintDef = class PillShape implements PaintWorklet {
      * Reading `color` here would mean `color: transparent` erased the element.
      */
     const stroke = this.resolveStrokeWidth(props);
+    const dash = stroke > 0 ? this.resolveDash(props, stroke) : [];
+    // `border-style: none` leaves nothing to draw.
+    if (dash === null) return;
+
     if (stroke > 0) {
       ctx.strokeStyle = "#000";
       // Doubled, because the half outside the outline is clipped away below.
       ctx.lineWidth = stroke * 2;
+      if (dash.length > 0) ctx.setLineDash(dash);
     } else {
       ctx.fillStyle = "#000";
     }

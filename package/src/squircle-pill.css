@@ -60,6 +60,11 @@
     pointer-events: none;
     background: var(--pill-border-color, transparent);
     --pill-stroke-width: var(--pill-border-width, 0px);
+    /* Read Tailwind's own variable where it exposes one: border-dashed and
+     * friends set --tw-border-style. It is registered as non-inheriting, hence
+     * the explicit inherit. */
+    --tw-border-style: inherit;
+    --pill-border-style: var(--tw-border-style, solid);
     -webkit-mask-image: paint(pill-shape);
     mask-image: paint(pill-shape);
     -webkit-mask-size: 100% 100%;

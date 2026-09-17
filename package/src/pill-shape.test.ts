@@ -11,6 +11,7 @@ import {
   DEFAULT_PILL_AMT,
   DEFAULT_PILL_EASE_SPREAD,
   PILL_AMT_VAR_NAME,
+  PILL_BORDER_STYLE_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
 } from "./variants";
@@ -32,6 +33,7 @@ describe("pill-shape worklet contract", () => {
       PILL_AMT_VAR_NAME,
       PILL_EASE_SPREAD_VAR_NAME,
       PILL_STROKE_WIDTH_VAR_NAME,
+      PILL_BORDER_STYLE_VAR_NAME,
     ]);
   });
 
@@ -72,13 +74,27 @@ describe("pill-shape worklet contract", () => {
       );
     });
 
-    it("assigns no custom property the worklet does not read", () => {
+    it("assigns no custom property that nothing consumes", () => {
       // Catches leftovers like `--pill-width: 100%` that outlived the paint
-      // function that once consumed them.
+      // function that once consumed them. A property is legitimate if the
+      // worklet reads it, or if the sheet itself feeds it into one that is
+      // read — which is how a framework's variable is bridged across.
       const assigned = [...stylesheet.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1]);
+      const referenced = new Set(
+        [...stylesheet.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]),
+      );
       for (const name of assigned) {
-        expect(customInputs, `${name} is assigned but never read`).toContain(name);
+        const consumed = customInputs.includes(name) || referenced.has(name);
+        expect(consumed, `${name} is assigned but nothing consumes it`).toBe(true);
       }
+    });
+
+    it("bridges Tailwind's border style variable into the pill's own", () => {
+      // Where a utility exposes a variable, read it rather than asking for a
+      // second source of truth. Tailwind registers --tw-border-style as
+      // non-inheriting, so the explicit `inherit` is load-bearing.
+      expect(stylesheet).toContain("--tw-border-style: inherit");
+      expect(stylesheet).toContain(`${PILL_BORDER_STYLE_VAR_NAME}: var(--tw-border-style`);
     });
   });
 
