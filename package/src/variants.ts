@@ -6,22 +6,43 @@
 export const DEFAULT_AMT = 2 as const;
 
 /* ── Pill custom properties ───────────────────────────────────
- * The pill paint worklet reads these by name through
- * `inputProperties`, so they cannot be renamed per-project the way
- * `--squircle-amt` can. Both the Tailwind plugin and
- * squircle-pill.css register them with these initial values, which
- * must match the worklet's own fallbacks.
+ * Namespaced, because `--pill-*` is the kind of name a design
+ * system is likely to have taken already.
+ *
+ * The worklet names these in `inputProperties`, a static list read
+ * once at registration, so there is no hook to rename them per
+ * project the way `--squircle-amt` can be. The prefix is therefore
+ * fixed when the package is built: set SQUIRCLE_CSS_NAMESPACE to
+ * change it, and the worklet, the plugins and the stylesheet all
+ * follow from the same value.
+ *
+ * Both the Tailwind plugin and squircle-pill.css register these
+ * with initial values matching the worklet's own fallbacks.
  * ──────────────────────────────────────────────────────────── */
-export const PILL_AMT_VAR_NAME = "--pill-squircle-amt" as const;
-export const PILL_EASE_SPREAD_VAR_NAME = "--pill-ease-spread" as const;
+declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
+
+/**
+ * Vite inlines the define; build scripts that import this module under plain
+ * `tsx` get no define, so they read the environment directly. `typeof` on an
+ * undeclared name is safe, which is what makes the first branch usable either
+ * way.
+ */
+export const CSS_NAMESPACE: string =
+  typeof __SQUIRCLE_CSS_NAMESPACE__ === "string"
+    ? __SQUIRCLE_CSS_NAMESPACE__
+    : (globalThis.process?.env?.SQUIRCLE_CSS_NAMESPACE ?? "klinking");
+const pillVar = (name: string) => `--${CSS_NAMESPACE}-pill-${name}`;
+
+export const PILL_AMT_VAR_NAME: string = pillVar("squircle-amt");
+export const PILL_EASE_SPREAD_VAR_NAME: string = pillVar("ease-spread");
 export const DEFAULT_PILL_AMT = 2 as const;
 /** Border the worklet draws itself, since a CSS border cannot follow the shape. */
-export const PILL_BORDER_WIDTH_VAR_NAME = "--pill-border-width" as const;
-export const PILL_BORDER_COLOR_VAR_NAME = "--pill-border-color" as const;
-export const PILL_BORDER_STYLE_VAR_NAME = "--pill-border-style" as const;
+export const PILL_BORDER_WIDTH_VAR_NAME: string = pillVar("border-width");
+export const PILL_BORDER_COLOR_VAR_NAME: string = pillVar("border-color");
+export const PILL_BORDER_STYLE_VAR_NAME: string = pillVar("border-style");
 export const PILL_BORDER_STYLE_FALLBACK = "solid" as const;
 /** Internal: what the worklet keys stroke mode off, set on the ring only. */
-export const PILL_STROKE_WIDTH_VAR_NAME = "--pill-stroke-width" as const;
+export const PILL_STROKE_WIDTH_VAR_NAME: string = pillVar("stroke-width");
 export const DEFAULT_PILL_EASE_SPREAD = 1 as const;
 export const DEFAULT_AMOUNT_VAR_NAME = "--squircle-amt" as const;
 export const DEFAULT_R_VAR_NAME = "--squircle-r" as const;

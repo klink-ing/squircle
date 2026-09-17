@@ -26,13 +26,13 @@
       /* Registering the property lets the paint worklet see typed values and
          repaint as the amount animates. `inherits: true` so one control on the
          page can drive every pill at once. */
-      @property --pill-squircle-amt {
+      @property --klinking-pill-squircle-amt {
         syntax: "<number>";
         initial-value: 2;
         inherits: true;
       }
 
-      @property --pill-ease-spread {
+      @property --klinking-pill-ease-spread {
         syntax: "<number>";
         initial-value: 1;
         inherits: true;
@@ -60,12 +60,12 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        background: var(--pill-border-color, transparent);
-        --pill-stroke-width: var(--pill-border-width, 0px);
+        background: var(--klinking-pill-border-color, transparent);
+        --klinking-pill-stroke-width: var(--klinking-pill-border-width, 0px);
         /* Read Tailwind's own variable where it exposes one. Registered as
            non-inheriting, hence the explicit inherit. */
         --tw-border-style: inherit;
-        --pill-border-style: var(--tw-border-style, solid);
+        --klinking-pill-border-style: var(--tw-border-style, solid);
         -webkit-mask-image: paint(pill-shape);
         mask-image: paint(pill-shape);
         -webkit-mask-size: 100% 100%;
@@ -103,8 +103,8 @@
         inset: var(--inner-ring-inset, 7px);
         pointer-events: none;
         background: var(--inner-ring-color, #fff);
-        --pill-stroke-width: var(--inner-ring-width, 2px);
-        --pill-border-style: var(--inner-ring-style, solid);
+        --klinking-pill-stroke-width: var(--inner-ring-width, 2px);
+        --klinking-pill-border-style: var(--inner-ring-style, solid);
         -webkit-mask-image: paint(pill-shape);
         mask-image: paint(pill-shape);
         -webkit-mask-size: 100% 100%;
@@ -179,12 +179,12 @@
       </p>
 
       <label class="mb-2 flex max-w-xl items-center gap-3 text-sm">
-        <span class="w-44 font-semibold text-gray-700">--pill-squircle-amt</span>
+        <span class="w-44 font-semibold text-gray-700">--klinking-pill-squircle-amt</span>
         <input id="amt" type="range" min="1" max="4" step="0.05" value="2" class="flex-1" />
         <code id="amtOut" class="w-32 text-right text-gray-600">2.00</code>
       </label>
       <label class="mb-6 flex max-w-xl items-center gap-3 text-sm">
-        <span class="w-44 font-semibold text-gray-700">--pill-ease-spread</span>
+        <span class="w-44 font-semibold text-gray-700">--klinking-pill-ease-spread</span>
         <input id="spread" type="range" min="-2" max="8" step="0.05" value="1" class="flex-1" />
         <code id="spreadOut" class="w-32 text-right text-gray-600">1.00</code>
       </label>
@@ -201,10 +201,10 @@
 
       <script>
         const controls = [
-          ["amt", "--pill-squircle-amt", (v) => Math.min(Math.max(v, 1), 4)],
+          ["amt", "--klinking-pill-squircle-amt", (v) => Math.min(Math.max(v, 1), 4)],
           // Negatives are allowed on purpose: below 0 the easing degrades, and
           // at -2 it becomes a corner. Worth being able to see.
-          ["spread", "--pill-ease-spread", (v) => v],
+          ["spread", "--klinking-pill-ease-spread", (v) => v],
         ];
         const sync = () => {
           for (const [id, prop, clamp] of controls) {
@@ -297,11 +297,15 @@
 
           <div>
             <p class="mb-2 text-xs font-semibold text-gray-600">
-              Border — <code>--pill-border-width</code>
+              Border — <code>--klinking-pill-border-width</code>
             </p>
             <div
               class="pill-shape h-16 w-full"
-              style="background: #a7f3d0; --pill-border-width: 5px; --pill-border-color: #065f46"
+              style="
+                background: #a7f3d0;
+                --klinking-pill-border-width: 5px;
+                --klinking-pill-border-color: #065f46;
+              "
             ></div>
           </div>
 
@@ -311,8 +315,8 @@
               class="pill-shape h-16 w-full"
               style="
                 background: transparent;
-                --pill-border-width: 3px;
-                --pill-border-color: #1e293b;
+                --klinking-pill-border-width: 3px;
+                --klinking-pill-border-color: #1e293b;
               "
             ></div>
           </div>
@@ -325,8 +329,8 @@
               class="pill-shape h-16 w-full"
               style="
                 background: #fef3c7;
-                --pill-border-width: 3px;
-                --pill-border-color: #b45309;
+                --klinking-pill-border-width: 3px;
+                --klinking-pill-border-color: #b45309;
                 --tw-border-style: dashed;
               "
             ></div>
@@ -340,8 +344,8 @@
               class="pill-shape h-16 w-full"
               style="
                 background: #e0e7ff;
-                --pill-border-width: 3px;
-                --pill-border-color: #3730a3;
+                --klinking-pill-border-width: 3px;
+                --klinking-pill-border-color: #3730a3;
                 --tw-border-style: dotted;
               "
             ></div>
@@ -384,8 +388,8 @@
                 class="pill-shape pill-inner-ring h-16 w-full"
                 style="
                   background: linear-gradient(100deg, #1d4ed8, #7c3aed);
-                  --pill-border-width: 4px;
-                  --pill-border-color: #0f172a;
+                  --klinking-pill-border-width: 4px;
+                  --klinking-pill-border-color: #0f172a;
                   --inner-ring-color: rgb(255 255 255 / 0.55);
                   --inner-ring-inset: 9px;
                 "

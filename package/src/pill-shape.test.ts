@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { paintDef } from "./pill-shape.worklet";
 import {
+  CSS_NAMESPACE,
   DEFAULT_PILL_AMT,
   DEFAULT_PILL_EASE_SPREAD,
   PILL_AMT_VAR_NAME,
@@ -28,6 +29,19 @@ const inputProperties = (paintDef as unknown as { inputProperties: string[] }).i
 const customInputs = inputProperties.filter((p) => p.startsWith("--"));
 
 describe("pill-shape worklet contract", () => {
+  it("namespaces every property it owns", () => {
+    // `--pill-*` is the kind of name a design system is likely to have taken.
+    // The prefix is fixed at build time, so the worklet, the plugins and the
+    // stylesheet all have to derive it from the same value.
+    const prefix = `--${CSS_NAMESPACE}-pill-`;
+    for (const name of customInputs) {
+      expect(name, `${name} is not namespaced`).toContain(prefix);
+    }
+    for (const name of registeredProperties(stylesheet)) {
+      expect(name, `${name} is not namespaced`).toContain(prefix);
+    }
+  });
+
   it("reads exactly the properties it needs", () => {
     expect(inputProperties).toEqual([
       PILL_AMT_VAR_NAME,

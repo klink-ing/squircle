@@ -3,6 +3,23 @@
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 
+/**
+ * Prefix for the custom properties this worklet reads, inlined at build time
+ * from the same value `variants.ts` uses, so the two cannot disagree. See
+ * SQUIRCLE_CSS_NAMESPACE in vite.config.ts.
+ *
+ * This module stays import-free — a paint worklet is loaded as a standalone
+ * module script — so it takes the value from the define rather than importing
+ * the constants.
+ */
+declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
+
+const NS = `--${typeof __SQUIRCLE_CSS_NAMESPACE__ === "string" ? __SQUIRCLE_CSS_NAMESPACE__ : "klinking"}-pill`;
+const AMT_VAR = `${NS}-squircle-amt`;
+const EASE_SPREAD_VAR = `${NS}-ease-spread`;
+const STROKE_WIDTH_VAR = `${NS}-stroke-width`;
+const BORDER_STYLE_VAR = `${NS}-border-style`;
+
 interface PaintSize {
   width: number;
   height: number;
@@ -18,7 +35,7 @@ interface Point {
 }
 
 /**
- * `--pill-squircle-amt` sets how soft the easing is: how much of each cap is
+ * The pill amount sets how soft the easing is: how much of each cap is
  * given over to the curvature transition, in units of 30 degrees. `1` keeps a
  * bare semicircle (a plain stadium, what `border-radius: 9999px` already
  * draws), the default `2` eases the last 30 degrees at each end, `3` eases 60.
@@ -34,10 +51,10 @@ const EASE_PER_AMOUNT = Math.PI / 6;
 const MAX_EASE = Math.PI / 3;
 
 /**
- * `--pill-ease-spread` smooths the join into the flat edge: it draws the
+ * The ease spread smooths the join into the flat edge: it draws the
  * transition further along that edge without spending any more of the arc, so
  * a softer join no longer costs you a rounder cap. Raising it lets
- * `--pill-squircle-amt` come down.
+ * the amount come down.
  *
  * `0` is a clothoid, where curvature falls linearly from the arc to the edge.
  * The spread offsets the exponent that governs that fall,
@@ -81,24 +98,19 @@ export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
     // `color` is needed because a paint worklet cannot resolve the
     // `currentColor` keyword itself — it has to be passed in as a property.
-    return [
-      "--pill-squircle-amt",
-      "--pill-ease-spread",
-      "--pill-stroke-width",
-      "--pill-border-style",
-    ];
+    return [AMT_VAR, EASE_SPREAD_VAR, STROKE_WIDTH_VAR, BORDER_STYLE_VAR];
   }
 
   /**
    * Dash pattern for the stroke, in multiples of its width, for
-   * `--pill-border-style`. `none` and `hidden` suppress the ring entirely,
+   * the border style. `none` and `hidden` suppress the ring entirely,
    * matching what those keywords do to a real border.
    *
    * The worklet keeps its own vocabulary rather than reading a framework's
    * variables directly; the Tailwind layer maps `--tw-border-style` onto this.
    */
   resolveDash(props: PaintProperties | undefined, width: number): number[] | null {
-    const style = props?.get("--pill-border-style")?.toString().trim();
+    const style = props?.get(BORDER_STYLE_VAR)?.toString().trim();
     if (style === "none" || style === "hidden") return null;
     if (style === "dashed") return [width * 3, width * 2];
     if (style === "dotted") return [width, width * 2];
@@ -110,13 +122,13 @@ export const paintDef = class PillShape implements PaintWorklet {
    * inset band of exactly that width, hugging the inside of the outline.
    */
   resolveStrokeWidth(props?: PaintProperties): number {
-    const raw = Number.parseFloat(props?.get("--pill-stroke-width")?.toString() ?? "");
+    const raw = Number.parseFloat(props?.get(STROKE_WIDTH_VAR)?.toString() ?? "");
     return Number.isFinite(raw) && raw > 0 ? raw : 0;
   }
 
   /** The requested easing angle, in radians, before it is fitted to the box. */
   resolveEase(props?: PaintProperties): number {
-    const raw = Number.parseFloat(props?.get("--pill-squircle-amt")?.toString() ?? "");
+    const raw = Number.parseFloat(props?.get(AMT_VAR)?.toString() ?? "");
     const amt = Number.isFinite(raw) ? raw : DEFAULT_AMOUNT;
     return Math.min(Math.max(amt - 1, 0) * EASE_PER_AMOUNT, MAX_EASE);
   }
@@ -126,7 +138,7 @@ export const paintDef = class PillShape implements PaintWorklet {
    * it offsets; see `DEFAULT_SPREAD`.
    */
   resolveExponent(props?: PaintProperties): number {
-    const raw = Number.parseFloat(props?.get("--pill-ease-spread")?.toString() ?? "");
+    const raw = Number.parseFloat(props?.get(EASE_SPREAD_VAR)?.toString() ?? "");
     const spread = Number.isFinite(raw) ? raw : DEFAULT_SPREAD;
     return Math.max(spread, MIN_SPREAD) + CLOTHOID_EXPONENT;
   }

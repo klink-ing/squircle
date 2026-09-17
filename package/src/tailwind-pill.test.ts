@@ -5,7 +5,14 @@
 
 import { describe, expect, it } from "vitest";
 import { createCompiler } from "./test-utils";
-import { FULL_RADIUS } from "./variants";
+import {
+  FULL_RADIUS,
+  PILL_AMT_VAR_NAME,
+  PILL_BORDER_COLOR_VAR_NAME,
+  PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_EASE_SPREAD_VAR_NAME,
+  PILL_STROKE_WIDTH_VAR_NAME,
+} from "./variants";
 
 const { compilePlugin, compilePluginAll } = createCompiler(import.meta.dirname);
 const compilePill = (candidates: string[], block = "") =>
@@ -34,8 +41,8 @@ describe("tailwind-pill.ts utilities", () => {
     // strokes one on ::after instead.
     const css = await compilePill(["squircle-pill"]);
     expect(css).toContain("&::after");
-    expect(css).toContain("--pill-stroke-width: var(--pill-border-width, 0px)");
-    expect(css).toContain("background: var(--pill-border-color, transparent)");
+    expect(css).toContain(`${PILL_STROKE_WIDTH_VAR_NAME}: var(${PILL_BORDER_WIDTH_VAR_NAME}, 0px)`);
+    expect(css).toContain(`background: var(${PILL_BORDER_COLOR_VAR_NAME}, transparent)`);
   });
 
   describe("fallback without the paint worklet", () => {
@@ -81,8 +88,8 @@ describe("tailwind-pill.ts utilities", () => {
       // Without this the class alone would leave them unregistered, so they
       // could not be typed or animated.
       const css = await compilePillAll(["squircle-pill"]);
-      expect(css).toContain("@property --pill-squircle-amt");
-      expect(css).toContain("@property --pill-ease-spread");
+      expect(css).toContain(`@property ${PILL_AMT_VAR_NAME}`);
+      expect(css).toContain(`@property ${PILL_EASE_SPREAD_VAR_NAME}`);
       expect(css).toContain("initial-value: 2");
       expect(css).toContain("initial-value: 1");
     });

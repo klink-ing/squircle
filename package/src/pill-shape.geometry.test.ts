@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { paintDef } from "./pill-shape.worklet";
+import { PILL_AMT_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME } from "./variants";
 
 interface Point {
   x: number;
@@ -35,10 +36,10 @@ class RecordingContext {
 
 const props = (amt?: number, spread?: number) => ({
   get(name: string) {
-    if (name === "--pill-squircle-amt" && amt !== undefined) {
+    if (name === PILL_AMT_VAR_NAME && amt !== undefined) {
       return { toString: () => String(amt) };
     }
-    if (name === "--pill-ease-spread" && spread !== undefined) {
+    if (name === PILL_EASE_SPREAD_VAR_NAME && spread !== undefined) {
       return { toString: () => String(spread) };
     }
     return undefined;
@@ -278,7 +279,7 @@ describe("pill-shape worklet geometry", () => {
     });
   });
 
-  describe("--pill-ease-spread", () => {
+  describe("the ease spread property", () => {
     const arcOf = (ctx: RecordingContext) =>
       circleThrough(ctx.vertices[0], ctx.vertices[6], ctx.vertices[12]);
     const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)].x;

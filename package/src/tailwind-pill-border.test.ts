@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { createCompiler } from "./test-utils";
+import { PILL_BORDER_COLOR_VAR_NAME, PILL_BORDER_WIDTH_VAR_NAME } from "./variants";
 
 const { compilePlugin } = createCompiler(import.meta.dirname);
 const compileBorder = (candidates: string[], block = "") =>
@@ -15,13 +16,13 @@ describe("tailwind-pill-border.ts", () => {
     it("leaves Tailwind's own border-width output intact", async () => {
       const css = await compileBorder(["border-2"]);
       expect(css).toContain("border-width: 2px");
-      expect(css).toContain("--pill-border-width: 2px");
+      expect(css).toContain(`${PILL_BORDER_WIDTH_VAR_NAME}: 2px`);
     });
 
     it("leaves Tailwind's own border-color output intact", async () => {
       const css = await compileBorder(["border-red-500"]);
       expect(css).toContain("border-color: var(--color-red-500)");
-      expect(css).toContain("--pill-border-color:");
+      expect(css).toContain(`${PILL_BORDER_COLOR_VAR_NAME}:`);
     });
 
     it("does not disturb utilities it has no values for", async () => {
@@ -29,13 +30,13 @@ describe("tailwind-pill-border.ts", () => {
       // colours, so it must fall through to Tailwind untouched.
       const css = await compileBorder(["border-dashed"]);
       expect(css).toContain("--tw-border-style: dashed");
-      expect(css).not.toContain("--pill-border-width: dashed");
-      expect(css).not.toContain("--pill-border-color: dashed");
+      expect(css).not.toContain(`${PILL_BORDER_WIDTH_VAR_NAME}: dashed`);
+      expect(css).not.toContain(`${PILL_BORDER_COLOR_VAR_NAME}: dashed`);
     });
 
     it("covers arbitrary values without enumerating them", async () => {
       const css = await compileBorder(["border-[3px]"]);
-      expect(css).toContain("--pill-border-width: 3px");
+      expect(css).toContain(`${PILL_BORDER_WIDTH_VAR_NAME}: 3px`);
     });
   });
 
@@ -46,7 +47,10 @@ describe("tailwind-pill-border.ts", () => {
       expect(css).toContain("&:is(.squircle-pill)");
       // The pill vars never appear unscoped.
       for (const line of css.split("\n")) {
-        if (line.includes("--pill-border")) {
+        if (
+          line.includes(PILL_BORDER_WIDTH_VAR_NAME) ||
+          line.includes(PILL_BORDER_COLOR_VAR_NAME)
+        ) {
           expect(css.indexOf("&:is(.squircle-pill)")).toBeLessThan(css.indexOf(line));
         }
       }

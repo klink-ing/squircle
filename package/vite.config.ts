@@ -1,5 +1,25 @@
+import { readFileSync } from "node:fs";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite-plus";
+
+/**
+ * Prefix for every custom property this package owns, inlined at build time
+ * from `squircle.cssNamespace` in package.json.
+ *
+ * The paint worklet names the properties it reads in `inputProperties`, which
+ * is a static list read once when the worklet registers — there is no per-
+ * element or per-consumer hook to rename them through. So the namespace has to
+ * be fixed when the code is built, not when it is used, and it is shared from
+ * here with the worklet, the plugins and the stylesheet so they cannot disagree.
+ *
+ * It lives in package.json rather than an environment variable because the task
+ * runner does not forward arbitrary variables to the commands it spawns, so an
+ * env knob would silently do nothing for anyone building through `vp run`. A
+ * file is also an input the task cache can see, so changing it rebuilds.
+ */
+const CSS_NAMESPACE: string =
+  JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).squircle
+    ?.cssNamespace ?? "klinking";
 
 /**
  * A registered paint worklet cannot be replaced or unregistered, so the worklet
@@ -18,10 +38,18 @@ const pillWorkletHmr = () => ({
 
 export default defineConfig({
   plugins: [tailwindcss(), pillWorkletHmr()],
+  // Covers the dev server and the test run; `pack.define` covers the library
+  // build, which does not inherit this one.
+  define: {
+    __SQUIRCLE_CSS_NAMESPACE__: JSON.stringify(CSS_NAMESPACE),
+  },
   test: {
     include: ["src/**/*.test.ts"],
   },
   pack: {
+    define: {
+      __SQUIRCLE_CSS_NAMESPACE__: JSON.stringify(CSS_NAMESPACE),
+    },
     entry: {
       "tailwind/index": "./src/tailwind.ts",
       "tailwind-pill/index": "./src/tailwind-pill.ts",
