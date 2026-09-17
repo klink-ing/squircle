@@ -25,10 +25,9 @@ export default defineConfig({
     entry: {
       "tailwind/index": "./src/tailwind.ts",
       "tailwind-pill/index": "./src/tailwind-pill.ts",
+      "tailwind-pill-border/index": "./src/tailwind-pill-border.ts",
       "panda/index": "./src/panda.ts",
-      "panda-pill/index": "./src/panda-pill.ts",
       "stylex/index": "./src/stylex.ts",
-      "stylex-pill/index": "./src/stylex-pill.ts",
       "pill-shape.worklet": "./src/pill-shape.worklet.ts",
     },
     format: "esm",
