@@ -85,10 +85,8 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * Stroke width, in pixels. Zero fills the shape; anything larger draws the
-   * outline instead, centred on the path, so a ring sits half inside and half
-   * outside. Rendering it inside an element already masked to the same shape
-   * clips the outer half, leaving an exact inset band.
+   * Stroke width, in pixels. Zero fills the shape; anything larger draws an
+   * inset band of exactly that width, hugging the inside of the outline.
    */
   resolveStrokeWidth(props?: PaintProperties): number {
     const raw = Number.parseFloat(props?.get("--pill-stroke-width")?.toString() ?? "");
@@ -280,6 +278,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     const stroke = this.resolveStrokeWidth(props);
     if (stroke > 0) {
       ctx.strokeStyle = "#000";
+      // Doubled, because the half outside the outline is clipped away below.
       ctx.lineWidth = stroke * 2;
     } else {
       ctx.fillStyle = "#000";
@@ -308,8 +307,21 @@ export const paintDef = class PillShape implements PaintWorklet {
     }
 
     ctx.closePath();
-    if (stroke > 0) ctx.stroke();
-    else ctx.fill();
+
+    if (stroke > 0) {
+      /*
+       * Clip to the outline before stroking, so the band sits wholly inside it.
+       * A centred stroke would spill half its width past the outline, and that
+       * half is cut off by the edge of the paint canvas rather than by the
+       * shape — which trims it on the flat edges, where the outline runs along
+       * the canvas boundary, but not through the caps, where the outline curves
+       * inward. The ring would come out flattened and uneven.
+       */
+      ctx.clip();
+      ctx.stroke();
+    } else {
+      ctx.fill();
+    }
   }
 
   /** Mirror one quadrant into the full outline, walking clockwise. */

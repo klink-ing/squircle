@@ -52,8 +52,7 @@
   }
 
   /* A CSS border cannot follow this shape, so the worklet draws one in stroke
-   * mode. The stroke straddles the path and the element's own mask clips its
-   * outer half, leaving an exact inset band. */
+   * mode, which lays an inset band along the inside of the outline. */
   [data-squircle-pill]::after {
     content: "";
     position: absolute;

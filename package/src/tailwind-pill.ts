@@ -58,10 +58,9 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
      * shadow the unmasked rectangle and then be clipped away.
      *
      * A border is therefore drawn, on `::after`, by the same worklet in stroke
-     * mode. The stroke straddles the path and this element's own mask clips its
-     * outer half, leaving an exact inset band. For a shadow, put
-     * `filter: drop-shadow(...)` on a wrapper, where it applies to the
-     * already-masked result.
+     * mode, which lays an inset band along the inside of the outline. For a
+     * shadow, put `filter: drop-shadow(...)` on a wrapper, where it applies to
+     * the already-masked result.
      */
     const mask = {
       "-webkit-mask-image": "paint(pill-shape)",
