@@ -80,9 +80,7 @@ describe("pill-shape worklet contract", () => {
       // worklet reads it, or if the sheet itself feeds it into one that is
       // read — which is how a framework's variable is bridged across.
       const assigned = [...stylesheet.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1]);
-      const referenced = new Set(
-        [...stylesheet.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]),
-      );
+      const referenced = new Set([...stylesheet.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]));
       for (const name of assigned) {
         const consumed = customInputs.includes(name) || referenced.has(name);
         expect(consumed, `${name} is assigned but nothing consumes it`).toBe(true);
