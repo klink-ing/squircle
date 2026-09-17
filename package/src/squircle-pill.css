@@ -13,7 +13,7 @@
  * whether the worklet actually loaded.
  * ──────────────────────────────────────────────────────────── */
 
-@property --klinking-pill-squircle-amt {
+@property --squircle-pill-amt {
   syntax: "<number>";
   initial-value: 2;
   inherits: false;
@@ -21,7 +21,7 @@
 
 /* How far the easing is spread along the flat edge. Offsets the curvature
  * exponent, so 0 is a plain clothoid; see the pill-shape worklet. */
-@property --klinking-pill-ease-spread {
+@property --squircle-pill-ease-spread {
   syntax: "<number>";
   initial-value: 1;
   inherits: false;
@@ -30,7 +30,7 @@
 /* ── Base pill shape utility ──────────────────────────────────
  * Hands the element to the pill-shape paint worklet, which derives
  * the whole silhouette from the element's own size. Shape it with
- * --klinking-pill-squircle-amt and --klinking-pill-ease-spread.
+ * --squircle-pill-amt and --squircle-pill-ease-spread.
  *
  * Attribute-based so it works without Tailwind; the plugin's
  * `squircle-pill` utilities carry the same rules on the class.
@@ -58,13 +58,13 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: var(--klinking-pill-border-color, transparent);
-    --klinking-pill-stroke-width: var(--klinking-pill-border-width, 0px);
+    background: var(--squircle-pill-border-color, transparent);
+    --squircle-pill-stroke-width: var(--squircle-pill-border-width, 0px);
     /* Read Tailwind's own variable where it exposes one: border-dashed and
      * friends set --tw-border-style. It is registered as non-inheriting, hence
      * the explicit inherit. */
     --tw-border-style: inherit;
-    --klinking-pill-border-style: var(--tw-border-style, solid);
+    --squircle-pill-border-style: var(--tw-border-style, solid);
     -webkit-mask-image: paint(pill-shape);
     mask-image: paint(pill-shape);
     -webkit-mask-size: 100% 100%;

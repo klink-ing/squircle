@@ -14,8 +14,8 @@
  */
 declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
 
-const NS = `--${typeof __SQUIRCLE_CSS_NAMESPACE__ === "string" ? __SQUIRCLE_CSS_NAMESPACE__ : "klinking"}-pill`;
-const AMT_VAR = `${NS}-squircle-amt`;
+const NS = `--${typeof __SQUIRCLE_CSS_NAMESPACE__ === "string" ? __SQUIRCLE_CSS_NAMESPACE__ : "squircle"}-pill`;
+const AMT_VAR = `${NS}-amt`;
 const EASE_SPREAD_VAR = `${NS}-ease-spread`;
 const STROKE_WIDTH_VAR = `${NS}-stroke-width`;
 const BORDER_STYLE_VAR = `${NS}-border-style`;

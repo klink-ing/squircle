@@ -18,12 +18,27 @@ import {
 
 export interface SquirclePluginOptions {
   /** CSS custom property name for the superellipse amount (default: "--squircle-amt") */
+  /**
+   * @deprecated Set the namespace instead, with `SQUIRCLE_CSS_NAMESPACE` at
+   * build time, which renames every property this package owns together. This
+   * option still works and still wins, but it only ever reached the utilities
+   * this plugin emits — never the paint worklet, which names the properties it
+   * reads in a static `inputProperties` list.
+   */
   amtVar?: string;
-  /** @plugin CSS alias for amtVar */
+  /**
+   * @deprecated Alias for {@link SquirclePluginOptions.amtVar}; see there.
+   */
   "amt-var"?: string;
   /** CSS custom property name for the intermediate corrected radius (default: "--squircle-r") */
+  /**
+   * @deprecated Set the namespace instead, with `SQUIRCLE_CSS_NAMESPACE` at
+   * build time. This option still works and still wins.
+   */
   rVar?: string;
-  /** @plugin CSS alias for rVar */
+  /**
+   * @deprecated Alias for {@link SquirclePluginOptions.rVar}; see there.
+   */
   "r-var"?: string;
   /** Class name prefix for utilities (default: "squircle") */
   prefix?: string;

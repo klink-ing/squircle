@@ -91,6 +91,6 @@
   },
   "packageManager": "pnpm@10.33.0",
   "squircle": {
-    "cssNamespace": "klinking"
+    "cssNamespace": "squircle"
   }
 }

@@ -13,9 +13,10 @@ mkdirSync(distDir, { recursive: true });
  * the worklet and the plugins take the same value through a build-time define,
  * so all three agree however it is set.
  */
-const DEFAULT_CSS_NAMESPACE = "klinking";
+const DEFAULT_CSS_NAMESPACE = "squircle";
 const cssNamespace: string =
-  JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")).squircle?.cssNamespace ??
+  process.env.SQUIRCLE_CSS_NAMESPACE ||
+  JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")).squircle?.cssNamespace ||
   DEFAULT_CSS_NAMESPACE;
 
 const pillCssSrc = join(__dirname, "..", "src", "squircle-pill.css");
