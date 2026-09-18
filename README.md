@@ -478,47 +478,40 @@ Or with the JS plugin version:
 In your entry point (e.g., `main.ts`), register the Houdini paint worklet:
 
 ```typescript
-import pillWorklet from "@klinking/squircle/pill-shape.worklet";
-
 // Register the paint worklet
 CSS.paintWorklet.addModule(
-  URL.createObjectURL(
-    new Blob([await (await fetch(pillWorklet)).text()], {
-      type: "application/javascript",
-    })
-  )
+  new URL("@klinking/squircle/pill-shape.worklet.js", import.meta.url).href
 );
 ```
 
-Or via a module worker:
+### 4. Use the pill utility
 
-```typescript
-// Create a blob URL for the worklet
-const workletUrl = new URL("@klinking/squircle/pill-shape.worklet", import.meta.url);
-CSS.paintWorklet.addModule(workletUrl.href);
-```
-
-### 4. Use the pill utilities
-
-Use `squircle-pill-*` classes just like `squircle-*`, with all the same variants:
+Use the `squircle-pill` class to apply pill shapes to any element:
 
 ```html
-<!-- Pill-shaped button -->
-<button class="squircle-pill-full px-4 py-2 bg-blue-500 text-white">
+<!-- Perfect pill-shaped button -->
+<button class="squircle-pill px-4 py-2 bg-blue-500 text-white">
   Click me
 </button>
 
-<!-- Pill badge with custom radius -->
-<div class="squircle-pill-md bg-green-100 text-green-900">New</div>
+<!-- Pill badge -->
+<div class="squircle-pill bg-green-100 text-green-900 px-3 py-1">New</div>
 
-<!-- Pill with side variants -->
-<div class="squircle-pill-t-lg squircle-pill-b-sm">…</div>
+<!-- Pill with side-specific variants -->
+<div class="squircle-pill-t squircle-pill-r">…</div>
 
 <!-- Customize superellipse transition smoothness -->
-<div class="squircle-pill-lg squircle-pill-amt-2.5">…</div>
+<div class="squircle-pill squircle-pill-amt-2.5">…</div>
 ```
 
-All values (`sm`, `md`, `lg`, `xl`, arbitrary lengths) work the same as `squircle-*`.
+**Available variants:**
+
+- Base utility: `squircle-pill`
+- Side variants: `squircle-pill-t`, `squircle-pill-r`, `squircle-pill-b`, `squircle-pill-l` (top, right, bottom, left)
+- Corner variants: `squircle-pill-tl`, `squircle-pill-tr`, `squircle-pill-br`, `squircle-pill-bl` (and logical equivalents)
+- Amount control: `squircle-pill-amt-*` (e.g., `squircle-pill-amt-1`, `squircle-pill-amt-2.5`, `squircle-pill-amt-3`) to adjust the smoothness of the semicircle-to-edge transition
+
+The pill radius is automatically calculated from the element's dimensions: `radius = min(width, height) / 2`, ensuring perfect pills at any size.
 
 ### Browser support and fallback
 
