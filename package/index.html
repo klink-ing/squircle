@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pill Shape Dev</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      // Load the worklet straight from source: Vite compiles the TypeScript on
+      // the fly, so edits to src/pill-shape.worklet.ts take effect on reload
+      // without a dist/ rebuild. (Editing it triggers a full reload, because a
+      // registered paint worklet can never be replaced in a live document.)
+      if ("paintWorklet" in CSS) {
+        try {
+          await CSS.paintWorklet.addModule("/src/pill-shape.worklet.ts");
+          document.documentElement.dataset.worklet = "loaded";
+        } catch (error) {
+          document.documentElement.dataset.worklet = "failed";
+          console.error("[pill-dev] paint worklet failed to load:", error);
+        }
+      } else {
+        document.documentElement.dataset.worklet = "unsupported";
+      }
+    </script>
+    <style>
+      /* Registering the property lets the paint worklet see typed values and
+         repaint as the amount animates. `inherits: true` so one control on the
+         page can drive every pill at once. */
+      @property --%SQUIRCLE_NS%-pill-amt {
+        syntax: "<number>";
+        initial-value: 2;
+        inherits: true;
+      }
+
+      @property --%SQUIRCLE_NS%-pill-ease-spread {
+        syntax: "<number>";
+        initial-value: 1;
+        inherits: true;
+      }
+
+      .pill-shape {
+        /* Masked, not painted: the element keeps its own background — colour,
+           gradient, image — and that is what gets pill-shaped. A border is
+           drawn on ::after by the same worklet in stroke mode, because no CSS
+           border can follow this shape. */
+        -webkit-mask-image: paint(pill-shape);
+        mask-image: paint(pill-shape);
+        -webkit-mask-size: 100% 100%;
+        mask-size: 100% 100%;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        mask-mode: alpha;
+        min-width: 1px;
+        min-height: 1px;
+        position: relative;
+      }
+
+      .pill-shape::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: var(--%SQUIRCLE_NS%-pill-border-color, transparent);
+        --%SQUIRCLE_NS%-pill-stroke-width: var(--%SQUIRCLE_NS%-pill-border-width, 0px);
+        /* Read Tailwind's own variable where it exposes one. Registered as
+           non-inheriting, hence the explicit inherit. */
+        --tw-border-style: inherit;
+        --%SQUIRCLE_NS%-pill-border-style: var(--tw-border-style, solid);
+        -webkit-mask-image: paint(pill-shape);
+        mask-image: paint(pill-shape);
+        -webkit-mask-size: 100% 100%;
+        mask-size: 100% 100%;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        mask-mode: alpha;
+      }
+
+      /* ── Decoration techniques ───────────────────────────────
+       * A mask erases everything outside the shape, so `outline` and an outer
+       * `box-shadow` cannot survive on the pill itself, and `filter` is applied
+       * before the mask so even `drop-shadow` set here is clipped away. Each of
+       * these is the technique that does work. */
+
+      /* Inner shadow: an inset shadow on a stadium-radius pseudo, trimmed to
+         the exact pill by the mask. The stadium is close enough to the pill
+         that the shadow reads as following the real edge. */
+      .pill-inner-shadow::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: calc(infinity * 1px);
+        box-shadow:
+          inset 0 7px 9px rgb(0 0 0 / 0.5),
+          inset 0 -3px 6px rgb(0 0 0 / 0.28);
+      }
+
+      /* Inner outline: the pseudo is a smaller box, so the worklet strokes the
+         pill of *that* box — a ring inset from the edge. */
+      .pill-inner-ring::before {
+        content: "";
+        position: absolute;
+        inset: var(--inner-ring-inset, 7px);
+        pointer-events: none;
+        background: var(--inner-ring-color, #fff);
+        --%SQUIRCLE_NS%-pill-stroke-width: var(--inner-ring-width, 2px);
+        --%SQUIRCLE_NS%-pill-border-style: var(--inner-ring-style, solid);
+        -webkit-mask-image: paint(pill-shape);
+        mask-image: paint(pill-shape);
+        -webkit-mask-size: 100% 100%;
+        mask-size: 100% 100%;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        mask-mode: alpha;
+      }
+
+      /* Outer outline: a masked wrapper one ring-width larger, in the ring
+         colour. `outline` itself is painted outside the box and is masked away. */
+      .pill-outer-ring {
+        display: inline-block;
+        background: var(--outer-ring-color, #0f172a);
+        padding: var(--outer-ring-width, 4px);
+      }
+
+      /* Outer shadow: on a wrapper, where the filter applies to the
+         already-masked result instead of the raw rectangle. */
+      .pill-drop-shadow {
+        display: inline-block;
+        filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.45));
+      }
+
+      /* Fallback, mirroring the shipped stylesheet. */
+      @supports not (mask-image: paint(pill-shape)) {
+        .pill-shape {
+          border-radius: calc(infinity * 1px);
+        }
+      }
+
+      .fill-blue {
+        background: #3b82f6;
+      }
+      .fill-green {
+        background: #22c55e;
+      }
+      .fill-purple {
+        background: #a855f7;
+      }
+      .fill-indigo {
+        background: #6366f1;
+      }
+      .fill-pink {
+        background: #ec4899;
+      }
+      .fill-orange {
+        background: #f97316;
+      }
+      .fill-red {
+        background: #dc2626;
+      }
+      .fill-slate {
+        background: #e2e8f0;
+      }
+      .fill-blue-soft {
+        background: #dbeafe;
+      }
+      .fill-green-soft {
+        background: #dcfce7;
+      }
+      .fill-yellow-soft {
+        background: #fef9c3;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 p-8">
+    <div class="mx-auto max-w-4xl">
+      <h1 class="mb-2 text-4xl font-bold">Pill Shape Dev</h1>
+      <p class="mb-6 text-gray-600">
+        Testing squircle-pill utilities with Houdini paint worklet (hot reload enabled)
+      </p>
+
+      <label class="mb-2 flex max-w-xl items-center gap-3 text-sm">
+        <span class="w-44 font-semibold text-gray-700">--%SQUIRCLE_NS%-pill-amt</span>
+        <input id="amt" type="range" min="1" max="4" step="0.05" value="2" class="flex-1" />
+        <code id="amtOut" class="w-32 text-right text-gray-600">2.00</code>
+      </label>
+      <label class="mb-6 flex max-w-xl items-center gap-3 text-sm">
+        <span class="w-44 font-semibold text-gray-700">--%SQUIRCLE_NS%-pill-ease-spread</span>
+        <input id="spread" type="range" min="-2" max="8" step="0.05" value="1" class="flex-1" />
+        <code id="spreadOut" class="w-32 text-right text-gray-600">1.00</code>
+      </label>
+      <p class="mb-8 max-w-xl text-xs leading-relaxed text-gray-500">
+        The caps stay <strong>circular arcs</strong>. <strong>amt</strong> sets how much of each cap
+        is handed to the easing — <strong>1</strong> is a bare semicircle, identical to
+        <code>border-radius: 9999px</code> and only G1. <strong>spread</strong> smooths that join
+        further along the flat edge <em>without</em> spending more of the arc, so raising it lets
+        the amount come back down. <strong>0</strong> is a clothoid and the sane floor: below it the
+        easing shortens and arrives ever more steeply, and at <strong>-2</strong> it is a bare
+        corner. When the element is too narrow for the request, both are eased down together so the
+        curvature rate stays put; a square has no flat edge at all and renders as a plain circle.
+      </p>
+
+      <script>
+        const controls = [
+          ["amt", "--%SQUIRCLE_NS%-pill-amt", (v) => Math.min(Math.max(v, 1), 4)],
+          // Negatives are allowed on purpose: below 0 the easing degrades, and
+          // at -2 it becomes a corner. Worth being able to see.
+          ["spread", "--%SQUIRCLE_NS%-pill-ease-spread", (v) => v],
+        ];
+        const sync = () => {
+          for (const [id, prop, clamp] of controls) {
+            const input = document.getElementById(id);
+            const asked = +input.value;
+            const used = clamp(asked);
+            document.documentElement.style.setProperty(prop, input.value);
+            document.getElementById(`${id}Out`).textContent =
+              Math.abs(used - asked) < 1e-9
+                ? used.toFixed(2)
+                : `${asked.toFixed(2)} → ${used.toFixed(2)}`;
+          }
+        };
+        for (const [id] of controls) document.getElementById(id).addEventListener("input", sync);
+        sync();
+      </script>
+
+      <section class="mb-12">
+        <h2 class="mb-4 text-2xl font-bold">Perfect Pills</h2>
+        <div class="flex flex-wrap gap-4">
+          <button class="pill-shape fill-blue px-6 py-2 font-semibold text-white">Button</button>
+          <div class="pill-shape fill-green px-8 py-3 text-white">Badge</div>
+          <div
+            class="pill-shape fill-purple flex h-16 w-16 items-center justify-center px-4 py-4 text-white"
+          >
+            ✓
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-4 text-2xl font-bold">Different Aspect Ratios</h2>
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="pill-shape fill-indigo px-12 py-2 text-white">Wide</div>
+          <div class="pill-shape fill-pink px-2 py-12 text-white">Tall</div>
+          <div
+            class="pill-shape fill-orange flex h-24 w-24 items-center justify-center text-sm text-white"
+          >
+            Square
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-1 text-2xl font-bold">Backgrounds, Borders &amp; Shadows</h2>
+        <p class="mb-5 max-w-xl text-xs text-gray-500">
+          The shape is a <strong>mask</strong>, so the element keeps its own background and that
+          background gets pill-shaped. The flip side: a mask erases everything outside the shape, so
+          <code>outline</code> and an outer <code>box-shadow</code> cannot survive on the pill
+          itself, and <code>filter</code> runs before the mask so even <code>drop-shadow</code> set
+          on the pill is clipped away. Each row below is the technique that does work.
+        </p>
+
+        <div class="grid grid-cols-2 gap-x-8 gap-y-5">
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Linear gradient</p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="background: linear-gradient(100deg, #6366f1, #ec4899)"
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Conic gradient</p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="
+                background: conic-gradient(
+                  from 210deg,
+                  #f59e0b,
+                  #ef4444,
+                  #8b5cf6,
+                  #06b6d4,
+                  #f59e0b
+                );
+              "
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Background image</p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="
+                background: url('data:image/svg+xml;utf8,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;28&quot; height=&quot;28&quot;&gt;&lt;rect width=&quot;14&quot; height=&quot;14&quot; fill=&quot;%230ea5e9&quot;/&gt;&lt;rect x=&quot;14&quot; y=&quot;14&quot; width=&quot;14&quot; height=&quot;14&quot; fill=&quot;%23f59e0b&quot;/&gt;&lt;/svg&gt;')
+                  repeat;
+              "
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">
+              Border — <code>--%SQUIRCLE_NS%-pill-border-width</code>
+            </p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="
+                background: #a7f3d0;
+                --%SQUIRCLE_NS%-pill-border-width: 5px;
+                --%SQUIRCLE_NS%-pill-border-color: #065f46;
+              "
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Border only, no background</p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="
+                background: transparent;
+                --%SQUIRCLE_NS%-pill-border-width: 3px;
+                --%SQUIRCLE_NS%-pill-border-color: #1e293b;
+              "
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">
+              Dashed — from <code>--tw-border-style</code>
+            </p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="
+                background: #fef3c7;
+                --%SQUIRCLE_NS%-pill-border-width: 3px;
+                --%SQUIRCLE_NS%-pill-border-color: #b45309;
+                --tw-border-style: dashed;
+              "
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">
+              Dotted — from <code>--tw-border-style</code>
+            </p>
+            <div
+              class="pill-shape h-16 w-full"
+              style="
+                background: #e0e7ff;
+                --%SQUIRCLE_NS%-pill-border-width: 3px;
+                --%SQUIRCLE_NS%-pill-border-color: #3730a3;
+                --tw-border-style: dotted;
+              "
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Inner outline — inset pseudo</p>
+            <div
+              class="pill-shape pill-inner-ring h-16 w-full"
+              style="background: #7c3aed; --inner-ring-color: #ffffff; --inner-ring-width: 2px"
+            ></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Outer outline — masked wrapper</p>
+            <div
+              class="pill-shape pill-outer-ring w-full"
+              style="--outer-ring-color: #0f172a; --outer-ring-width: 4px"
+            >
+              <div class="pill-shape h-16 w-full" style="background: #f472b6"></div>
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Drop shadow — wrapper filter</p>
+            <div class="pill-drop-shadow w-full">
+              <div class="pill-shape h-16 w-full" style="background: #f59e0b"></div>
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Inner shadow — inset on pseudo</p>
+            <div class="pill-shape pill-inner-shadow h-16 w-full" style="background: #38bdf8"></div>
+          </div>
+
+          <div>
+            <p class="mb-2 text-xs font-semibold text-gray-600">Everything at once</p>
+            <div class="pill-drop-shadow w-full">
+              <div
+                class="pill-shape pill-inner-ring h-16 w-full"
+                style="
+                  background: linear-gradient(100deg, #1d4ed8, #7c3aed);
+                  --%SQUIRCLE_NS%-pill-border-width: 4px;
+                  --%SQUIRCLE_NS%-pill-border-color: #0f172a;
+                  --inner-ring-color: rgb(255 255 255 / 0.55);
+                  --inner-ring-inset: 9px;
+                "
+              ></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-4 text-2xl font-bold">Use Cases</h2>
+        <div class="space-y-6">
+          <div>
+            <p class="mb-3 font-semibold text-gray-600">Buttons</p>
+            <div class="flex gap-2">
+              <button class="pill-shape fill-blue px-6 py-2 font-semibold text-white">
+                Primary
+              </button>
+              <button class="pill-shape fill-slate px-6 py-2 font-semibold text-gray-800">
+                Secondary
+              </button>
+              <button class="pill-shape fill-red px-6 py-2 font-semibold text-white">Danger</button>
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-3 font-semibold text-gray-600">Tags & Badges</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="pill-shape fill-blue-soft px-3 py-1 text-sm font-medium text-blue-800"
+                >Tag</span
+              >
+              <span class="pill-shape fill-green-soft px-3 py-1 text-sm font-medium text-green-800"
+                >Status</span
+              >
+              <span
+                class="pill-shape fill-yellow-soft px-3 py-1 text-sm font-medium text-yellow-800"
+                >Warning</span
+              >
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-3 font-semibold text-gray-600">Icon Buttons</p>
+            <div class="flex gap-2">
+              <button
+                class="pill-shape fill-slate flex h-10 w-10 items-center justify-center text-gray-800"
+              >
+                ✓
+              </button>
+              <button
+                class="pill-shape fill-slate flex h-10 w-10 items-center justify-center text-gray-800"
+              >
+                ×
+              </button>
+              <button
+                class="pill-shape fill-slate flex h-10 w-10 items-center justify-center text-gray-800"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mt-12 rounded bg-gray-100 p-4 text-sm text-gray-600">
+        <p>
+          <strong>Note:</strong> <code>@supports (background-image: paint(anything))</code> is true
+          in Chrome for <em>any</em> paint name, registered or not — so DevTools showing
+          <code>paint(pill-shape)</code> as applied does <em>not</em> mean the worklet loaded. Check
+          <code>document.documentElement.dataset.worklet</code> (or the console) instead.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

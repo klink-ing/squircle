@@ -1,0 +1,95 @@
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
+/* ── Register paint worklet input properties ──────────────────
+ * The worklet reads these by name through `inputProperties`.
+ * Registering them makes the values typed and animatable and gives
+ * them initial values matching the worklet's own fallbacks.
+ *
+ * Registration is not conditional on paint support: a property is
+ * worth registering either way, and `@supports` says nothing about
+ * whether the worklet actually loaded.
+ * ──────────────────────────────────────────────────────────── */
+
+@property --squircle-pill-amt {
+  syntax: "<number>";
+  initial-value: 2;
+  inherits: false;
+}
+
+/* How far the easing is spread along the flat edge. Offsets the curvature
+ * exponent, so 0 is a plain clothoid; see the pill-shape worklet. */
+@property --squircle-pill-ease-spread {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: false;
+}
+
+/* ── Base pill shape utility ──────────────────────────────────
+ * Hands the element to the pill-shape paint worklet, which derives
+ * the whole silhouette from the element's own size. Shape it with
+ * --squircle-pill-amt and --squircle-pill-ease-spread.
+ *
+ * Attribute-based so it works without Tailwind; the plugin's
+ * `squircle-pill` utilities carry the same rules on the class.
+ * ──────────────────────────────────────────────────────────── */
+
+@supports (mask-image: paint(pill-shape)) {
+  [data-squircle-pill] {
+    -webkit-mask-image: paint(pill-shape);
+    mask-image: paint(pill-shape);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    mask-mode: alpha;
+    /* The worklet only runs where there is an area to paint. */
+    min-width: 1px;
+    min-height: 1px;
+    position: relative;
+  }
+
+  /* A CSS border cannot follow this shape, so the worklet draws one in stroke
+   * mode, which lays an inset band along the inside of the outline. */
+  [data-squircle-pill]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: var(--squircle-pill-border-color, transparent);
+    --squircle-pill-stroke-width: var(--squircle-pill-border-width, 0px);
+    /* Read Tailwind's own variable where it exposes one: border-dashed and
+     * friends set --tw-border-style. It is registered as non-inheriting, hence
+     * the explicit inherit. */
+    --tw-border-style: inherit;
+    --squircle-pill-border-style: var(--tw-border-style, solid);
+    -webkit-mask-image: paint(pill-shape);
+    mask-image: paint(pill-shape);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    mask-mode: alpha;
+  }
+}
+
+/* ── Fallback for browsers without Paint Worklet support ──────
+ * A plain fully-rounded rectangle, and nothing else. A superellipse
+ * corner reads as more wrong than a stadium here: on a pill the cap
+ * is the whole shape, so reshaping it changes the silhouette rather
+ * than just softening a corner.
+ *
+ * Gated only on the worklet being absent, so browsers with neither
+ * feature still get a pill. The radius matches FULL_RADIUS in
+ * variants.ts, and so Tailwind's own `rounded-full`. Native border,
+ * outline and box-shadow all work on this branch, because
+ * border-radius is a shape the platform understands.
+ * ──────────────────────────────────────────────────────────── */
+
+@supports not (mask-image: paint(pill-shape)) {
+  [data-squircle-pill] {
+    border-radius: calc(infinity * 1px);
+  }
+}

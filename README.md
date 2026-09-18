@@ -12,6 +12,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 
 - [Requirements](#requirements)
 - [Install & setup](#install--setup)
+- [Pill Shapes with Houdini CSS Paint Worklet](#pill-shapes-with-houdini-css-paint-worklet)
 - [How the radius correction works](#how-the-radius-correction-works)
 - [Browser support & fallback strategy](#browser-support--fallback-strategy)
 - [Why it called "squircle" when it use "superellipse()"?](#why-it-called-squircle-when-it-use-superellipse)
@@ -442,6 +443,94 @@ The parameters are deliberately untyped so relative units (`em`, `rem`, containe
 **Heads up:** this doesn't supply the uncorrected fallback for browsers that have `@function` but lack `corner-shape`. By the time `@function` support is widespread, `corner-shape` probably will be too, so ¯\\\_(ツ)\_/¯.
 
 </details>
+
+## Pill Shapes with Houdini CSS Paint Worklet
+
+The standard `corner-shape: superellipse()` can't perfectly render pill shapes because it creates hard corners where the curved ends meet the straight sides. **Pill shapes** use a Houdini CSS Paint API worklet to render mathematically smooth, G2-continuous transitions from semicircular ends to straight edges—ideal for button pills, badge pills, and other pill-shaped UI elements.
+
+<details>
+<summary><strong>Tailwind CSS v4</strong></summary>
+
+### 1. Install the pill plugin
+
+```bash
+npm install @klinking/squircle
+```
+
+### 2. Add the pill plugin to your CSS
+
+```css
+@import "tailwindcss";
+@import "@klinking/squircle/tailwind-pill";
+@import "@klinking/squircle/squircle-pill.css";
+```
+
+Or with the JS plugin version:
+
+```css
+@import "tailwindcss";
+@plugin "@klinking/squircle/tailwind-pill";
+@import "@klinking/squircle/squircle-pill.css";
+```
+
+### 3. Register the paint worklet
+
+In your entry point (e.g., `main.ts`), register the Houdini paint worklet:
+
+```typescript
+// Register the paint worklet
+CSS.paintWorklet.addModule(
+  new URL("@klinking/squircle/pill-shape.worklet.js", import.meta.url).href
+);
+```
+
+### 4. Use the pill utility
+
+Use the `squircle-pill` class to apply pill shapes to any element:
+
+```html
+<!-- Perfect pill-shaped button -->
+<button class="squircle-pill px-4 py-2 bg-blue-500 text-white">
+  Click me
+</button>
+
+<!-- Pill badge -->
+<div class="squircle-pill bg-green-100 text-green-900 px-3 py-1">New</div>
+
+<!-- Pill with side-specific variants -->
+<div class="squircle-pill-t squircle-pill-r">…</div>
+
+<!-- Customize superellipse transition smoothness -->
+<div class="squircle-pill squircle-pill-amt-2.5">…</div>
+```
+
+**Available variants:**
+
+- Base utility: `squircle-pill`
+- Side variants: `squircle-pill-t`, `squircle-pill-r`, `squircle-pill-b`, `squircle-pill-l` (top, right, bottom, left)
+- Corner variants: `squircle-pill-tl`, `squircle-pill-tr`, `squircle-pill-br`, `squircle-pill-bl` (and logical equivalents)
+- Amount control: `squircle-pill-amt-*` (e.g., `squircle-pill-amt-1`, `squircle-pill-amt-2.5`, `squircle-pill-amt-3`) to adjust the smoothness of the semicircle-to-edge transition
+
+The pill radius is automatically calculated from the element's dimensions: `radius = min(width, height) / 2`, ensuring perfect pills at any size.
+
+### Browser support and fallback
+
+- **Chrome/Edge 89+**: Full Houdini CSS Paint API support — perfect pill shapes with G2-continuous curves
+- **Safari/Firefox**: Graceful fallback to `corner-shape: superellipse()` which approximates a pill shape
+
+</details>
+
+### How pill shapes work
+
+Pill shapes render using Houdini's CSS Paint API to draw:
+
+- **Horizontal pills** (width > height): Semicircles on left and right, straight top and bottom edges
+- **Vertical pills** (height > width): Semicircles on top and bottom, straight left and right edges
+- **Circular pills** (width = height): Full circles
+
+The worklet computes G2-continuous Bezier curves at junctions between the semicircles and straight edges, using cubic Bezier approximation (magic constant `0.55228`) to smoothly transition from the semicircle's constant curvature to the straight edge's zero curvature.
+
+**Fallback for unsupported browsers:** Falls back to `corner-shape: superellipse()` which approximates a pill shape without perfect mathematical continuity.
 
 ## How the radius correction works
 

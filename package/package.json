@@ -26,7 +26,21 @@
       "import": "./dist/tailwind/index.mjs"
     },
     "./tailwind/utils.css": "./dist/tailwind/utils.css",
+    "./tailwind-pill": {
+      "types": "./dist/tailwind-pill/index.d.mts",
+      "import": "./dist/tailwind-pill/index.mjs"
+    },
+    "./tailwind-pill-border": {
+      "types": "./dist/tailwind-pill-border/index.d.mts",
+      "import": "./dist/tailwind-pill-border/index.mjs"
+    },
     "./radius-function.css": "./dist/radius-function.css",
+    "./squircle-pill.css": "./dist/squircle-pill.css",
+    "./pill-shape.worklet": {
+      "types": "./dist/pill-shape.worklet.d.mts",
+      "import": "./dist/pill-shape.worklet.mjs"
+    },
+    "./pill-shape.worklet.js": "./dist/pill-shape.worklet.mjs",
     "./panda": {
       "types": "./dist/panda/index.d.mts",
       "import": "./dist/panda/index.mjs"
@@ -37,6 +51,7 @@
     }
   },
   "scripts": {
+    "dev": "vp run pill-dev",
     "prepublishOnly": "vp run build"
   },
   "devDependencies": {
@@ -74,5 +89,8 @@
       "optional": true
     }
   },
-  "packageManager": "pnpm@10.33.0"
+  "packageManager": "pnpm@10.33.0",
+  "squircle": {
+    "cssNamespace": "squircle"
+  }
 }
