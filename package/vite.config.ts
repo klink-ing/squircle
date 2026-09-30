@@ -1,10 +1,12 @@
-import { readFileSync } from "node:fs";
+// Pins the namespace before src/ modules are evaluated; keep it first.
+import { CSS_NAMESPACE } from "./scripts/load-namespace";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite-plus";
+import { renderPillCss } from "./src/pill-css";
 
 /**
- * Prefix for every custom property this package owns, inlined at build time
- * from `squircle.cssNamespace` in package.json.
+ * Prefix for every custom property this package owns, resolved once in
+ * scripts/load-namespace.ts and inlined at build time.
  *
  * The paint worklet names the properties it reads in `inputProperties`, which
  * is a static list read once when the worklet registers — there is no per-
@@ -12,40 +14,41 @@ import { defineConfig } from "vite-plus";
  * be fixed when the code is built, not when it is used, and it is shared from
  * here with the worklet, the plugins and the stylesheet so they cannot disagree.
  *
- * SQUIRCLE_CSS_NAMESPACE overrides it for a one-off build; `squircle.cssNamespace`
- * in package.json is the committed default for a fork that wants it permanently.
- *
  * Every task that bakes the value in declares the variable in its `env`, which
  * both forwards it to the task process and folds it into the cache key. An
  * undeclared variable is stripped, so without that it would appear to work when
  * a script was run directly and quietly do nothing through `vp run`.
  */
-const CSS_NAMESPACE: string =
-  process.env.SQUIRCLE_CSS_NAMESPACE ||
-  JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).squircle
-    ?.cssNamespace ||
-  "squircle";
-
-/** Tasks whose output depends on the namespace. */
 const NAMESPACE_ENV = ["SQUIRCLE_CSS_NAMESPACE"];
 
 /**
- * A registered paint worklet cannot be replaced or unregistered, so the worklet
- * cannot be hot-swapped in place. Editing it therefore triggers a full page
- * reload, which re-runs CSS.paintWorklet.addModule() against the fresh source.
+ * Fills the dev page in from the same sources everything else is built from:
+ * `%SQUIRCLE_NS%` becomes the namespace, and `%SQUIRCLE_PILL_CSS%` the
+ * standalone stylesheet, so the page never carries a third copy of the rules.
  */
-/** Replaces %SQUIRCLE_NS% in the dev page, so it never hardcodes the namespace. */
-const pillDevNamespace = () => ({
-  name: "pill-dev-namespace",
-  transformIndexHtml(html: string) {
-    return html.replaceAll("%SQUIRCLE_NS%", CSS_NAMESPACE);
+const pillDevPage = () => ({
+  name: "pill-dev-page",
+  transformIndexHtml: {
+    // Before Vite lifts the inline module scripts out of the page, so the
+    // placeholders inside them are replaced too.
+    order: "pre" as const,
+    handler(html: string) {
+      return html
+        .replaceAll("%SQUIRCLE_NS%", CSS_NAMESPACE)
+        .replace("%SQUIRCLE_PILL_CSS%", () => renderPillCss());
+    },
   },
 });
 
+/**
+ * A registered paint worklet cannot be replaced or unregistered, so a worklet
+ * cannot be hot-swapped in place. Editing one therefore triggers a full page
+ * reload, which re-runs CSS.paintWorklet.addModule() against the fresh source.
+ */
 const pillWorkletHmr = () => ({
   name: "pill-worklet-hmr",
   handleHotUpdate({ file, server }: { file: string; server: { ws: { send(p: unknown): void } } }) {
-    if (file.replace(/\\/g, "/").endsWith("src/pill-shape.worklet.ts")) {
+    if (file.endsWith(".worklet.ts")) {
       server.ws.send({ type: "full-reload", path: "*" });
       return [];
     }
@@ -53,7 +56,7 @@ const pillWorkletHmr = () => ({
 });
 
 export default defineConfig({
-  plugins: [tailwindcss(), pillWorkletHmr(), pillDevNamespace()],
+  plugins: [tailwindcss(), pillWorkletHmr(), pillDevPage()],
   // Covers the dev server and the test run; `pack.define` covers the library
   // build, which does not inherit this one.
   define: {
@@ -72,6 +75,9 @@ export default defineConfig({
       "tailwind-pill-border/index": "./src/tailwind-pill-border.ts",
       "panda/index": "./src/panda.ts",
       "stylex/index": "./src/stylex.ts",
+      // Siblings: the registration helper locates the worklet relative to
+      // itself, so the two have to land in the same directory.
+      "pill-worklet": "./src/pill-worklet.ts",
       "pill-shape.worklet": "./src/pill-shape.worklet.ts",
     },
     format: "esm",
@@ -104,7 +110,7 @@ export default defineConfig({
       },
       "test:pill": {
         env: NAMESPACE_ENV,
-        command: "vp test run pill-shape",
+        command: "vp test run pill-",
       },
       test: {
         command: "echo 'All tests passed'",
@@ -123,11 +129,7 @@ export default defineConfig({
       build: {
         env: NAMESPACE_ENV,
         command:
-          "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts && tsx scripts/copy-pill-assets.ts",
-      },
-      "build:pill": {
-        env: NAMESPACE_ENV,
-        command: "vp pack",
+          "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts && tsx scripts/generate-pill-css.ts",
       },
       "pill-dev": {
         env: NAMESPACE_ENV,

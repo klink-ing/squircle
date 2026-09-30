@@ -9,9 +9,11 @@ import {
   FULL_RADIUS,
   PILL_AMT_VAR_NAME,
   PILL_BORDER_COLOR_VAR_NAME,
+  PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
+  PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
 const { compilePlugin, compilePluginAll } = createCompiler(import.meta.dirname);
@@ -20,12 +22,22 @@ const compilePill = (candidates: string[], block = "") =>
 const compilePillAll = (candidates: string[], block = "") =>
   compilePluginAll(candidates, block, "./tailwind-pill.ts");
 
+const LOADED = `:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`;
+
 describe("tailwind-pill.ts utilities", () => {
-  it("masks the element to the pill where the worklet is available", async () => {
+  it("masks the element to the pill once the worklet has loaded", async () => {
     const css = await compilePill(["squircle-pill"]);
-    expect(css).toContain("@supports (mask-image: paint(pill-shape))");
+    expect(css).toContain(`${LOADED} {`);
     expect(css).toContain("mask-image: paint(pill-shape)");
     expect(css).toContain("-webkit-mask-image: paint(pill-shape)");
+  });
+
+  it("never gates on @supports alone", async () => {
+    // `@supports (mask-image: paint(pill-shape))` is true for any paint
+    // name, loaded or not, so a mask gated on it alone would erase every
+    // pill the moment the worklet failed to load.
+    const css = await compilePill(["squircle-pill"]);
+    expect(css).not.toContain("@supports");
   });
 
   it("never paints the shape as a background", async () => {
@@ -37,20 +49,62 @@ describe("tailwind-pill.ts utilities", () => {
   });
 
   it("draws a border the shape can actually follow", async () => {
-    // A CSS border would be a rectangle clipped to the pill, so the worklet
-    // strokes one on ::after instead.
+    // A CSS border would be a stadium ring clipped to the pill, so the
+    // worklet strokes one on ::after instead, grown back out over the room
+    // the real border reserves.
     const css = await compilePill(["squircle-pill"]);
     expect(css).toContain("&::after");
-    expect(css).toContain(`${PILL_STROKE_WIDTH_VAR_NAME}: var(${PILL_BORDER_WIDTH_VAR_NAME}, 0px)`);
-    expect(css).toContain(`background: var(${PILL_BORDER_COLOR_VAR_NAME}, transparent)`);
+    expect(css).toContain(`${PILL_STROKE_WIDTH_VAR_NAME}: var(${PILL_BORDER_WIDTH_VAR_NAME})`);
+    expect(css).toContain(`inset: calc(-1 * var(${PILL_BORDER_WIDTH_VAR_NAME}))`);
+    expect(css).toContain(`background: var(${PILL_BORDER_COLOR_VAR_NAME})`);
+    expect(css).toContain("border-color: transparent");
   });
 
-  describe("fallback without the paint worklet", () => {
-    it("is a plain fully-rounded rectangle", async () => {
+  it("hands the ring the element's own values", async () => {
+    // The registrations are non-inheriting, so without this the ring would
+    // be drawn to the default shape while the element is masked to a custom
+    // one.
+    const css = await compilePill(["squircle-pill"]);
+    const ring = css.slice(css.indexOf("&::after"));
+    for (const name of [
+      PILL_AMT_VAR_NAME,
+      PILL_EASE_SPREAD_VAR_NAME,
+      PILL_BORDER_WIDTH_VAR_NAME,
+      PILL_BORDER_COLOR_VAR_NAME,
+    ]) {
+      expect(ring).toContain(`${name}: inherit`);
+    }
+  });
+
+  it("bridges Tailwind's border style variable into the pill's own", async () => {
+    // Where a utility exposes a variable, read it rather than asking for a
+    // second source of truth. Tailwind registers --tw-border-style as
+    // non-inheriting, so the explicit `inherit` is load-bearing.
+    const css = await compilePill(["squircle-pill"]);
+    expect(css).toContain("--tw-border-style: inherit");
+    expect(css).toContain(`${PILL_BORDER_STYLE_VAR_NAME}: var(--tw-border-style, solid)`);
+  });
+
+  it("defaults the border colour to currentColor at zero specificity", async () => {
+    // Same default a real border has, so `border-2` alone draws a visible
+    // ring; and a colour set any other way wins whatever the order.
+    const css = await compilePill(["squircle-pill"]);
+    expect(css).toMatch(
+      new RegExp(`:where\\(&\\) \\{\\s*${PILL_BORDER_COLOR_VAR_NAME}: currentColor;`),
+    );
+  });
+
+  describe("the stadium underneath", () => {
+    it("is a plain fully-rounded rectangle on every branch", async () => {
+      // The whole fallback without the worklet — the same radius the `-full`
+      // utilities use, matching `rounded-full` — and, with it, the shape
+      // native inset decorations follow before the mask trims them.
       const css = await compilePill(["squircle-pill"]);
-      expect(css).toContain("@supports not (mask-image: paint(pill-shape))");
-      // The same radius the `-full` utilities use, matching `rounded-full`.
-      expect(css).toContain(`border-radius: ${FULL_RADIUS}`);
+      expect(css).toMatch(
+        new RegExp(
+          `\\.squircle-pill \\{\\s*border-radius: ${FULL_RADIUS.replace(/[()*]/g, "\\$&")}`,
+        ),
+      );
     });
 
     it("never reshapes the corner", async () => {
@@ -60,12 +114,6 @@ describe("tailwind-pill.ts utilities", () => {
       const css = await compilePill(["squircle-pill"]);
       expect(css).not.toContain("corner-shape");
       expect(css).not.toContain("superellipse");
-    });
-
-    it("does not require corner-shape support to apply", async () => {
-      // Gating on corner-shape left browsers with neither feature square.
-      const css = await compilePill(["squircle-pill"]);
-      expect(css).not.toContain("@supports (corner-shape");
     });
 
     it("never falls back to a percentage radius", async () => {
@@ -81,17 +129,24 @@ describe("tailwind-pill.ts utilities", () => {
       // inert: it could never make squircle-pill.css's `[data-squircle-pill]`
       // rules match an element that only carries the class.
       const css = await compilePill(["squircle-pill"]);
-      expect(css).not.toContain("data-squircle-pill");
+      expect(css).not.toContain("data-squircle-pill:");
     });
 
-    it("registers the properties the worklet reads", async () => {
+    it("registers the properties the pill reads", async () => {
       // Without this the class alone would leave them unregistered, so they
-      // could not be typed or animated.
+      // could not be typed, animated, or resolved to px for the worklet.
       const css = await compilePillAll(["squircle-pill"]);
-      expect(css).toContain(`@property ${PILL_AMT_VAR_NAME}`);
-      expect(css).toContain(`@property ${PILL_EASE_SPREAD_VAR_NAME}`);
+      for (const name of [
+        PILL_AMT_VAR_NAME,
+        PILL_EASE_SPREAD_VAR_NAME,
+        PILL_BORDER_WIDTH_VAR_NAME,
+        PILL_BORDER_COLOR_VAR_NAME,
+      ]) {
+        expect(css).toContain(`@property ${name}`);
+      }
       expect(css).toContain("initial-value: 2");
       expect(css).toContain("initial-value: 1");
+      expect(css).toContain("initial-value: 0px");
     });
 
     it("gives the worklet an area to paint", async () => {
@@ -101,9 +156,52 @@ describe("tailwind-pill.ts utilities", () => {
     });
   });
 
+  describe("one shape, two knobs", () => {
+    it("has no size or side variants", async () => {
+      // A pill's caps are derived from its own size, and a mask has no
+      // per-side meaning, so there is nothing for such a variant to set. The
+      // border plugin scopes to `.squircle-pill` alone, so a copy under
+      // another name would also silently lose its border.
+      const css = await compilePill([
+        "squircle-pill-t",
+        "squircle-pill-tl",
+        "squircle-pill-ss",
+        "squircle-pill-md",
+        "squircle-pill-full",
+      ]);
+      expect(css).toBe("");
+    });
+
+    it("sets the amount, bare or arbitrary, and nothing else", async () => {
+      const css = await compilePill(["squircle-pill-amt-3", "squircle-pill-amt-[2.5]"]);
+      expect(css).toContain(`${PILL_AMT_VAR_NAME}: 3`);
+      expect(css).toContain(`${PILL_AMT_VAR_NAME}: 2.5`);
+      expect(css).not.toContain("mask-image");
+    });
+
+    it("sets the spread, bare or arbitrary, and nothing else", async () => {
+      const css = await compilePill(["squircle-pill-spread-4", "squircle-pill-spread-[0.5]"]);
+      expect(css).toContain(`${PILL_EASE_SPREAD_VAR_NAME}: 4`);
+      expect(css).toContain(`${PILL_EASE_SPREAD_VAR_NAME}: 0.5`);
+      expect(css).not.toContain("mask-image");
+    });
+
+    it("rejects values that are not numbers", async () => {
+      for (const candidate of [
+        "squircle-pill-amt-[1em]",
+        "squircle-pill-amt-foo",
+        "squircle-pill-amt-(--my-amt)",
+        "squircle-pill-spread-[1px]",
+      ]) {
+        expect(await compilePill([candidate]), candidate).toBe("");
+      }
+    });
+  });
+
   it("honours a custom prefix", async () => {
-    const css = await compilePill(["pillbox"], 'prefix: "pillbox";');
+    const css = await compilePill(["pillbox", "pillbox-amt-3"], 'prefix: "pillbox";');
     expect(css).toContain(".pillbox");
     expect(css).toContain(`border-radius: ${FULL_RADIUS}`);
+    expect(css).toContain(`${PILL_AMT_VAR_NAME}: 3`);
   });
 });

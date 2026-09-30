@@ -21,7 +21,9 @@ import PillTailwindDemo from "../../components/PillTailwindDemo";
 
   <h3 class="mt-12 mb-6 text-lg font-semibold text-zinc-300">Pill Shapes</h3>
   <p class="mb-6 text-sm text-zinc-400">
-    Pill-shaped rectangles with G2-continuous transitions using Houdini CSS Paint API.
+    Pill-shaped rectangles whose semicircular caps ease into the straight edges with no
+    jump in curvature (G2), drawn by a Houdini paint worklet. Browsers without the
+    Paint API show the plain <code class="text-zinc-300">rounded-full</code> stadium instead.
   </p>
 
   <PillTailwindDemo client:load />

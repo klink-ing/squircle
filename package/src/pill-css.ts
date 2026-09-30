@@ -1,0 +1,204 @@
+/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */
+
+import {
+  DEFAULT_PILL_AMT,
+  DEFAULT_PILL_EASE_SPREAD,
+  FULL_RADIUS,
+  PILL_AMT_VAR_NAME,
+  PILL_ATTRIBUTE,
+  PILL_BORDER_COLOR_VAR_NAME,
+  PILL_BORDER_STYLE_FALLBACK,
+  PILL_BORDER_STYLE_VAR_NAME,
+  PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_EASE_SPREAD_VAR_NAME,
+  PILL_STROKE_WIDTH_VAR_NAME,
+  PILL_WORKLET_ATTRIBUTE,
+} from "./variants";
+
+/** Nested CSS-in-JS: a declaration, or a nested rule keyed by its selector. */
+export type PillCss = { [key: string]: string | PillCss };
+
+/**
+ * Where the pill's rules come from decides how its border is wired up.
+ *
+ * `tailwind`: the `border-*` utilities own the real border, and
+ * `tailwind-pill-border` mirrors their width and colour into the pill's own
+ * properties; `border-dashed` and friends are read through `--tw-border-style`.
+ *
+ * `standalone`: the pill's own properties are the only API, so they drive a
+ * real border too. That real border is what shows without the worklet, a
+ * stadium ring, and what reserves room for the drawn ring with it.
+ */
+export type PillCssFlavor = "tailwind" | "standalone";
+
+/**
+ * `@property` registrations for everything the pill reads, with initial
+ * values matching the worklet's own fallbacks. Registering makes the values
+ * typed and animatable, resolves lengths to px before the worklet sees them,
+ * and — `inherits: false` — keeps a pill nested in a bordered pill from
+ * drawing its parent's ring.
+ */
+export function pillPropertyRegistrations(): Record<string, Record<string, string>> {
+  return {
+    [`@property ${PILL_AMT_VAR_NAME}`]: {
+      syntax: '"<number>"',
+      "initial-value": String(DEFAULT_PILL_AMT),
+      inherits: "false",
+    },
+    [`@property ${PILL_EASE_SPREAD_VAR_NAME}`]: {
+      syntax: '"<number>"',
+      "initial-value": String(DEFAULT_PILL_EASE_SPREAD),
+      inherits: "false",
+    },
+    [`@property ${PILL_BORDER_WIDTH_VAR_NAME}`]: {
+      syntax: '"<length>"',
+      "initial-value": "0px",
+      inherits: "false",
+    },
+    [`@property ${PILL_BORDER_COLOR_VAR_NAME}`]: {
+      syntax: '"<color>"',
+      "initial-value": "transparent",
+      inherits: "false",
+    },
+  };
+}
+
+const mask: PillCss = {
+  "-webkit-mask-image": "paint(pill-shape)",
+  "mask-image": "paint(pill-shape)",
+  "-webkit-mask-size": "100% 100%",
+  "mask-size": "100% 100%",
+  "-webkit-mask-repeat": "no-repeat",
+  "mask-repeat": "no-repeat",
+  "mask-mode": "alpha",
+};
+
+/**
+ * The rules one pill utility carries, with `&` standing for the utility's own
+ * selector.
+ *
+ * The shape is applied as a mask, not painted as a background, so the element
+ * keeps whatever background it already has — a colour, a gradient, an image —
+ * and that background is what gets pill-shaped.
+ *
+ * A mask erases everything outside the shape, which no `border`, `outline` or
+ * outer `box-shadow` can survive. A border is therefore drawn, on `::after`, by
+ * the same worklet in stroke mode, which lays an inset band along the inside
+ * of the outline. The stadium `border-radius` is kept even under the mask, so
+ * anything native that stays inside the box — an inset `box-shadow`, an
+ * `outline` with a negative `outline-offset`, the focus ring — follows a shape
+ * close enough to the pill that the mask only has to trim it. An outer shadow
+ * is the one exception: `filter` runs before the mask, so `drop-shadow` has to
+ * go on a wrapper, where it applies to the already-masked result.
+ */
+export function pillCssObj(flavor: PillCssFlavor): PillCss {
+  const ring: PillCss = {
+    content: '""',
+    position: "absolute",
+    "pointer-events": "none",
+    // The registrations are non-inheriting, so the pseudo has to be handed
+    // the element's values explicitly, or the ring would be drawn to the
+    // default shape while the element is masked to a custom one.
+    [PILL_AMT_VAR_NAME]: "inherit",
+    [PILL_EASE_SPREAD_VAR_NAME]: "inherit",
+    [PILL_BORDER_WIDTH_VAR_NAME]: "inherit",
+    [PILL_BORDER_COLOR_VAR_NAME]: "inherit",
+    // The pseudo is positioned against the padding box, but the real border
+    // still reserves its width for layout, so the ring has to grow back out
+    // by that much to hug the border box the mask covers.
+    inset: `calc(-1 * var(${PILL_BORDER_WIDTH_VAR_NAME}))`,
+    background: `var(${PILL_BORDER_COLOR_VAR_NAME})`,
+    // Set on the ring only: its presence is what switches the worklet from
+    // filling the shape to stroking it. Fed from the registered width so the
+    // worklet sees a px value whatever unit the width was written in.
+    [PILL_STROKE_WIDTH_VAR_NAME]: `var(${PILL_BORDER_WIDTH_VAR_NAME})`,
+    ...(flavor === "tailwind"
+      ? {
+          // `border-dashed` and friends set `--tw-border-style`, so the ring
+          // reads it rather than asking for a second source of truth. Tailwind
+          // registers it as non-inheriting, hence the explicit `inherit`.
+          "--tw-border-style": "inherit",
+          [PILL_BORDER_STYLE_VAR_NAME]: `var(--tw-border-style, ${PILL_BORDER_STYLE_FALLBACK})`,
+        }
+      : {}),
+    ...mask,
+  };
+
+  return {
+    // A stadium on every branch: it is the whole fallback without the
+    // worklet, and what native inset decorations follow with it.
+    "border-radius": FULL_RADIUS,
+    ...(flavor === "standalone"
+      ? {
+          "border-width": `var(${PILL_BORDER_WIDTH_VAR_NAME})`,
+          "border-style": `var(${PILL_BORDER_STYLE_VAR_NAME}, ${PILL_BORDER_STYLE_FALLBACK})`,
+          "border-color": `var(${PILL_BORDER_COLOR_VAR_NAME})`,
+        }
+      : {}),
+    // Same default a real border has. Zero specificity, so a colour set any
+    // other way — a utility, a rule, an inline style — wins whatever the
+    // order.
+    ":where(&)": {
+      [PILL_BORDER_COLOR_VAR_NAME]: "currentColor",
+    },
+    // Only once the worklet has actually loaded; see PILL_WORKLET_ATTRIBUTE.
+    // `:where()` keeps the specificity that of the bare utility.
+    [`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`]: {
+      ...mask,
+      // The worklet only runs where there is an area to paint.
+      "min-width": "1px",
+      "min-height": "1px",
+      position: "relative",
+      // The real border must not paint: under the mask it is a stadium ring
+      // clipped to the pill. Its width still reserves room for the drawn one.
+      "border-color": "transparent",
+      "&::after": ring,
+    },
+  };
+}
+
+function renderDeclarations(obj: PillCss, indent: string): string[] {
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "string") lines.push(`${indent}${key}: ${value};`);
+  }
+  return lines;
+}
+
+/** Flattens nested rules, resolving `&` against the parent selector. */
+function renderRule(selector: string, obj: PillCss): string[] {
+  const blocks: string[] = [];
+  const declarations = renderDeclarations(obj, "  ");
+  if (declarations.length > 0) blocks.push(`${selector} {\n${declarations.join("\n")}\n}`);
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "string") continue;
+    const child = key.includes("&") ? key.replaceAll("&", selector) : `${selector} ${key}`;
+    blocks.push(...renderRule(child, value));
+  }
+  return blocks;
+}
+
+/**
+ * The standalone stylesheet, `squircle-pill.css`: the same rules the Tailwind
+ * utility carries, hung off `[data-<namespace>-pill]` so they work without
+ * Tailwind. Generated from the one source so the two cannot drift.
+ */
+export function renderPillCss(selector = `[${PILL_ATTRIBUTE}]`): string {
+  const blocks: string[] = [
+    `/*!
+ * @klinking/squircle — MIT License — Copyright (c) 2026 Chris Klink
+ * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
+ */`,
+    `/* Generated from src/pill-css.ts — do not edit by hand. */`,
+  ];
+
+  for (const [rule, decls] of Object.entries(pillPropertyRegistrations())) {
+    blocks.push(`${rule} {\n${renderDeclarations(decls, "  ").join("\n")}\n}`);
+  }
+
+  blocks.push(...renderRule(selector, pillCssObj("standalone")));
+  return blocks.join("\n\n") + "\n";
+}

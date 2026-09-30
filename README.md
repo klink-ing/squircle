@@ -446,91 +446,97 @@ The parameters are deliberately untyped so relative units (`em`, `rem`, containe
 
 ## Pill Shapes with Houdini CSS Paint Worklet
 
-The standard `corner-shape: superellipse()` can't perfectly render pill shapes because it creates hard corners where the curved ends meet the straight sides. **Pill shapes** use a Houdini CSS Paint API worklet to render mathematically smooth, G2-continuous transitions from semicircular ends to straight edges—ideal for button pills, badge pills, and other pill-shaped UI elements.
+`rounded-full` gives you a stadium: two semicircles and two straight edges, meeting where the curvature drops from `1/r` to zero in a single step. That step is visible as a faint crease at each end of every pill button. `corner-shape: superellipse()` can't fix it — on a pill the cap _is_ the shape, so reshaping the corner changes the silhouette — and no combination of `border-radius` values can ease one curvature into another.
+
+`squircle-pill` draws the pill with a [Houdini paint worklet](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Painting_API) instead. The caps stay circular arcs, and the last stretch of each arc is replaced by a **G2-continuous easing**: a power-law spiral (a [clothoid](https://en.wikipedia.org/wiki/Euler_spiral) at its simplest setting) along which curvature falls smoothly to zero before the flat edge begins. There are no size variants — the shape is derived from the element's own dimensions, so one utility covers every button, badge and avatar.
 
 <details>
 <summary><strong>Tailwind CSS v4</strong></summary>
 
-### 1. Install the pill plugin
-
-```bash
-npm install @klinking/squircle
-```
-
-### 2. Add the pill plugin to your CSS
-
-```css
-@import "tailwindcss";
-@import "@klinking/squircle/tailwind-pill";
-@import "@klinking/squircle/squircle-pill.css";
-```
-
-Or with the JS plugin version:
+### 1. Add the plugins
 
 ```css
 @import "tailwindcss";
 @plugin "@klinking/squircle/tailwind-pill";
+@plugin "@klinking/squircle/tailwind-pill-border"; /* optional: border-* drives the pill's border */
+```
+
+Both plugins take a `prefix` option (default `squircle-pill`), the same way the squircle plugin does.
+
+### 2. Register the paint worklet
+
+Once, in your app's entry point:
+
+```js
+import { registerPillWorklet } from "@klinking/squircle/pill-worklet";
+
+registerPillWorklet();
+```
+
+The helper loads the worklet shipped next to it and, once it is in, marks `<html>` with `data-squircle-pill-worklet`. That mark is what switches pills from their `rounded-full` fallback to the drawn shape — `@supports (mask-image: paint(pill-shape))` is true whether or not a worklet by that name ever loaded, so gating on it alone would erase every pill the moment the file failed to load. Where paint worklets are unsupported it resolves to `false` and nothing changes; a load that fails rejects, so the error shows up in the console rather than as blank buttons.
+
+The default locates the worklet with `new URL("./pill-shape.worklet.mjs", import.meta.url)`, which Vite, webpack 5 and Parcel all turn into an emitted asset. If your bundler doesn't, or you serve the file yourself, pass its URL:
+
+```js
+// Vite
+import workletUrl from "@klinking/squircle/pill-shape.worklet.js?url";
+registerPillWorklet(workletUrl);
+```
+
+### 3. Use it
+
+```html
+<button class="squircle-pill bg-blue-500 px-4 py-2 text-white">Save</button>
+<span class="squircle-pill bg-green-100 px-3 py-1 text-green-900">New</span>
+<div class="squircle-pill h-10 w-10 bg-zinc-200"></div>
+```
+
+| Utility                  | Effect                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `squircle-pill`          | The pill. Caps derived from the element's size.                                                                    |
+| `squircle-pill-amt-*`    | How much of each cap is handed to the easing, in 30° steps. `1` is a bare semicircle; default `2`.                 |
+| `squircle-pill-spread-*` | Stretches the easing further along the flat edge without spending more of the arc. `0` is a clothoid; default `1`. |
+
+Both accept bare numbers (`squircle-pill-amt-3`, `squircle-pill-amt-1.5`) and arbitrary values (`squircle-pill-amt-[2.5]`), and reject anything else. They only set the custom property — `--squircle-pill-amt` and `--squircle-pill-ease-spread` — which you can also set yourself, on the element or an ancestor; both are registered and animate. When an element is too narrow for what you asked for, both are eased down together so the join stays smooth; a square renders as a plain circle.
+
+### Borders, outlines and shadows
+
+The shape is applied as a **mask**, so the element keeps its own background — colour, gradient, image — and that's what gets pill-shaped. A mask also erases everything outside the shape, which a CSS border can't survive: with the stadium radius kept underneath, a real border would be a stadium ring clipped to the pill, a hair off at each transition. So the border is drawn by the same worklet, on `::after`, as an inset band along the true outline.
+
+With `tailwind-pill-border` loaded, **Tailwind's own `border-*` utilities drive it** — `border-2 border-red-500 border-dashed` on a pill does exactly what you'd expect, including reserving the same room for layout. Nothing new to learn; on any element that isn't a pill they keep behaving normally. Without the plugin, set `--squircle-pill-border-width`, `--squircle-pill-border-color` (defaults to `currentColor`) and `--squircle-pill-border-style` yourself.
+
+The stadium `border-radius` is kept even under the mask, so native decorations that stay inside the box follow a shape close enough that the mask only trims them: `shadow-inner`, an `outline` with a negative `outline-offset`, the browser's focus ring with `focus-visible:-outline-offset-2`. The one thing that needs help is what's painted _outside_ the box: `filter` runs before the mask, so a drop shadow goes on a wrapper (`<div class="drop-shadow-lg"><button class="squircle-pill …">`), and an outer ring is a masked wrapper with padding.
+
+### Fallback
+
+Without the worklet — Safari, Firefox, or before `registerPillWorklet()` resolves — a pill is a plain `rounded-full` stadium with a real border, and nothing else. Not a superellipse: on a pill the cap is the whole shape, so a superellipse would change the silhouette rather than soften a corner. No layout shift when the worklet lands.
+
+</details>
+
+<details>
+<summary><strong>Without Tailwind</strong></summary>
+
+The same rules, hung off an attribute:
+
+```css
 @import "@klinking/squircle/squircle-pill.css";
 ```
 
-### 3. Register the paint worklet
-
-In your entry point (e.g., `main.ts`), register the Houdini paint worklet:
-
-```typescript
-// Register the paint worklet
-CSS.paintWorklet.addModule(
-  new URL("@klinking/squircle/pill-shape.worklet.js", import.meta.url).href
-);
-```
-
-### 4. Use the pill utility
-
-Use the `squircle-pill` class to apply pill shapes to any element:
-
 ```html
-<!-- Perfect pill-shaped button -->
-<button class="squircle-pill px-4 py-2 bg-blue-500 text-white">
-  Click me
-</button>
-
-<!-- Pill badge -->
-<div class="squircle-pill bg-green-100 text-green-900 px-3 py-1">New</div>
-
-<!-- Pill with side-specific variants -->
-<div class="squircle-pill-t squircle-pill-r">…</div>
-
-<!-- Customize superellipse transition smoothness -->
-<div class="squircle-pill squircle-pill-amt-2.5">…</div>
+<button data-squircle-pill style="--squircle-pill-border-width: 2px">Save</button>
 ```
 
-**Available variants:**
-
-- Base utility: `squircle-pill`
-- Side variants: `squircle-pill-t`, `squircle-pill-r`, `squircle-pill-b`, `squircle-pill-l` (top, right, bottom, left)
-- Corner variants: `squircle-pill-tl`, `squircle-pill-tr`, `squircle-pill-br`, `squircle-pill-bl` (and logical equivalents)
-- Amount control: `squircle-pill-amt-*` (e.g., `squircle-pill-amt-1`, `squircle-pill-amt-2.5`, `squircle-pill-amt-3`) to adjust the smoothness of the semicircle-to-edge transition
-
-The pill radius is automatically calculated from the element's dimensions: `radius = min(width, height) / 2`, ensuring perfect pills at any size.
-
-### Browser support and fallback
-
-- **Chrome/Edge 89+**: Full Houdini CSS Paint API support — perfect pill shapes with G2-continuous curves
-- **Safari/Firefox**: Graceful fallback to `corner-shape: superellipse()` which approximates a pill shape
+Register the worklet as above. Here the pill's own properties also drive a real border, so a bordered pill degrades to a bordered stadium without the worklet; `--squircle-pill-border-color` defaults to `currentColor` and `--squircle-pill-border-style` to `solid`. The stylesheet is generated from the same source as the Tailwind utility, so the two never disagree.
 
 </details>
 
 ### How pill shapes work
 
-Pill shapes render using Houdini's CSS Paint API to draw:
+A circular arc has constant curvature `1/R`; a straight edge has none. The worklet joins them with a transition along which curvature falls as `k(t) = (1/R) · (1 − t)^(q − 1)` over the transition's arc length — a clothoid at `q = 2`, where the fall is linear, and a softer spiral above it. `squircle-pill-amt-*` sets how much of the arc (β, in 30° steps) the transition replaces, and `squircle-pill-spread-*` offsets `q`, which lengthens the transition to `q · R · β` along the edge without eating any more of the arc. The cap radius is then solved so that the arc's rise plus the transition's rise is exactly half the element's height, so the outline always fits the box; the position along the transition is the Fresnel-type integral of that curvature, evaluated numerically once per shape and cached.
 
-- **Horizontal pills** (width > height): Semicircles on left and right, straight top and bottom edges
-- **Vertical pills** (height > width): Semicircles on top and bottom, straight left and right edges
-- **Circular pills** (width = height): Full circles
+That's a different construction from the curvature-continuous fillet in CAD tools (SolidWorks and Onshape's "curvature continuous", Fusion's G2, Rhino's `BlendCrv`), which blend arc into edge with a quintic Hermite polynomial that has position, tangent and curvature prescribed at both ends, controlled by a setback per face and a bulge per end. The spiral's advantage is that its curvature profile is monotone by construction and its length is a closed-form function of the cap, which is what lets it fit itself to the box; the Hermite blend keeps the cap at its full radius and lets the blend bow outward, which is right for a model and wrong for a button. The package's local dev page (`vp dev` in `package/`) renders the two side by side, with each one's controls and a curvature comb, so you can judge for yourself.
 
-The worklet computes G2-continuous Bezier curves at junctions between the semicircles and straight edges, using cubic Bezier approximation (magic constant `0.55228`) to smoothly transition from the semicircle's constant curvature to the straight edge's zero curvature.
-
-**Fallback for unsupported browsers:** Falls back to `corner-shape: superellipse()` which approximates a pill shape without perfect mathematical continuity.
+**Browser support:** the Paint API is in Chromium (Chrome, Edge, Opera, Samsung Internet). Safari and Firefox get the stadium fallback. Both `--squircle-pill-*` properties are registered with `@property`, which those browsers support, so nothing else changes.
 
 ## How the radius correction works
 
@@ -579,6 +585,7 @@ See the [interactive demo](https://dogmar.github.io/squircle) for a visual expla
 | [Logical properties](https://caniuse.com/css-logical-props)                | `squircle-s/e/ss/se/es/ee-*`                   | Widely supported                                               |
 | [CSS `@function`](https://caniuse.com/?search=%40function)                 | Optional `squircle-radius()` helper            | Experimental; Chrome flag only                                 |
 | [CSS custom properties](https://caniuse.com/css-variables)                 | Theme tokens, `--squircle-amt`, `--squircle-r` | Universal                                                      |
+| [CSS Paint API](https://caniuse.com/css-paint-api)                         | `squircle-pill` shape and border               | Chromium only; fallback to `rounded-full` elsewhere            |
 
 The Tailwind utilities depend on rows 1–4 and row 6. Only `corner-shape` itself is "new" — everything else is shipped broadly. The standalone `@function` helper is the only genuinely experimental piece.
 

@@ -34,6 +34,19 @@ interface Point {
   y: number;
 }
 
+interface FresnelTotals {
+  totalCos: number;
+  totalSin: number;
+}
+
+interface Fresnel extends FresnelTotals {
+  cos: number[];
+  sin: number[];
+}
+
+const QUADRANT_CACHE_SIZE = 64;
+const quadrantCache = new Map<string, Point[]>();
+
 /**
  * The pill amount sets how soft the easing is: how much of each cap is
  * given over to the curvature transition, in units of 30 degrees. `1` keeps a
@@ -96,8 +109,6 @@ const MAX_SEGMENTS = 256;
 
 export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
-    // `color` is needed because a paint worklet cannot resolve the
-    // `currentColor` keyword itself — it has to be passed in as a property.
     return [AMT_VAR, EASE_SPREAD_VAR, STROKE_WIDTH_VAR, BORDER_STYLE_VAR];
   }
 
@@ -118,12 +129,21 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * Stroke width, in pixels. Zero fills the shape; anything larger draws an
-   * inset band of exactly that width, hugging the inside of the outline.
+   * Stroke width, in pixels, or `null` when this paint is a fill.
+   *
+   * The ring pseudo is the only thing that sets the stroke-width property, so
+   * its mere presence is what selects stroke mode; the element itself never
+   * carries it and is always filled. A ring of zero width draws nothing at
+   * all — a `border-2`-less pill has no border, not a full-face one — while
+   * anything larger draws an inset band of exactly that width, hugging the
+   * inside of the outline. The value arrives in px, resolved by the registered
+   * border-width property it is fed from.
    */
-  resolveStrokeWidth(props?: PaintProperties): number {
-    const raw = Number.parseFloat(props?.get(STROKE_WIDTH_VAR)?.toString() ?? "");
-    return Number.isFinite(raw) && raw > 0 ? raw : 0;
+  resolveStrokeWidth(props?: PaintProperties): number | null {
+    const raw = props?.get(STROKE_WIDTH_VAR)?.toString().trim() ?? "";
+    if (raw === "") return null;
+    const width = Number.parseFloat(raw);
+    return Number.isFinite(width) && width > 0 ? width : 0;
   }
 
   /** The requested easing angle, in radians, before it is fitted to the box. */
@@ -152,8 +172,12 @@ export const paintDef = class PillShape implements PaintWorklet {
    * exponents keep both endpoint curvatures and just redistribute the fall. The
    * same quadrature sizes the cap and places the points, so the transition
    * lands exactly on the straight edge.
+   *
+   * Only the totals are needed to size a cap, so `fresnelTotals` runs the same
+   * quadrature without keeping the running values; the fit probes it many
+   * times over and would otherwise allocate two arrays per probe.
    */
-  fresnel(beta: number, q: number): { cos: number[]; sin: number[] } {
+  fresnel(beta: number, q: number): Fresnel {
     const cos = [0];
     const sin = [0];
     const h = 1 / EASE_STEPS;
@@ -170,7 +194,20 @@ export const paintDef = class PillShape implements PaintWorklet {
       sin.push(s);
     }
 
-    return { cos, sin };
+    return { cos, sin, totalCos: c, totalSin: s };
+  }
+
+  fresnelTotals(beta: number, q: number): FresnelTotals {
+    const h = 1 / EASE_STEPS;
+    let totalCos = 0;
+    let totalSin = 0;
+    for (let i = 1; i <= EASE_STEPS; i++) {
+      const u0 = (1 - (i - 1) * h) ** q;
+      const u1 = (1 - i * h) ** q;
+      totalCos += ((Math.cos(beta * u0) + Math.cos(beta * u1)) / 2) * h;
+      totalSin += ((Math.sin(beta * u0) + Math.sin(beta * u1)) / 2) * h;
+    }
+    return { totalCos, totalSin };
   }
 
   /**
@@ -184,10 +221,8 @@ export const paintDef = class PillShape implements PaintWorklet {
     r: number,
     beta: number,
     q: number,
-    fresnel: { cos: number[]; sin: number[] },
+    { totalCos, totalSin }: FresnelTotals,
   ): { radius: number; junction: number } {
-    const totalCos = fresnel.cos[EASE_STEPS];
-    const totalSin = fresnel.sin[EASE_STEPS];
     const radius = r / (Math.cos(beta) + q * beta * totalSin);
     const junction = radius * (1 - Math.sin(beta) + q * beta * totalCos);
     return { radius, junction };
@@ -232,7 +267,9 @@ export const paintDef = class PillShape implements PaintWorklet {
 
     const fits = (beta: number): boolean => {
       const exponent = exponentFor(beta);
-      return this.capMetrics(r, beta, exponent, this.fresnel(beta, exponent)).junction <= half;
+      return (
+        this.capMetrics(r, beta, exponent, this.fresnelTotals(beta, exponent)).junction <= half
+      );
     };
 
     if (fits(wantedBeta)) return { beta: wantedBeta, exponent: wantedExponent };
@@ -309,11 +346,12 @@ export const paintDef = class PillShape implements PaintWorklet {
      * Reading `color` here would mean `color: transparent` erased the element.
      */
     const stroke = this.resolveStrokeWidth(props);
-    const dash = stroke > 0 ? this.resolveDash(props, stroke) : [];
-    // `border-style: none` leaves nothing to draw.
+    // A ring with no width, or with `border-style: none`, leaves nothing to draw.
+    if (stroke !== null && stroke <= 0) return;
+    const dash = stroke !== null ? this.resolveDash(props, stroke) : [];
     if (dash === null) return;
 
-    if (stroke > 0) {
+    if (stroke !== null) {
       ctx.strokeStyle = "#000";
       // Doubled, because the half outside the outline is clipped away below.
       ctx.lineWidth = stroke * 2;
@@ -327,15 +365,12 @@ export const paintDef = class PillShape implements PaintWorklet {
     const vertical = height > width;
     const long = vertical ? height : width;
     const short = vertical ? width : height;
-    const r = short / 2;
-    const { beta, exponent } = this.fitEasing(
-      r,
-      long / 2,
-      this.resolveEase(props),
-      this.resolveExponent(props),
-    );
 
-    const outline = this.outline(long, short, this.quadrant(r, beta, exponent));
+    const outline = this.outline(
+      long,
+      short,
+      this.fittedQuadrant(long, short, this.resolveEase(props), this.resolveExponent(props)),
+    );
     for (let i = 0; i < outline.length; i++) {
       const p = outline[i];
       const x = vertical ? p.y : p.x;
@@ -346,7 +381,7 @@ export const paintDef = class PillShape implements PaintWorklet {
 
     ctx.closePath();
 
-    if (stroke > 0) {
+    if (stroke !== null) {
       /*
        * Clip to the outline before stroking, so the band sits wholly inside it.
        * A centred stroke would spill half its width past the outline, and that
@@ -360,6 +395,30 @@ export const paintDef = class PillShape implements PaintWorklet {
     } else {
       ctx.fill();
     }
+  }
+
+  /**
+   * The quadrant for a box, with the easing fitted to it.
+   *
+   * Memoised, because the same shape is painted at least twice — once as the
+   * element's mask and once as its ring — and again on every repaint that
+   * changes nothing about it, such as a hover. The quadrant is the expensive
+   * part, and it depends only on these four numbers.
+   */
+  fittedQuadrant(long: number, short: number, ease: number, exponent: number): Point[] {
+    const key = `${long},${short},${ease},${exponent}`;
+    const cached = quadrantCache.get(key);
+    if (cached) return cached;
+
+    const r = short / 2;
+    const fitted = this.fitEasing(r, long / 2, ease, exponent);
+    const points = this.quadrant(r, fitted.beta, fitted.exponent);
+
+    if (quadrantCache.size >= QUADRANT_CACHE_SIZE) {
+      quadrantCache.delete(quadrantCache.keys().next().value as string);
+    }
+    quadrantCache.set(key, points);
+    return points;
   }
 
   /** Mirror one quadrant into the full outline, walking clockwise. */

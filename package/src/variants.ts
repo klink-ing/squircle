@@ -49,6 +49,15 @@ export const PILL_BORDER_STYLE_FALLBACK = "solid" as const;
 export const PILL_STROKE_WIDTH_VAR_NAME: string = pillVar("stroke-width");
 export const DEFAULT_PILL_EASE_SPREAD = 1 as const;
 /**
+ * Attribute `registerPillWorklet()` sets on `<html>` once the worklet has
+ * loaded. `@supports (mask-image: paint(pill-shape))` is true for any paint
+ * name, loaded or not, so the mask is gated on this instead; until it appears
+ * a pill is a plain stadium.
+ */
+export const PILL_WORKLET_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-worklet`;
+/** What the standalone stylesheet hangs its rules off, so it works without Tailwind. */
+export const PILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill`;
+/**
  * The shared amount and radius properties, from the same namespace as
  * everything else. At the default namespace these are the documented
  * `--squircle-amt` and `--squircle-r`, unchanged.

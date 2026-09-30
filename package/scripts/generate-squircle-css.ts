@@ -1,3 +1,5 @@
+// Pins the namespace before variants.ts is evaluated; keep it first.
+import "./load-namespace";
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
