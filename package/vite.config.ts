@@ -128,8 +128,9 @@ export default defineConfig({
       },
       build: {
         env: NAMESPACE_ENV,
-        command:
-          "tsx scripts/generate-stylex.ts && vp pack && tsx scripts/generate-squircle-css.ts && tsx scripts/generate-pill-css.ts",
+        // One script, so the pack and the generators are one cache entry;
+        // see scripts/build.ts.
+        command: "tsx scripts/build.ts",
       },
       "pill-dev": {
         env: NAMESPACE_ENV,

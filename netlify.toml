@@ -1,0 +1,10 @@
+# Deploy previews for pull requests. Production stays on GitHub Pages
+# (.github/workflows/deploy-site.yml); once this repository is linked to a
+# Netlify site, every PR gets a deploy-preview URL of the same build.
+#
+# Node comes from .node-version and pnpm from the packageManager field, both
+# of which Netlify reads on its own.
+
+[build]
+command = "pnpm exec vp run website#build"
+publish = "website/dist"

@@ -4,15 +4,16 @@
  */
 
 /**
- * Dev page only; not shipped.
+ * Demo only; not part of the package.
  *
- * A second paint worklet, `pill-fillet`, that draws the same pill but builds
- * the arc-to-edge join the way CAD fillet tools build a curvature-continuous
- * fillet: as a polynomial Hermite blend between the two curves, with position,
- * tangent and — for G2 and above — curvature prescribed at both ends. That is
- * the construction behind SolidWorks' and Onshape's "curvature continuous"
- * fillets, Fusion's G2 fillet, and Rhino's BlendCrv, and the knobs those tools
- * expose map onto the properties this worklet reads:
+ * A second paint worklet, `pill-fillet`, that draws the same pill as the
+ * shipped `pill-shape` worklet but builds the arc-to-edge join the way CAD
+ * fillet tools build a curvature-continuous fillet: as a polynomial Hermite
+ * blend between the two curves, with position, tangent and — for G2 and
+ * above — curvature prescribed at both ends. That is the construction behind
+ * SolidWorks' and Onshape's "curvature continuous" fillets, Fusion's G2
+ * fillet, and Rhino's BlendCrv, and the knobs those tools expose map onto the
+ * properties this worklet reads:
  *
  *   --fillet-continuity    1 | 2 | 3 — G1 (cubic), G2 (quintic), G3 (septic).
  *                          Rhino's continuity picker; SolidWorks/Onshape offer
@@ -34,7 +35,9 @@
  * does too — it is fitted to a model, not to a bounding box — and the
  * difference is part of what the comparison is for.
  *
- * Exposes its geometry, so the page can measure the curve it draws.
+ * Plain JS rather than TS so the same file can be imported for its geometry
+ * and handed to `CSS.paintWorklet.addModule()` by URL, in dev and in the
+ * built site alike.
  */
 
 const CONTINUITY_VAR = "--fillet-continuity";
@@ -47,32 +50,21 @@ const BLEND_SAMPLES = 96;
 /** Arc step, in radians: a constant radius needs no adaptive sampling. */
 const ARC_STEP = Math.PI / 90;
 
-export interface Point {
-  x: number;
-  y: number;
-}
+/**
+ * @typedef {{ x: number, y: number }} Point
+ * @typedef {{ get(name: string): { toString(): string } | undefined }} PaintProperties
+ * @typedef {{
+ *   continuity: 1 | 2 | 3,
+ *   arcSetback: number,
+ *   edgeSetback: number,
+ *   bulgeStart: number,
+ *   bulgeEnd: number,
+ * }} FilletParams
+ * @typedef {{ arc: Point[], blend: Point[], controls: Point[], edgeStart: number }} FilletQuadrant
+ */
 
-interface PaintSize {
-  width: number;
-  height: number;
-}
-
-interface PaintProperties {
-  get(name: string): { toString(): string } | undefined;
-}
-
-export interface FilletParams {
-  /** 1, 2 or 3: the G-level matched at both ends. */
-  continuity: 1 | 2 | 3;
-  /** Radians of arc handed to the blend. */
-  arcSetback: number;
-  /** Length along the flat edge, in multiples of the half-height. */
-  edgeSetback: number;
-  bulgeStart: number;
-  bulgeEnd: number;
-}
-
-export const DEFAULT_FILLET: FilletParams = {
+/** @type {FilletParams} */
+export const DEFAULT_FILLET = {
   continuity: 2,
   arcSetback: Math.PI / 6,
   edgeSetback: 1,
@@ -80,16 +72,24 @@ export const DEFAULT_FILLET: FilletParams = {
   bulgeEnd: 1,
 };
 
-const number = (props: PaintProperties | undefined, name: string, fallback: number): number => {
+/**
+ * @param {PaintProperties | undefined} props
+ * @param {string} name
+ * @param {number} fallback
+ */
+const number = (props, name, fallback) => {
   const raw = Number.parseFloat(props?.get(name)?.toString() ?? "");
   return Number.isFinite(raw) ? raw : fallback;
 };
 
-export function readParams(props?: PaintProperties): FilletParams {
-  const continuity = Math.min(Math.max(Math.round(number(props, CONTINUITY_VAR, 2)), 1), 3) as
-    | 1
-    | 2
-    | 3;
+/**
+ * @param {PaintProperties} [props]
+ * @returns {FilletParams}
+ */
+export function readParams(props) {
+  const continuity = /** @type {1 | 2 | 3} */ (
+    Math.min(Math.max(Math.round(number(props, CONTINUITY_VAR, 2)), 1), 3)
+  );
   const degrees = Math.min(Math.max(number(props, ARC_SETBACK_VAR, 30), 0), 89);
   return {
     continuity,
@@ -100,16 +100,23 @@ export function readParams(props?: PaintProperties): FilletParams {
   };
 }
 
-const add = (a: Point, b: Point): Point => ({ x: a.x + b.x, y: a.y + b.y });
-const scale = (a: Point, k: number): Point => ({ x: a.x * k, y: a.y * k });
+/** @type {(a: Point, b: Point) => Point} */
+const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y });
+/** @type {(a: Point, k: number) => Point} */
+const scale = (a, k) => ({ x: a.x * k, y: a.y * k });
 
 /**
- * Derivatives, up to third order, of a curve leaving `P` along unit tangent
- * `T` at speed `s` with curvature `k` and curvature rate zero. `N` is the
- * normal `T` turns towards. Arc-length parametrised and then rescaled, so
+ * Derivatives, up to third order, of a curve leaving a point along unit
+ * tangent `T` at speed `s` with curvature `k` and curvature rate zero. `N` is
+ * the normal `T` turns towards. Arc-length parametrised and then rescaled, so
  * the speed is constant and the second derivative is pure normal.
+ *
+ * @param {Point} T
+ * @param {number} k
+ * @param {number} s
+ * @returns {[Point, Point, Point]}
  */
-function endDerivatives(T: Point, k: number, s: number): [Point, Point, Point] {
+function endDerivatives(T, k, s) {
   const N = { x: -T.y, y: T.x };
   return [
     scale(T, s),
@@ -123,20 +130,22 @@ function endDerivatives(T: Point, k: number, s: number): [Point, Point, Point] {
  * Control points of the degree-(2m+1) Bézier curve that interpolates the
  * given derivatives at both ends — the Hermite blend. Forward differences at
  * the start, backward at the end: Δ^j P_0 = C^(j)(0) · (n-j)! / n!.
+ *
+ * @param {Point} P0
+ * @param {Point} T0
+ * @param {number} k0
+ * @param {number} s0
+ * @param {Point} P1
+ * @param {Point} T1
+ * @param {number} k1
+ * @param {number} s1
+ * @param {1 | 2 | 3} m
+ * @returns {Point[]}
  */
-export function blendControlPoints(
-  P0: Point,
-  T0: Point,
-  k0: number,
-  s0: number,
-  P1: Point,
-  T1: Point,
-  k1: number,
-  s1: number,
-  m: 1 | 2 | 3,
-): Point[] {
+export function blendControlPoints(P0, T0, k0, s0, P1, T1, k1, s1, m) {
   const n = 2 * m + 1;
-  const fromEnd = (P: Point, [first, second, third]: [Point, Point, Point]): Point[] => {
+  /** @type {(P: Point, derivs: [Point, Point, Point]) => Point[]} */
+  const fromEnd = (P, [first, second, third]) => {
     const d1 = scale(first, 1 / n);
     const d2 = scale(second, 1 / (n * (n - 1)));
     const d3 = scale(third, 1 / (n * (n - 1) * (n - 2)));
@@ -153,29 +162,26 @@ export function blendControlPoints(
   return [...head, ...tail.reverse()];
 }
 
-/** De Casteljau. */
-export function bezierPoint(controls: Point[], t: number): Point {
+/**
+ * De Casteljau.
+ *
+ * @param {Point[]} controls
+ * @param {number} t
+ * @returns {Point}
+ */
+export function bezierPoint(controls, t) {
   let pts = controls;
   while (pts.length > 1) {
-    const next: Point[] = [];
+    /** @type {Point[]} */
+    const next = [];
     for (let i = 0; i + 1 < pts.length; i++) {
-      const a = pts[i] as Point;
-      const b = pts[i + 1] as Point;
+      const a = pts[i];
+      const b = pts[i + 1];
       next.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
     }
     pts = next;
   }
-  return pts[0] as Point;
-}
-
-export interface FilletQuadrant {
-  /** From the leftmost point of the cap to where the blend takes over. */
-  arc: Point[];
-  /** From the end of the arc to where the flat edge begins. */
-  blend: Point[];
-  controls: Point[];
-  /** x where the flat top edge begins. */
-  edgeStart: number;
+  return pts[0];
 }
 
 /**
@@ -184,8 +190,13 @@ export interface FilletQuadrant {
  * blend leaves it `arcSetback` before the top and lands on the flat edge
  * `edgeSetback · r` past the top's x, or at the box's centre if that is
  * sooner.
+ *
+ * @param {number} r
+ * @param {number} half
+ * @param {FilletParams} params
+ * @returns {FilletQuadrant}
  */
-export function filletQuadrant(r: number, half: number, params: FilletParams): FilletQuadrant {
+export function filletQuadrant(r, half, params) {
   const beta = params.arcSetback;
   const P0 = { x: r - r * Math.sin(beta), y: r - r * Math.cos(beta) };
   const T0 = { x: Math.cos(beta), y: -Math.sin(beta) };
@@ -193,7 +204,8 @@ export function filletQuadrant(r: number, half: number, params: FilletParams): F
   const P1 = { x: r + reach, y: 0 };
   const T1 = { x: 1, y: 0 };
 
-  const arc: Point[] = [];
+  /** @type {Point[]} */
+  const arc = [];
   const sweep = Math.PI / 2 - beta;
   const steps = Math.max(Math.ceil(sweep / ARC_STEP), 1);
   for (let i = 0; i <= steps; i++) {
@@ -217,7 +229,8 @@ export function filletQuadrant(r: number, half: number, params: FilletParams): F
     params.bulgeEnd * chord,
     params.continuity,
   );
-  const blend: Point[] = [];
+  /** @type {Point[]} */
+  const blend = [];
   for (let i = 1; i <= BLEND_SAMPLES; i++) blend.push(bezierPoint(controls, i / BLEND_SAMPLES));
 
   return { arc, blend, controls, edgeStart: P1.x };
@@ -228,7 +241,12 @@ export const paintDef = class PillFillet {
     return [CONTINUITY_VAR, ARC_SETBACK_VAR, EDGE_SETBACK_VAR, BULGE_START_VAR, BULGE_END_VAR];
   }
 
-  paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {
+  /**
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {{ width: number, height: number }} size
+   * @param {PaintProperties} [props]
+   */
+  paint(ctx, size, props) {
     const { width, height } = size;
     if (width <= 0 || height <= 0) return;
 
@@ -249,7 +267,7 @@ export const paintDef = class PillFillet {
     ctx.fillStyle = "#000";
     ctx.beginPath();
     for (let i = 0; i < outline.length; i++) {
-      const p = outline[i] as Point;
+      const p = outline[i];
       const x = vertical ? p.y : p.x;
       const y = vertical ? p.x : p.y;
       if (i === 0) ctx.moveTo(x, y);
@@ -260,8 +278,8 @@ export const paintDef = class PillFillet {
   }
 };
 
-declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
-
+// `registerPaint` only exists inside a paint worklet global scope. Guarding
+// the call keeps this module importable from the page for its geometry.
 if (typeof registerPaint !== "undefined") {
   registerPaint("pill-fillet", paintDef);
 }
