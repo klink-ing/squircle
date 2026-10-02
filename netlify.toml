@@ -14,5 +14,9 @@
 
 [build]
 base = "website"
+# Netlify skips a build when nothing under `base` changed, but the site
+# bundles the package from ../package, so a package-only change would leave
+# the preview stale. Exit 1 means build; skip only when neither changed.
+ignore = "git diff --quiet \"$CACHED_COMMIT_REF\" \"$COMMIT_REF\" -- . ../package ../pnpm-lock.yaml ../netlify.toml"
 command = "pnpm --filter @klinking/squircle exec tsx scripts/build.ts && pnpm --filter website exec astro build"
 publish = "dist"
