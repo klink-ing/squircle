@@ -19,7 +19,7 @@ import {
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_BOX_SHADOW_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
-  PILL_EASE_SPREAD_VAR_NAME,
+  PILL_EASE_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
@@ -114,12 +114,12 @@ describe("pill polyfill", () => {
     });
 
     it("honours the shape properties the worklet reads", () => {
-      const shape = { amt: "3", spread: "4", continuity: "3" };
+      const shape = { amt: "3", ease: "4", continuity: "2" };
       const ours = pillOutlinePoints(240, 60, shape);
       const theirs = workletVertices(240, 60, {
         [PILL_AMT_VAR_NAME]: "3",
-        [PILL_EASE_SPREAD_VAR_NAME]: "4",
-        [PILL_CONTINUITY_VAR_NAME]: "3",
+        [PILL_EASE_VAR_NAME]: "4",
+        [PILL_CONTINUITY_VAR_NAME]: "2",
       });
       expect(ours[10]?.x).toBeCloseTo((theirs[10] as Point).x, 6);
       expect(ours[10]?.y).toBeCloseTo((theirs[10] as Point).y, 6);

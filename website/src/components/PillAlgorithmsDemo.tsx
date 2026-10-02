@@ -86,18 +86,18 @@ function arcPoints(r: number, rho: number, beta: number): Point[] {
  * quadrature, at every one of its integration steps rather than the sparser
  * vertices it draws.
  */
-function spiralQuadrant(amt: number, spread: number, continuity: number): Quadrant {
+function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant {
   const worklet = new PillShape();
   const props = propsFrom({
     [`${NS}-amt`]: amt,
-    [`${NS}-ease-spread`]: spread,
+    [`${NS}-ease`]: ease,
     [`${NS}-continuity`]: continuity,
   });
   const c = worklet.resolveContinuity(props);
   const fitted = worklet.fitEasing(
     R,
     W / 2,
-    worklet.resolveEase(props),
+    worklet.resolveAngle(props),
     worklet.resolveExponent(props),
     c,
   );
@@ -320,8 +320,8 @@ function Slider({
 
 export default function PillAlgorithmsDemo() {
   const [amt, setAmt] = useState(2);
-  const [spread, setSpread] = useState(1);
-  const [spiralContinuity, setSpiralContinuity] = useState(2);
+  const [ease, setEase] = useState(2);
+  const [spiralContinuity, setSpiralContinuity] = useState(3);
   const [continuity, setContinuity] = useState(2);
   const [fit, setFit] = useState(true);
   const [arcSetback, setArcSetback] = useState(30);
@@ -354,14 +354,14 @@ export default function PillAlgorithmsDemo() {
   );
 
   const spiral = useMemo(
-    () => spiralQuadrant(amt, spread, spiralContinuity),
-    [amt, spread, spiralContinuity],
+    () => spiralQuadrant(amt, ease, spiralContinuity),
+    [amt, ease, spiralContinuity],
   );
   const hermite = useMemo(() => hermiteQuadrant(filletValues), [filletValues]);
 
   const spiralStyle = {
     [`${NS}-amt`]: amt,
-    [`${NS}-ease-spread`]: spread,
+    [`${NS}-ease`]: ease,
     [`${NS}-continuity`]: spiralContinuity,
   } as React.CSSProperties;
   const filletStyle = filletValues as unknown as React.CSSProperties;
@@ -382,8 +382,8 @@ export default function PillAlgorithmsDemo() {
           <code>
             (1 − t²)<sup>q−1</sup>
           </code>
-          , also leaves the arc with curvature flat, and arrives flat at the edge for any spread
-          above 0.
+          , also leaves the arc with curvature flat, and arrives flat at the edge for any ease above
+          0. It is the default.
         </p>
         <div className="grid grid-cols-[auto_1fr_3.5rem] items-center gap-x-3 gap-y-1 text-xs">
           <label htmlFor="s-continuity" className="text-zinc-400">
@@ -395,8 +395,8 @@ export default function PillAlgorithmsDemo() {
             onChange={(e) => setSpiralContinuity(+e.target.value)}
             className="col-span-2 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-zinc-200"
           >
-            <option value={2}>G2 — squircle-pill-g2 (default)</option>
-            <option value={3}>G3 — squircle-pill-g3</option>
+            <option value={3}>G3 — squircle-pill-g3 (default)</option>
+            <option value={2}>G2 — squircle-pill-g2</option>
           </select>
           <Slider
             id="s-amt"
@@ -409,14 +409,14 @@ export default function PillAlgorithmsDemo() {
             onChange={setAmt}
           />
           <Slider
-            id="s-spread"
-            label="squircle-pill-spread"
-            value={spread}
+            id="s-ease"
+            label="squircle-pill-ease"
+            value={ease}
             min={-2}
             max={8}
             step={0.05}
             format={(v) => v.toFixed(2)}
-            onChange={setSpread}
+            onChange={setEase}
           />
         </div>
       </div>

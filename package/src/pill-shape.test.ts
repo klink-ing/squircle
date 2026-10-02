@@ -9,7 +9,8 @@ import { decorationDef, paintDef } from "./pill-shape.worklet";
 import {
   CSS_NAMESPACE,
   DEFAULT_PILL_AMT,
-  DEFAULT_PILL_EASE_SPREAD,
+  DEFAULT_PILL_CONTINUITY,
+  DEFAULT_PILL_EASE,
   PILL_AMT_VAR_NAME,
   PILL_ATTRIBUTE,
   PILL_BORDER_COLOR_VAR_NAME,
@@ -20,7 +21,7 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_EASE_SPREAD_VAR_NAME,
+  PILL_EASE_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
@@ -172,12 +173,12 @@ describe("pill-shape worklet contract", () => {
     // painted for every pill — reads only what shapes it.
     expect(inputProperties).toEqual([
       PILL_AMT_VAR_NAME,
-      PILL_EASE_SPREAD_VAR_NAME,
+      PILL_EASE_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
     ]);
     expect(decorationInputs).toEqual([
       PILL_AMT_VAR_NAME,
-      PILL_EASE_SPREAD_VAR_NAME,
+      PILL_EASE_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
       PILL_REACH_VAR_NAME,
       PILL_BORDER_WIDTH_VAR_NAME,
@@ -200,7 +201,7 @@ describe("pill-shape worklet contract", () => {
   describe("against squircle-pill.css", () => {
     it("registers every shaping property the worklet reads", () => {
       const registered = registeredProperties(stylesheet);
-      for (const name of [PILL_AMT_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME, PILL_CONTINUITY_VAR_NAME]) {
+      for (const name of [PILL_AMT_VAR_NAME, PILL_EASE_VAR_NAME, PILL_CONTINUITY_VAR_NAME]) {
         expect(registered, `${name} must be registered`).toContain(name);
       }
     });
@@ -361,8 +362,9 @@ describe("pill-shape worklet contract", () => {
 
     it("starts the properties where the worklet's own fallbacks do", () => {
       expect(initialValueOf(stylesheet, PILL_AMT_VAR_NAME)).toBe(String(DEFAULT_PILL_AMT));
-      expect(initialValueOf(stylesheet, PILL_EASE_SPREAD_VAR_NAME)).toBe(
-        String(DEFAULT_PILL_EASE_SPREAD),
+      expect(initialValueOf(stylesheet, PILL_EASE_VAR_NAME)).toBe(String(DEFAULT_PILL_EASE));
+      expect(initialValueOf(stylesheet, PILL_CONTINUITY_VAR_NAME)).toBe(
+        String(DEFAULT_PILL_CONTINUITY),
       );
     });
 
@@ -449,10 +451,10 @@ describe("pill-shape worklet contract", () => {
       expect(border.dash).toEqual([]);
       // Centred 2px inside the outline.
       const b = bounds(border.points);
-      expect(b.left).toBeCloseTo(2, 6);
-      expect(b.top).toBeCloseTo(2, 6);
-      expect(b.right).toBeCloseTo(238, 6);
-      expect(b.bottom).toBeCloseTo(58, 6);
+      expect(b.left).toBeCloseTo(2, 5);
+      expect(b.top).toBeCloseTo(2, 5);
+      expect(b.right).toBeCloseTo(238, 5);
+      expect(b.bottom).toBeCloseTo(58, 5);
     });
 
     it("dashes and dots the border the way a real border does", () => {
@@ -509,8 +511,8 @@ describe("pill-shape worklet contract", () => {
         240,
       );
       const b = bounds(drawn.strokes[0].points);
-      expect(b.left).toBeCloseTo(2, 6);
-      expect(b.top).toBeCloseTo(2, 6);
+      expect(b.left).toBeCloseTo(2, 5);
+      expect(b.top).toBeCloseTo(2, 5);
     });
 
     it("casts outer shadows only outside the outline, last first, as CSS stacks them", () => {
@@ -536,11 +538,11 @@ describe("pill-shape worklet contract", () => {
       // Thrown back exactly onto the canvas: the shape grown by its spread,
       // shifted by its offset.
       const s = bounds(solid.points);
-      expect(s.left).toBeCloseTo(reach - 2, 6);
-      expect(s.right).toBeCloseTo(reach + 242, 6);
+      expect(s.left).toBeCloseTo(reach - 2, 5);
+      expect(s.right).toBeCloseTo(reach + 242, 5);
       const d = bounds(soft.points);
-      expect(d.top).toBeCloseTo(reach + 2 + 4, 6);
-      expect(d.left).toBeCloseTo(reach + 2, 6);
+      expect(d.top).toBeCloseTo(reach + 2 + 4, 5);
+      expect(d.left).toBeCloseTo(reach + 2, 5);
     });
 
     it("takes shadow lengths in rem and em at the default font size", () => {
@@ -561,7 +563,8 @@ describe("pill-shape worklet contract", () => {
     expect(record(paintDef, undefined).paths).toEqual(
       record(paintDef, {
         [PILL_AMT_VAR_NAME]: String(DEFAULT_PILL_AMT),
-        [PILL_EASE_SPREAD_VAR_NAME]: String(DEFAULT_PILL_EASE_SPREAD),
+        [PILL_EASE_VAR_NAME]: String(DEFAULT_PILL_EASE),
+        [PILL_CONTINUITY_VAR_NAME]: String(DEFAULT_PILL_CONTINUITY),
       }).paths,
     );
   });

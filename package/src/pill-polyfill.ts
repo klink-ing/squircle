@@ -15,7 +15,7 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_EASE_SPREAD_VAR_NAME,
+  PILL_EASE_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
@@ -40,12 +40,12 @@ interface Point {
 /** The custom-property values that shape one pill, as computed strings. */
 export interface PillShapeInput {
   amt?: string;
-  spread?: string;
+  ease?: string;
   continuity?: string;
 }
 
 interface PillGeometry {
-  resolveEase(props: Lookup): number;
+  resolveAngle(props: Lookup): number;
   resolveExponent(props: Lookup): number;
   resolveContinuity(props: Lookup): 2 | 3;
   fittedQuadrant(
@@ -91,7 +91,7 @@ export function pillOutlinePoints(
   if (width <= 0 || height <= 0) return [];
   const props = lookup({
     [PILL_AMT_VAR_NAME]: shape.amt,
-    [PILL_EASE_SPREAD_VAR_NAME]: shape.spread,
+    [PILL_EASE_VAR_NAME]: shape.ease,
     [PILL_CONTINUITY_VAR_NAME]: shape.continuity,
   });
   const vertical = height > width;
@@ -100,7 +100,7 @@ export function pillOutlinePoints(
   const quadrant = geometry.fittedQuadrant(
     long,
     short,
-    geometry.resolveEase(props),
+    geometry.resolveAngle(props),
     geometry.resolveExponent(props),
     geometry.resolveContinuity(props),
   );
@@ -443,7 +443,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     const fresh: Settings = {
       shape: {
         amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
-        spread: style.getPropertyValue(PILL_EASE_SPREAD_VAR_NAME),
+        ease: style.getPropertyValue(PILL_EASE_VAR_NAME),
         continuity: style.getPropertyValue(PILL_CONTINUITY_VAR_NAME),
       },
       decoration: decorated ? values : {},
@@ -483,7 +483,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       if (!size) continue;
       const { width, height } = size;
       const { shape, decoration, decorationKey } = read(el);
-      const shapeKey = `${width},${height},${shape.amt},${shape.spread},${shape.continuity}`;
+      const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity}`;
       const key = `${shapeKey},${decorationKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);

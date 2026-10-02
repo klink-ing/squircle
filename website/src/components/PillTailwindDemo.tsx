@@ -41,26 +41,26 @@ export default function PillTailwindDemo() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Easing amount and spread</h2>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Easing amount and ease</h2>
         <p className="mb-4 text-sm text-zinc-500">
           <code className="text-zinc-300">squircle-pill-amt-*</code> sets how much of each cap is
           handed to the curvature easing — <code className="text-zinc-300">1</code> is a bare
-          semicircle. <code className="text-zinc-300">squircle-pill-spread-*</code> stretches the
-          join further along the flat edge without spending more of the arc.
+          semicircle. <code className="text-zinc-300">squircle-pill-ease-*</code> stretches the join
+          further along the flat edge without spending more of the arc.
         </p>
         <div className="flex flex-wrap gap-6">
           <PillBox
             label="squircle-pill-amt-1"
             className="squircle-pill bg-demo-amount squircle-pill-amt-1"
           />
-          <PillBox label="(default: amt 2, spread 1)" className="squircle-pill bg-demo-amount" />
+          <PillBox label="(default: amt 2, ease 2, G3)" className="squircle-pill bg-demo-amount" />
           <PillBox
             label="squircle-pill-amt-3"
             className="squircle-pill bg-demo-amount squircle-pill-amt-3"
           />
           <PillBox
-            label="squircle-pill-amt-1.5 squircle-pill-spread-4"
-            className="squircle-pill bg-demo-amount squircle-pill-amt-1.5 squircle-pill-spread-4"
+            label="squircle-pill-amt-1.5 squircle-pill-ease-4"
+            className="squircle-pill bg-demo-amount squircle-pill-amt-1.5 squircle-pill-ease-4"
           />
         </div>
       </section>

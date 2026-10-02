@@ -16,7 +16,7 @@ declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
 
 const NS = `--${typeof __SQUIRCLE_CSS_NAMESPACE__ === "string" ? __SQUIRCLE_CSS_NAMESPACE__ : "squircle"}-pill`;
 const AMT_VAR = `${NS}-amt`;
-const EASE_SPREAD_VAR = `${NS}-ease-spread`;
+const EASE_VAR = `${NS}-ease`;
 const BORDER_STYLE_VAR = `${NS}-border-style`;
 const CONTINUITY_VAR = `${NS}-continuity`;
 const BORDER_WIDTH_VAR = `${NS}-border-width`;
@@ -159,11 +159,15 @@ interface Profile {
  * arc already shedding curvature at a finite rate. `3` also matches the rate
  * curvature changes, `dk/ds`, with `k(t) = (1 / R) * (1 - t^2)^(q - 1)`: flat
  * where it leaves the arc, and, for any exponent above 2, flat where it meets
- * the edge. The spread keeps its meaning — it is the same exponent — but G3
- * floors it at 0, the lowest spread that still arrives at the edge at all.
+ * the edge. The ease keeps its meaning — it is the same exponent — but G3
+ * floors it at 0, the lowest ease that still arrives at the edge at all.
+ *
+ * G3 is the default: with the default ease it is flat at both ends, which
+ * reads as the smoothest join. Kept in step with DEFAULT_PILL_CONTINUITY in
+ * variants.ts by a test.
  */
 type Continuity = 2 | 3;
-const DEFAULT_CONTINUITY: Continuity = 2;
+const DEFAULT_CONTINUITY: Continuity = 3;
 
 const QUADRANT_CACHE_SIZE = 64;
 const quadrantCache = new Map<string, Point[]>();
@@ -234,7 +238,7 @@ const remember = <V>(cache: Map<string, V>, size: number, key: string, value: V)
  *
  * `1` meaning "circular" matches `--squircle-amt` elsewhere in this package.
  * The request is only ever honoured up to what the element's aspect ratio can
- * fit; see `fitEase`.
+ * fit; see `fitEasing`.
  */
 // Kept in step with DEFAULT_PILL_AMT in variants.ts by a test; this module is
 // deliberately import-free so the worklet stays a standalone module script.
@@ -243,23 +247,23 @@ const EASE_PER_AMOUNT = Math.PI / 6;
 const MAX_EASE = Math.PI / 3;
 
 /**
- * The ease spread smooths the join into the flat edge: it draws the
- * transition further along that edge without spending any more of the arc, so
- * a softer join no longer costs you a rounder cap. Raising it lets
- * the amount come down.
+ * The ease smooths the join into the flat edge: it draws the transition
+ * further along that edge without spending any more of the arc, so a softer
+ * join no longer costs you a rounder cap. Raising it lets the amount come
+ * down.
  *
  * `0` is a clothoid, where curvature falls linearly from the arc to the edge.
- * The spread offsets the exponent that governs that fall,
- * `k(t) = (1 / R) * (1 - t)^(q - 1)` with `q = spread + 2`, which makes the
- * transition `q * beta * R` long. Any spread above -1 still starts at `1 / R`
+ * The ease offsets the exponent that governs that fall,
+ * `k(t) = (1 / R) * (1 - t)^(q - 1)` with `q = ease + 2`, which makes the
+ * transition `q * beta * R` long. Any ease above -1 still starts at `1 / R`
  * and ends at `0`, so G2 holds throughout.
  *
- * The default sits one step above the clothoid, which reads as a softer join
- * without noticeably flattening the cap. Kept in step with
- * DEFAULT_PILL_EASE_SPREAD in variants.ts by a test.
+ * The default sits two steps above the clothoid, which reads as a soft join
+ * without noticeably flattening the cap. Kept in step with DEFAULT_PILL_EASE
+ * in variants.ts by a test.
  */
-const DEFAULT_SPREAD = 1;
-/** The exponent a spread of 0 means: curvature falling linearly, a clothoid. */
+const DEFAULT_EASE = 2;
+/** The exponent an ease of 0 means: curvature falling linearly, a clothoid. */
 const CLOTHOID_EXPONENT = 2;
 /**
  * 0 is the sane floor for real use. Below it the curvature still reaches zero,
@@ -268,7 +272,7 @@ const CLOTHOID_EXPONENT = 2;
  * length. Those are still honoured so the effect can be seen. Lower would need
  * a negative exponent, where `u ** q` blows up at `u = 0`.
  */
-const MIN_SPREAD = -CLOTHOID_EXPONENT;
+const MIN_EASE = -CLOTHOID_EXPONENT;
 
 /** Integration steps along one transition. Trapezoid error here is sub-pixel. */
 const EASE_STEPS = 512;
@@ -298,7 +302,7 @@ const powFromLog = (logBase: number, power: number): number =>
  * about `ds * dphi / 8`, so bounding that product places vertices densely where
  * the outline turns hardest and sparsely down the near-straight tail. Sampling
  * at a fixed rate instead starves the start of the transition, which is exactly
- * where a wide spread piles up all of the curvature.
+ * where a wide ease piles up all of the curvature.
  */
 const MAX_SAGITTA = 0.03;
 const MIN_SEGMENTS = 4;
@@ -310,7 +314,7 @@ export const paintDef = class PillShape implements PaintWorklet {
    * resize, which adds up over hundreds of them.
    */
   static get inputProperties() {
-    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR];
+    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR];
   }
 
   /**
@@ -330,26 +334,26 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /** The requested easing angle, in radians, before it is fitted to the box. */
-  resolveEase(props?: PaintProperties): number {
+  resolveAngle(props?: PaintProperties): number {
     const raw = Number.parseFloat(props?.get(AMT_VAR)?.toString() ?? "");
     const amt = Number.isFinite(raw) ? raw : DEFAULT_AMOUNT;
     return Math.min(Math.max(amt - 1, 0) * EASE_PER_AMOUNT, MAX_EASE);
   }
 
   /**
-   * How far the join is spread along the flat edge, as the curvature exponent
-   * it offsets; see `DEFAULT_SPREAD`.
+   * How far the join is eased along the flat edge, as the curvature exponent
+   * it offsets; see `DEFAULT_EASE`.
    */
   resolveExponent(props?: PaintProperties): number {
-    const raw = Number.parseFloat(props?.get(EASE_SPREAD_VAR)?.toString() ?? "");
-    const spread = Number.isFinite(raw) ? raw : DEFAULT_SPREAD;
-    return Math.max(spread, MIN_SPREAD) + CLOTHOID_EXPONENT;
+    const raw = Number.parseFloat(props?.get(EASE_VAR)?.toString() ?? "");
+    const ease = Number.isFinite(raw) ? raw : DEFAULT_EASE;
+    return Math.max(ease, MIN_EASE) + CLOTHOID_EXPONENT;
   }
 
-  /** `3` for G3, anything else the G2 default; see `Continuity`. */
+  /** `2` for G2, anything else the G3 default; see `Continuity`. */
   resolveContinuity(props?: PaintProperties): Continuity {
     const raw = Number.parseFloat(props?.get(CONTINUITY_VAR)?.toString() ?? "");
-    return Number.isFinite(raw) && raw >= 2.5 ? 3 : DEFAULT_CONTINUITY;
+    return Number.isFinite(raw) && raw < 2.5 ? 2 : DEFAULT_CONTINUITY;
   }
 
   /** The transition's curvature profile for exponent `q`; see `Profile`. */
@@ -488,7 +492,7 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * The softest easing that still fits, backing off the amount and the spread
+   * The softest easing that still fits, backing off the amount and the ease
    * together.
    *
    * What reads as a smooth transition is the rate curvature changes,
@@ -708,7 +712,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     if (!eased) return points;
     const { profile, fresnel } = eased;
 
-    // The lowest spread gives the transition no length at all: the arc alone
+    // The lowest ease gives the transition no length at all: the arc alone
     // spans the height and meets the flat edge at a corner.
     if (profile.lambda <= 0) return points;
 
@@ -818,7 +822,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       this.fittedQuadrant(
         long,
         short,
-        this.resolveEase(props),
+        this.resolveAngle(props),
         this.resolveExponent(props),
         this.resolveContinuity(props),
       ),
@@ -995,7 +999,7 @@ declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
  */
 export const decorationDef = class PillDecoration extends paintDef {
   static override get inputProperties() {
-    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR, ...DECORATION_INPUTS];
+    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR, ...DECORATION_INPUTS];
   }
 
   override paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {

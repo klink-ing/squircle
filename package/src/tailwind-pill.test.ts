@@ -16,7 +16,7 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATED_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_EASE_SPREAD_VAR_NAME,
+  PILL_EASE_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_REACH_VAR_NAME,
   PILL_RING_COLOR_VAR_NAME,
@@ -176,15 +176,19 @@ describe("tailwind-pill.ts utilities", () => {
       const css = await compilePillAll(["squircle-pill"]);
       for (const name of [
         PILL_AMT_VAR_NAME,
-        PILL_EASE_SPREAD_VAR_NAME,
+        PILL_EASE_VAR_NAME,
         PILL_CONTINUITY_VAR_NAME,
         PILL_BORDER_WIDTH_VAR_NAME,
         PILL_BORDER_COLOR_VAR_NAME,
       ]) {
         expect(css).toContain(`@property ${name}`);
       }
-      expect(css).toContain("initial-value: 2");
-      expect(css).toContain("initial-value: 1");
+      // Amount 2, ease 2, G3.
+      expect(css).toMatch(new RegExp(`@property ${PILL_AMT_VAR_NAME} \\{[^}]*initial-value: 2;`));
+      expect(css).toMatch(new RegExp(`@property ${PILL_EASE_VAR_NAME} \\{[^}]*initial-value: 2;`));
+      expect(css).toMatch(
+        new RegExp(`@property ${PILL_CONTINUITY_VAR_NAME} \\{[^}]*initial-value: 3;`),
+      );
       expect(css).toContain("initial-value: 0px");
     });
 
@@ -218,10 +222,10 @@ describe("tailwind-pill.ts utilities", () => {
       expect(css).not.toContain("mask-image");
     });
 
-    it("sets the spread, bare or arbitrary, and nothing else", async () => {
-      const css = await compilePill(["squircle-pill-spread-4", "squircle-pill-spread-[0.5]"]);
-      expect(css).toContain(`${PILL_EASE_SPREAD_VAR_NAME}: 4`);
-      expect(css).toContain(`${PILL_EASE_SPREAD_VAR_NAME}: 0.5`);
+    it("sets the ease, bare or arbitrary, and nothing else", async () => {
+      const css = await compilePill(["squircle-pill-ease-4", "squircle-pill-ease-[0.5]"]);
+      expect(css).toContain(`${PILL_EASE_VAR_NAME}: 4`);
+      expect(css).toContain(`${PILL_EASE_VAR_NAME}: 0.5`);
       expect(css).not.toContain("mask-image");
     });
 
@@ -237,7 +241,7 @@ describe("tailwind-pill.ts utilities", () => {
         "squircle-pill-amt-[1em]",
         "squircle-pill-amt-foo",
         "squircle-pill-amt-(--my-amt)",
-        "squircle-pill-spread-[1px]",
+        "squircle-pill-ease-[1px]",
       ]) {
         expect(await compilePill([candidate]), candidate).toBe("");
       }

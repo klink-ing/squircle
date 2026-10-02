@@ -6,7 +6,7 @@
 import {
   DEFAULT_PILL_AMT,
   DEFAULT_PILL_CONTINUITY,
-  DEFAULT_PILL_EASE_SPREAD,
+  DEFAULT_PILL_EASE,
   FULL_RADIUS,
   PILL_AMT_VAR_NAME,
   PILL_ATTRIBUTE,
@@ -20,7 +20,7 @@ import {
   PILL_DECORATED_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_EASE_SPREAD_VAR_NAME,
+  PILL_EASE_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
@@ -92,9 +92,9 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
       "initial-value": String(DEFAULT_PILL_AMT),
       inherits: "true",
     },
-    [`@property ${PILL_EASE_SPREAD_VAR_NAME}`]: {
+    [`@property ${PILL_EASE_VAR_NAME}`]: {
       syntax: '"<number>"',
-      "initial-value": String(DEFAULT_PILL_EASE_SPREAD),
+      "initial-value": String(DEFAULT_PILL_EASE),
       inherits: "true",
     },
     [`@property ${PILL_CONTINUITY_VAR_NAME}`]: {

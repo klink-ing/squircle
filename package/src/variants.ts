@@ -38,8 +38,13 @@ const coreVar = (name: string) => `--${CSS_NAMESPACE}-${name}`;
 const pillVar = (name: string) => `--${CSS_NAMESPACE}-pill-${name}`;
 
 export const PILL_AMT_VAR_NAME: string = pillVar("amt");
-export const PILL_EASE_SPREAD_VAR_NAME: string = pillVar("ease-spread");
 export const DEFAULT_PILL_AMT = 2 as const;
+/**
+ * How far the pill's easing is drawn along the flat edge: `0` is a clothoid,
+ * higher is softer. See the worklet.
+ */
+export const PILL_EASE_VAR_NAME: string = pillVar("ease");
+export const DEFAULT_PILL_EASE = 2 as const;
 /** Border the worklet draws itself, since a CSS border cannot follow the shape. */
 export const PILL_BORDER_WIDTH_VAR_NAME: string = pillVar("border-width");
 export const PILL_BORDER_COLOR_VAR_NAME: string = pillVar("border-color");
@@ -94,13 +99,12 @@ export const PILL_DECORATION_VAR_NAME: string = pillVar("decoration");
  * the image. A clip is far cheaper to redraw on resize than an image.
  */
 export const PILL_DECORATION_CLIP_VAR_NAME: string = pillVar("decoration-clip");
-export const DEFAULT_PILL_EASE_SPREAD = 1 as const;
 /**
  * Geometric continuity of the pill's easing: `2` matches curvature where the
  * cap meets the edge, `3` also matches its rate of change. See the worklet.
  */
 export const PILL_CONTINUITY_VAR_NAME: string = pillVar("continuity");
-export const DEFAULT_PILL_CONTINUITY = 2 as const;
+export const DEFAULT_PILL_CONTINUITY = 3 as const;
 /**
  * Attribute `registerPillWorklet()` sets on `<html>` once the worklet has
  * loaded. `@supports (mask-image: paint(pill-shape))` is true for any paint
