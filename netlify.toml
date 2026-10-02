@@ -1,9 +1,8 @@
 # Deploy previews for pull requests. Production stays on GitHub Pages
 # (.github/workflows/deploy-site.yml).
 #
-# Lives in website/ because the Netlify site's base directory is website/;
-# paths here are relative to it. The build still reaches the package through
-# the pnpm workspace.
+# Netlify reads this file from the repository root. `base` is set here rather
+# than left to the site's UI settings, and `publish` is relative to it.
 #
 # Node comes from .node-version and pnpm from the packageManager field, both
 # of which Netlify reads on its own.
@@ -14,5 +13,6 @@
 # to be built first because the website imports it from dist/.
 
 [build]
+base = "website"
 command = "pnpm --filter @klinking/squircle exec tsx scripts/build.ts && pnpm --filter website exec astro build"
 publish = "dist"
