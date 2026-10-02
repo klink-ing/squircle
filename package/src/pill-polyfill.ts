@@ -14,8 +14,19 @@ import {
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_CLIP_VAR_NAME,
   PILL_CLIPPED_ATTRIBUTE,
+  PILL_DECORATION_VAR_NAME,
+  PILL_INSET_RING_COLOR_VAR_NAME,
+  PILL_INSET_RING_WIDTH_VAR_NAME,
+  PILL_OUTLINE_COLOR_VAR_NAME,
+  PILL_OUTLINE_OFFSET_VAR_NAME,
+  PILL_OUTLINE_STYLE_VAR_NAME,
+  PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_RING_CLIP_VAR_NAME,
+  PILL_RING_COLOR_VAR_NAME,
+  PILL_RING_OFFSET_COLOR_VAR_NAME,
+  PILL_RING_OFFSET_WIDTH_VAR_NAME,
+  PILL_RING_WIDTH_VAR_NAME,
 } from "./variants";
 
 export { PILL_POLYFILL_ATTRIBUTE };
@@ -45,6 +56,9 @@ interface PillGeometry {
     continuity: 2 | 3,
   ): Point[];
   outline(long: number, short: number, quadrant: Point[]): Point[];
+  offsetOutline(points: Point[], distance: number): Point[];
+  decorationOutset(props: Lookup): number;
+  decorationBands(props: Lookup): { from: number; to: number; color: string; dash: number[] }[];
 }
 
 interface Lookup {
@@ -138,40 +152,177 @@ export interface OwnClip {
   /** Its computed value. */
   value: string;
   /** Border, padding and margin widths, for a clip against one of those boxes. */
-  edges?: BoxEdges;
+  edges?: BoxEdges | undefined;
 }
 
 /** Clips everything: what an empty intersection leaves. */
 const CLIP_ALL = "inset(50%)";
 
 /**
- * The element's `clip-path`: the pill's outline, cut to the element's own
+ * How far out the clip leaves everything alone, in px: far enough for any
+ * shadow or outline.
+ */
+const FRAME = 100000;
+
+/**
+ * The stadium `border-radius` of a `width` by `height` box, clockwise: what
+ * the element's background paints into. Coarse, since the clip is rebuilt on
+ * every resize, but drawn just outside the true arcs, so it never leaves the
+ * background showing past the pill — at worst it hides a fraction of a pixel
+ * of shadow.
+ */
+function stadium(width: number, height: number): Point[] {
+  const r = Math.min(width, height) / 2;
+  const steps = 12;
+  // Vertices this far out put each chord's middle on the arc, and the rest
+  // of the chord outside it.
+  const out = r / Math.cos(Math.PI / (2 * steps));
+  const points: Point[] = [];
+  const arc = (cx: number, cy: number, from: number) => {
+    for (let i = 0; i <= steps; i++) {
+      const a = from + (Math.PI * i) / steps;
+      points.push({ x: cx + out * Math.cos(a), y: cy + out * Math.sin(a) });
+    }
+  };
+  if (width >= height) {
+    arc(width - r, r, -Math.PI / 2);
+    arc(r, r, Math.PI / 2);
+  } else {
+    arc(r, height - r, 0);
+    arc(r, r, Math.PI);
+  }
+  return points;
+}
+
+/**
+ * The element's `clip-path`: inside the border box, the pill, the box's
+ * corners outside the stadium and the decoration's bands; outside it,
+ * everything. So outlines, rings and shadows — which paint around the pill,
+ * near its caps inside the box — survive, while the background, which
+ * paints inside the stadium, is cut to the pill. Cut to the element's own
  * clip if it has one. `null` where the element's own clip should stand as it
- * is — a square without one, whose stadium `border-radius` is already the
+ * is — a square without one or a decoration, whose stadium is already the
  * circle a square pill has to be, or a clip that can't be expressed as
  * polygons, such as a `url()` reference.
+ *
+ * All one even-odd path of nested rings: a frame far outside the box, the
+ * stadium, then the pill, so a point outside the stadium is inside one ring,
+ * between the stadium and the pill two, and inside the pill three. Each band
+ * adds its two edges, cut to the stadium, which adds one ring between them
+ * there and none elsewhere. With an own clip each ring is cut to it, which
+ * keeps the count wherever the own clip covers and leaves nothing where it
+ * doesn't.
+ *
+ * Most pills paint nothing outside the stadium; `surround` says whether this
+ * one does — a shadow, a filter, an outline — and without that or a
+ * decoration the clip is just the pill, which is cheaper to apply.
  */
 export function pillClipPath(
   width: number,
   height: number,
   shape?: PillShapeInput,
   own?: OwnClip,
+  decoration: PillDecorationInput = {},
+  surround = true,
 ): string | null {
   if (width <= 0 || height <= 0) return null;
   const theirs = own ? clipShape(own.value, width, height, own.edges) : null;
   if (theirs === undefined) return null;
-  if (theirs === null) {
-    return width === height ? null : `path("${pillOutlinePath(width, height, shape)}")`;
-  }
+  const bands = geometry.decorationBands(lookup(decoration));
+  if (theirs === null && width === height && bands.length === 0) return null;
+
   const drawn = pillOutlinePoints(width, height, shape);
   const outline = isClockwise(drawn) ? drawn : [...drawn].reverse();
-  let d = "";
-  for (const ring of theirs.rings) {
-    const cut = clipToConvex(ring, outline);
-    if (cut.length > 2) d += subpath(cut);
+  if (!surround && bands.length === 0) {
+    if (theirs === null) return `path("${subpath(drawn)}")`;
+    let d = "";
+    for (const own of theirs.rings) {
+      const cut = clipToConvex(own, outline);
+      if (cut.length > 2) d += subpath(cut);
+    }
+    return d ? `path(evenodd, "${d}")` : CLIP_ALL;
   }
-  if (!d) return CLIP_ALL;
-  return theirs.rule === "evenodd" ? `path(evenodd, "${d}")` : `path("${d}")`;
+  const background = stadium(width, height);
+  const rings: Point[][] = [background, outline];
+  for (const band of bands) {
+    if (band.to <= 0) continue;
+    for (const edge of [Math.max(band.from, 0), band.to]) {
+      const offset = geometry.offsetOutline(outline, edge);
+      rings.push(clipToConvex(isClockwise(offset) ? offset : offset.reverse(), background));
+    }
+  }
+
+  if (theirs === null) {
+    const frame = [
+      { x: -FRAME, y: -FRAME },
+      { x: FRAME, y: -FRAME },
+      { x: FRAME, y: FRAME },
+      { x: -FRAME, y: FRAME },
+    ];
+    let d = subpath(frame);
+    for (const ring of rings) if (ring.length > 2) d += subpath(ring);
+    return `path(evenodd, "${d}")`;
+  }
+  let d = "";
+  for (const own of theirs.rings) {
+    for (const cut of [own, ...rings.map((ring) => clipToConvex(own, ring))]) {
+      if (cut.length > 2) d += subpath(cut);
+    }
+  }
+  return d ? `path(evenodd, "${d}")` : CLIP_ALL;
+}
+
+/** The outline, ring and inset ring a pill draws, as computed property values. */
+export type PillDecorationInput = Record<string, string | undefined>;
+
+/** The properties `PillDecorationInput` is keyed by. */
+export const PILL_DECORATION_PROPERTIES: readonly string[] = [
+  PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_OUTLINE_WIDTH_VAR_NAME,
+  PILL_OUTLINE_OFFSET_VAR_NAME,
+  PILL_OUTLINE_COLOR_VAR_NAME,
+  PILL_OUTLINE_STYLE_VAR_NAME,
+  PILL_RING_WIDTH_VAR_NAME,
+  PILL_RING_COLOR_VAR_NAME,
+  PILL_RING_OFFSET_WIDTH_VAR_NAME,
+  PILL_RING_OFFSET_COLOR_VAR_NAME,
+  PILL_INSET_RING_WIDTH_VAR_NAME,
+  PILL_INSET_RING_COLOR_VAR_NAME,
+];
+
+/**
+ * The pill's outline, ring and inset ring as an SVG image for `::before`,
+ * which the stylesheet sizes to the border box grown by the decoration's
+ * reach on every side; `null` where there is nothing to draw. The same bands
+ * the worklet strokes, from the same geometry. An image rather than a clip
+ * because they come in several colours; it is only rebuilt when the pill
+ * changes size or decoration, which for a focus ring is rarely.
+ */
+export function pillDecorationImage(
+  width: number,
+  height: number,
+  decoration: PillDecorationInput,
+  shape: PillShapeInput = {},
+): string | null {
+  if (width <= 0 || height <= 0) return null;
+  const props = lookup(decoration);
+  const bands = geometry.decorationBands(props);
+  if (bands.length === 0) return null;
+  const outset = geometry.decorationOutset(props);
+  const outline = pillOutlinePoints(width, height, shape).map((p) => ({
+    x: p.x + outset,
+    y: p.y + outset,
+  }));
+  const w = round(width + 2 * outset);
+  const h = round(height + 2 * outset);
+  let paths = "";
+  for (const band of bands) {
+    const d = subpath(geometry.offsetOutline(outline, (band.from + band.to) / 2));
+    const dash = band.dash.length > 0 ? ` stroke-dasharray="${band.dash.join(" ")}"` : "";
+    paths += `<path d="${d}" fill="none" stroke-width="${round(band.to - band.from)}" stroke-linejoin="round"${dash} style="stroke:${band.color}"/>`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${paths}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
 /** Whether the outline runs clockwise in screen coordinates, as a wide pill's does. */
@@ -326,10 +477,11 @@ const cached = (key: string, make: () => string | null): string | null => {
  * The element's own `clip-path` — `sr-only`, an arbitrary `[clip-path:…]` —
  * is kept: it is cut to the pill's outline and the two set as one clip.
  *
- * Shape properties and the element's own clip are read when the polyfill
- * first sees a pill and whenever its `class` changes; call `refresh()` after
- * anything else that changes them, such as an inline style, a stylesheet
- * change or a media query.
+ * Shape and decoration properties and the element's own clip are read when
+ * the polyfill first sees a pill, whenever its `class` changes, and when it
+ * gains or loses focus, hover or a press; call `refresh()` after anything
+ * else that changes them, such as an inline style, a stylesheet change or a
+ * media query.
  *
  * Returns `null` without doing anything where paint worklets are supported,
  * unless `force` is set.
@@ -356,6 +508,10 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     stroke: number;
     borderStyle: string;
     own: OwnClip;
+    decoration: PillDecorationInput;
+    decorationKey: string;
+    /** Whether the element paints anything of its own outside the stadium. */
+    surround: boolean;
   }
   const settings = new WeakMap<Element, Settings>();
   const read = (el: Element): Settings => {
@@ -368,7 +524,18 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     const px = (side: string) => Number.parseFloat(style.getPropertyValue(side)) || 0;
     const sides = (name: (side: string) => string) =>
       ["top", "right", "bottom", "left"].map((side) => px(name(side))) as BoxEdges["border"];
+    const values: PillDecorationInput = {};
+    for (const name of PILL_DECORATION_PROPERTIES) values[name] = style.getPropertyValue(name);
+    // Most pills have none, and are spared working it out on every resize.
+    const decorated = geometry.decorationBands(lookup(values)).length > 0;
+    const decoration = decorated ? values : {};
     const fresh: Settings = {
+      surround:
+        style.boxShadow !== "none" ||
+        style.filter !== "none" ||
+        (style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0),
+      decoration,
+      decorationKey: decorated ? Object.values(decoration).join("|") : "",
       shape: {
         amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
         spread: style.getPropertyValue(PILL_EASE_SPREAD_VAR_NAME),
@@ -423,30 +590,39 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     }
     // All reads first, then all writes, so no read forces a style recalc
     // that an earlier write invalidated.
-    const updates: [HTMLElement, string | null, string | null][] = [];
+    const updates: [HTMLElement, string | null, string | null, string | null][] = [];
     for (const el of pending) {
       if (performance.now() > deadline && updates.length > 0) break;
       pending.delete(el);
       const size = sizes.get(el);
       if (!size) continue;
       const { width, height } = size;
-      const { shape, stroke, borderStyle, own } = read(el);
+      const { shape, stroke, borderStyle, own, decoration, decorationKey, surround } = read(el);
       const shapeKey = `${width},${height},${shape.amt},${shape.spread},${shape.continuity}`;
       const ownKey = `${own.value}|${own.edges ? Object.values(own.edges).join() : ""}`;
-      const key = `${shapeKey},${stroke},${borderStyle},${ownKey}`;
+      const key = `${shapeKey},${stroke},${borderStyle},${ownKey},${decorationKey},${surround}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);
       updates.push([
         el as HTMLElement,
-        cached(`m:${shapeKey},${ownKey}`, () => pillClipPath(width, height, shape, own)),
+        cached(`m:${shapeKey},${ownKey},${decorationKey},${surround}`, () =>
+          pillClipPath(width, height, shape, own, decoration, surround),
+        ),
         cached(`r:${shapeKey},${stroke},${borderStyle}`, () =>
           pillRingClipPath(width, height, stroke, borderStyle, shape),
         ),
+        decorationKey
+          ? cached(`d:${shapeKey},${decorationKey}`, () =>
+              pillDecorationImage(width, height, decoration, shape),
+            )
+          : null,
       ]);
     }
     const updated = new Set(updates.map(([el]) => el as Element));
     for (const el of lifted) if (!updated.has(el)) el.setAttribute(PILL_CLIPPED_ATTRIBUTE, "");
-    for (const [el, clip, ring] of updates) {
+    for (const [el, clip, ring, decorated] of updates) {
+      if (decorated) el.style.setProperty(PILL_DECORATION_VAR_NAME, decorated);
+      else el.style.removeProperty(PILL_DECORATION_VAR_NAME);
       if (clip) {
         el.style.setProperty(PILL_CLIP_VAR_NAME, clip);
         el.setAttribute(PILL_CLIPPED_ATTRIBUTE, "");
@@ -513,6 +689,34 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     if (changed.size > 0) apply(changed);
   });
 
+  /*
+   * State a class change doesn't reveal — `focus-visible:ring-2`,
+   * `hover:outline-*`, `active:…` — is picked up from the events that change
+   * it: each pill the event passes through is re-read on the next frame, once
+   * the new state's styles apply.
+   */
+  const reread = (event: Event) => {
+    let el = event.target instanceof Element ? event.target.closest(selector) : null;
+    while (el) {
+      if (watched.has(el)) {
+        settings.delete(el);
+        pending.add(el);
+      }
+      el = el.parentElement?.closest(selector) ?? null;
+    }
+    schedule();
+  };
+  const STATE_EVENTS = [
+    "focusin",
+    "focusout",
+    "pointerover",
+    "pointerout",
+    "pointerdown",
+    "pointerup",
+  ];
+  for (const type of STATE_EVENTS)
+    root.addEventListener(type, reread, { capture: true, passive: true });
+
   doc.documentElement.setAttribute(PILL_POLYFILL_ATTRIBUTE, "");
   scan(root instanceof Document ? root.documentElement : root);
   mutations.observe(root, {
@@ -535,11 +739,13 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     },
     disconnect() {
       pending.clear();
+      for (const type of STATE_EVENTS) root.removeEventListener(type, reread, { capture: true });
       mutations.disconnect();
       resizes.disconnect();
       for (const el of watched) {
         (el as HTMLElement).style.removeProperty(PILL_CLIP_VAR_NAME);
         (el as HTMLElement).style.removeProperty(PILL_RING_CLIP_VAR_NAME);
+        (el as HTMLElement).style.removeProperty(PILL_DECORATION_VAR_NAME);
         el.removeAttribute(PILL_CLIPPED_ATTRIBUTE);
       }
       watched.clear();

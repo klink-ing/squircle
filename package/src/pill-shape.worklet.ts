@@ -20,6 +20,42 @@ const EASE_SPREAD_VAR = `${NS}-ease-spread`;
 const STROKE_WIDTH_VAR = `${NS}-stroke-width`;
 const BORDER_STYLE_VAR = `${NS}-border-style`;
 const CONTINUITY_VAR = `${NS}-continuity`;
+const BORDER_WIDTH_VAR = `${NS}-border-width`;
+const OUTLINE_WIDTH_VAR = `${NS}-outline-width`;
+const OUTLINE_OFFSET_VAR = `${NS}-outline-offset`;
+const OUTLINE_COLOR_VAR = `${NS}-outline-color`;
+const OUTLINE_STYLE_VAR = `${NS}-outline-style`;
+const RING_WIDTH_VAR = `${NS}-ring-width`;
+const RING_COLOR_VAR = `${NS}-ring-color`;
+const RING_OFFSET_WIDTH_VAR = `${NS}-ring-offset-width`;
+const RING_OFFSET_COLOR_VAR = `${NS}-ring-offset-color`;
+const INSET_RING_WIDTH_VAR = `${NS}-inset-ring-width`;
+const INSET_RING_COLOR_VAR = `${NS}-inset-ring-color`;
+const MASK_BANDS_VAR = `${NS}-mask-bands`;
+/** What the element itself might paint outside the stadium; see `paintsOutside`. */
+const OUTER_PAINT_INPUTS = ["box-shadow", "filter", "outline-style"];
+/** What decides the decoration's bands; see `decorationBands`. */
+const DECORATION_INPUTS = [
+  BORDER_WIDTH_VAR,
+  OUTLINE_WIDTH_VAR,
+  OUTLINE_OFFSET_VAR,
+  OUTLINE_COLOR_VAR,
+  OUTLINE_STYLE_VAR,
+  RING_WIDTH_VAR,
+  RING_COLOR_VAR,
+  RING_OFFSET_WIDTH_VAR,
+  RING_OFFSET_COLOR_VAR,
+  INSET_RING_WIDTH_VAR,
+  INSET_RING_COLOR_VAR,
+];
+
+/** One band of a decoration; see `decorationBands`. */
+interface Band {
+  from: number;
+  to: number;
+  color: string;
+  dash: number[];
+}
 
 interface PaintSize {
   width: number;
@@ -213,8 +249,13 @@ const MIN_SEGMENTS = 4;
 const MAX_SEGMENTS = 256;
 
 export const paintDef = class PillShape implements PaintWorklet {
+  /*
+   * As few as it can do with: every input is gathered for every pill on every
+   * resize, which adds up over hundreds of them. The decoration's bands
+   * arrive packed into one; see `maskBands`.
+   */
   static get inputProperties() {
-    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR, STROKE_WIDTH_VAR, BORDER_STYLE_VAR];
+    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR, MASK_BANDS_VAR, ...OUTER_PAINT_INPUTS];
   }
 
   /**
@@ -683,31 +724,12 @@ export const paintDef = class PillShape implements PaintWorklet {
       ctx.fillStyle = "#000";
     }
     ctx.beginPath();
-
-    // Work along the pill's long axis, then transpose for a vertical pill.
-    const vertical = height > width;
-    const long = vertical ? height : width;
-    const short = vertical ? width : height;
-
-    const outline = this.outline(
-      long,
-      short,
-      this.fittedQuadrant(
-        long,
-        short,
-        this.resolveEase(props),
-        this.resolveExponent(props),
-        this.resolveContinuity(props),
-      ),
-    );
+    const outline = this.boxOutline(width, height, props);
     for (let i = 0; i < outline.length; i++) {
       const p = outline[i];
-      const x = vertical ? p.y : p.x;
-      const y = vertical ? p.x : p.y;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
     }
-
     ctx.closePath();
 
     if (stroke !== null) {
@@ -721,8 +743,63 @@ export const paintDef = class PillShape implements PaintWorklet {
        */
       ctx.clip();
       ctx.stroke();
+      return;
+    }
+    ctx.fill();
+    const bands = this.maskBands(props);
+    if (bands.length > 0 || this.paintsOutside(props)) {
+      this.surround(ctx, width, height, outline, bands);
+    }
+  }
+
+  /**
+   * As the element's mask, what else to leave open inside the border box: the
+   * box's corners outside the stadium `border-radius`, and the decoration's
+   * bands, dashes and all.
+   *
+   * The background paints only inside the stadium, so outside it there is
+   * nothing to hide — only what is drawn around the pill, a shadow or a ring,
+   * which near the caps falls inside the box. Between the stadium and the
+   * pill the background does paint, and stays hidden, except under the bands,
+   * which cover it.
+   */
+  surround(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    outline: Point[],
+    bands: Band[],
+  ): void {
+    ctx.beginPath();
+    ctx.rect(0, 0, width, height);
+    const r = Math.min(width, height) / 2;
+    if (width >= height) {
+      ctx.moveTo(r, 0);
+      ctx.lineTo(width - r, 0);
+      ctx.arc(width - r, r, r, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(r, height);
+      ctx.arc(r, r, r, Math.PI / 2, (3 * Math.PI) / 2);
     } else {
-      ctx.fill();
+      ctx.moveTo(width, r);
+      ctx.lineTo(width, height - r);
+      ctx.arc(r, height - r, r, 0, Math.PI);
+      ctx.lineTo(0, r);
+      ctx.arc(r, r, r, Math.PI, 2 * Math.PI);
+    }
+    ctx.closePath();
+    ctx.fill("evenodd");
+
+    if (bands.length === 0) return;
+    ctx.strokeStyle = "#000";
+    ctx.lineJoin = "round";
+    for (const band of bands) {
+      const path = this.offsetOutline(outline, (band.from + band.to) / 2);
+      ctx.beginPath();
+      path.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.lineWidth = band.to - band.from;
+      ctx.setLineDash(band.dash);
+      ctx.stroke();
     }
   }
 
@@ -771,6 +848,191 @@ export const paintDef = class PillShape implements PaintWorklet {
     return points;
   }
 
+  /**
+   * The pill's outline in the coordinates of a `width` by `height` box: worked
+   * out along the long axis, then transposed for a tall pill, which leaves a
+   * tall pill's outline running the other way round.
+   */
+  boxOutline(width: number, height: number, props?: PaintProperties): Point[] {
+    const vertical = height > width;
+    const long = vertical ? height : width;
+    const short = vertical ? width : height;
+    const outline = this.outline(
+      long,
+      short,
+      this.fittedQuadrant(
+        long,
+        short,
+        this.resolveEase(props),
+        this.resolveExponent(props),
+        this.resolveContinuity(props),
+      ),
+    );
+    return vertical ? outline.map((p) => ({ x: p.y, y: p.x })) : outline;
+  }
+
+  /**
+   * The outline moved `distance` outwards (inwards where negative), each
+   * point along the average of its two edges' outward normals. Exact enough
+   * for a convex outline sampled this densely, out to any distance and in to
+   * well past any decoration's width; the points where the quadrants meet,
+   * repeated, are dropped first, having no direction of their own.
+   */
+  offsetOutline(points: Point[], distance: number): Point[] {
+    const ring: Point[] = [];
+    for (const p of points) {
+      const last = ring[ring.length - 1];
+      if (!last || Math.abs(last.x - p.x) > 1e-6 || Math.abs(last.y - p.y) > 1e-6) ring.push(p);
+    }
+    const first = ring[0];
+    const end = ring[ring.length - 1];
+    if (ring.length > 1 && Math.abs(first.x - end.x) < 1e-6 && Math.abs(first.y - end.y) < 1e-6) {
+      ring.pop();
+    }
+    if (distance === 0) return ring;
+    // Clockwise in screen coordinates, an edge (dx, dy)'s outward normal is
+    // (dy, -dx); anticlockwise, its opposite.
+    let twiceArea = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i];
+      const q = ring[(i + 1) % ring.length];
+      twiceArea += p.x * q.y - q.x * p.y;
+    }
+    const out = twiceArea > 0 ? distance : -distance;
+    const n = ring.length;
+    return ring.map((p, i) => {
+      const prev = ring[(i - 1 + n) % n];
+      const next = ring[(i + 1) % n];
+      const normal = (a: Point, b: Point) => {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const length = Math.hypot(dx, dy) || 1;
+        return { x: dy / length, y: -dx / length };
+      };
+      const a = normal(prev, p);
+      const b = normal(p, next);
+      const mx = a.x + b.x;
+      const my = a.y + b.y;
+      const length = Math.hypot(mx, my) || 1;
+      return { x: p.x + (mx / length) * out, y: p.y + (my / length) * out };
+    });
+  }
+
+  /**
+   * Whether the element paints anything of its own outside the stadium — a
+   * shadow, a filter, an outline such as the browser's focus ring — which the
+   * mask then has to leave open. Most pills paint nothing there, and are
+   * spared drawing it.
+   */
+  paintsOutside(props?: PaintProperties): boolean {
+    const value = (name: string) => props?.get(name)?.toString().trim() ?? "";
+    const shadow = value("box-shadow");
+    const filter = value("filter");
+    const outline = value("outline-style");
+    return (
+      (shadow !== "" && shadow !== "none") ||
+      (filter !== "" && filter !== "none") ||
+      (outline !== "" && outline !== "none")
+    );
+  }
+
+  /**
+   * The bands the decoration draws outside the pill, which is all the mask
+   * needs to leave open for them: what lies inside the pill is open already,
+   * and colour doesn't matter. Packed by the stylesheet into one property —
+   * the outline's offset and width, the ring's offset and width, the
+   * outline's style — to spare the mask ten inputs.
+   */
+  maskBands(props?: PaintProperties): Band[] {
+    const [outlineOffset, outline, ringOffset, ring, style = "solid"] = (
+      props?.get(MASK_BANDS_VAR)?.toString().trim() ?? ""
+    ).split(/\s+/);
+    const px = (value: string | undefined) => {
+      const n = Number.parseFloat(value ?? "");
+      return Number.isFinite(n) ? n : 0;
+    };
+    const bands: Band[] = [];
+    if (px(ring) > 0) {
+      bands.push({ from: 0, to: Math.max(px(ringOffset), 0) + px(ring), color: "", dash: [] });
+    }
+    const width = px(outline);
+    if (width > 0 && style !== "none" && style !== "hidden") {
+      const from = px(outlineOffset);
+      const dash =
+        style === "dashed" ? [width * 3, width * 2] : style === "dotted" ? [width, width * 2] : [];
+      bands.push({ from, to: from + width, color: "", dash });
+    }
+    return bands;
+  }
+
+  /** A length property in px, or 0 where it is unset or not a number. */
+  resolveLength(props: PaintProperties | undefined, name: string): number {
+    const value = Number.parseFloat(props?.get(name)?.toString() ?? "");
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  /**
+   * How far the outline and the ring reach beyond the border box, which is
+   * how much larger than it the decoration's box is. Matches the `inset` the
+   * stylesheet gives that box, term for term.
+   */
+  decorationOutset(props?: PaintProperties): number {
+    const outline =
+      this.resolveLength(props, OUTLINE_OFFSET_VAR) + this.resolveLength(props, OUTLINE_WIDTH_VAR);
+    const ring =
+      this.resolveLength(props, RING_OFFSET_WIDTH_VAR) + this.resolveLength(props, RING_WIDTH_VAR);
+    return Math.max(0, outline, ring);
+  }
+
+  /**
+   * The bands to draw around and inside the outline, bottom first, as
+   * distances out from it (negative is inwards), each with its colour and
+   * dash pattern. They mean what their CSS namesakes do, measured from the
+   * pill's own outline instead of the stadium: an inset ring inside the
+   * border, a ring outside the border box beyond its offset band, an outline
+   * on top beyond its offset.
+   */
+  decorationBands(props?: PaintProperties): Band[] {
+    const color = (name: string) => props?.get(name)?.toString().trim() ?? "";
+    const visible = (c: string) => c !== "" && c !== "transparent" && !/^rgba\(.*,\s*0\)$/.test(c);
+    const bands: Band[] = [];
+    const border = this.resolveLength(props, BORDER_WIDTH_VAR);
+
+    const insetRing = this.resolveLength(props, INSET_RING_WIDTH_VAR);
+    const insetRingColor = color(INSET_RING_COLOR_VAR);
+    if (insetRing > 0 && visible(insetRingColor)) {
+      bands.push({ from: -border - insetRing, to: -border, color: insetRingColor, dash: [] });
+    }
+
+    const ring = this.resolveLength(props, RING_WIDTH_VAR);
+    if (ring > 0) {
+      const offset = Math.max(this.resolveLength(props, RING_OFFSET_WIDTH_VAR), 0);
+      const offsetColor = color(RING_OFFSET_COLOR_VAR);
+      if (offset > 0 && visible(offsetColor)) {
+        bands.push({ from: 0, to: offset, color: offsetColor, dash: [] });
+      }
+      const ringColor = color(RING_COLOR_VAR);
+      if (visible(ringColor)) {
+        bands.push({ from: offset, to: offset + ring, color: ringColor, dash: [] });
+      }
+    }
+
+    const outline = this.resolveLength(props, OUTLINE_WIDTH_VAR);
+    const outlineColor = color(OUTLINE_COLOR_VAR);
+    const style = props?.get(OUTLINE_STYLE_VAR)?.toString().trim() || "solid";
+    if (outline > 0 && visible(outlineColor) && style !== "none" && style !== "hidden") {
+      const offset = this.resolveLength(props, OUTLINE_OFFSET_VAR);
+      const dash =
+        style === "dashed"
+          ? [outline * 3, outline * 2]
+          : style === "dotted"
+            ? [outline, outline * 2]
+            : [];
+      bands.push({ from: offset, to: offset + outline, color: outlineColor, dash });
+    }
+    return bands;
+  }
+
   /** Mirror one quadrant into the full outline, walking clockwise. */
   outline(long: number, short: number, quadrant: Point[]): Point[] {
     const reversed = [...quadrant].reverse();
@@ -790,6 +1052,52 @@ export const paintDef = class PillShape implements PaintWorklet {
 // call keeps this module importable from tests and bundlers.
 declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
 
+/** The border ring, on `::after`: the shape in stroke mode. */
+export const ringDef = class PillRing extends paintDef {
+  static override get inputProperties() {
+    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR, STROKE_WIDTH_VAR, BORDER_STYLE_VAR];
+  }
+};
+
+/**
+ * The pill's outline, ring and inset ring, painted on `::before` over a box
+ * larger than the element's border box by `decorationOutset` on every side.
+ * Each band is a stroke along the outline moved out to the band's middle, as
+ * wide as the band: the outline is convex, so that is exactly the region
+ * between the band's two edges.
+ */
+export const decorationDef = class PillDecoration extends paintDef {
+  static override get inputProperties() {
+    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR, ...DECORATION_INPUTS];
+  }
+
+  override paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {
+    const bands = this.decorationBands(props);
+    if (bands.length === 0) return;
+    const outset = this.decorationOutset(props);
+    const width = size.width - 2 * outset;
+    const height = size.height - 2 * outset;
+    if (width <= 0 || height <= 0) return;
+    const outline = this.boxOutline(width, height, props).map((p) => ({
+      x: p.x + outset,
+      y: p.y + outset,
+    }));
+    ctx.lineJoin = "round";
+    for (const band of bands) {
+      const path = this.offsetOutline(outline, (band.from + band.to) / 2);
+      ctx.beginPath();
+      path.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.strokeStyle = band.color;
+      ctx.lineWidth = band.to - band.from;
+      ctx.setLineDash(band.dash);
+      ctx.stroke();
+    }
+  }
+};
+
 if (typeof registerPaint !== "undefined") {
   registerPaint("pill-shape", paintDef);
+  registerPaint("pill-ring", ringDef);
+  registerPaint("pill-decoration", decorationDef);
 }

@@ -45,6 +45,42 @@ export const PILL_BORDER_WIDTH_VAR_NAME: string = pillVar("border-width");
 export const PILL_BORDER_COLOR_VAR_NAME: string = pillVar("border-color");
 export const PILL_BORDER_STYLE_VAR_NAME: string = pillVar("border-style");
 export const PILL_BORDER_STYLE_FALLBACK = "solid" as const;
+/**
+ * Outline, ring and inset ring the pill draws itself, around or inside its
+ * own outline: a native `outline` or ring `box-shadow` follows the stadium
+ * `border-radius`, which sits up to a few pixels off the pill. They mirror
+ * what `outline-*`, `ring-*`, `ring-offset-*` and `inset-ring-*` mean.
+ */
+export const PILL_OUTLINE_WIDTH_VAR_NAME: string = pillVar("outline-width");
+export const PILL_OUTLINE_OFFSET_VAR_NAME: string = pillVar("outline-offset");
+export const PILL_OUTLINE_COLOR_VAR_NAME: string = pillVar("outline-color");
+export const PILL_OUTLINE_STYLE_VAR_NAME: string = pillVar("outline-style");
+export const PILL_RING_WIDTH_VAR_NAME: string = pillVar("ring-width");
+export const PILL_RING_COLOR_VAR_NAME: string = pillVar("ring-color");
+export const PILL_RING_OFFSET_WIDTH_VAR_NAME: string = pillVar("ring-offset-width");
+export const PILL_RING_OFFSET_COLOR_VAR_NAME: string = pillVar("ring-offset-color");
+export const PILL_INSET_RING_WIDTH_VAR_NAME: string = pillVar("inset-ring-width");
+export const PILL_INSET_RING_COLOR_VAR_NAME: string = pillVar("inset-ring-color");
+/**
+ * How far a `filter` on a pill — a drop shadow — reaches past its box. The
+ * worklet's mask stops where the element's own painting does, which a filter
+ * doesn't count towards in Chromium, so a pill with one has to say how far.
+ * `tailwind-pill-border` sets it for `drop-shadow-*`.
+ */
+export const PILL_FILTER_OUTSET_VAR_NAME: string = pillVar("filter-outset");
+/**
+ * Internal: `""` on a pill `tailwind-pill-border` has seen an outline, ring
+ * or drop shadow utility on, which is what gives it the `::before` those are
+ * drawn on; `none` otherwise.
+ */
+export const PILL_DECORATED_VAR_NAME: string = pillVar("decorated");
+/**
+ * Internal: the outline's offset and width, the ring's offset and width and
+ * the outline's style, packed for the worklet's mask; see `maskBands`.
+ */
+export const PILL_MASK_BANDS_VAR_NAME: string = pillVar("mask-bands");
+/** Internal: the polyfill's drawing of those, as an image for `::before`. */
+export const PILL_DECORATION_VAR_NAME: string = pillVar("decoration");
 /** Internal: what the worklet keys stroke mode off, set on the ring only. */
 export const PILL_STROKE_WIDTH_VAR_NAME: string = pillVar("stroke-width");
 export const DEFAULT_PILL_EASE_SPREAD = 1 as const;

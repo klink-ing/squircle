@@ -503,15 +503,22 @@ Both accept bare numbers (`squircle-pill-amt-3`, `squircle-pill-amt-1.5`) and ar
 
 ### Borders, outlines and shadows
 
-The shape is applied as a **mask**, so the element keeps its own background — colour, gradient, image — and that's what gets pill-shaped. A mask also erases everything outside the shape, which a CSS border can't survive: with the stadium radius kept underneath, a real border would be a stadium ring clipped to the pill, a hair off at each transition. So the border is drawn by the same worklet, on `::after`, as an inset band along the true outline.
+The shape is applied as a **mask**, so the element keeps its own background — colour, gradient, image — and that's what gets pill-shaped. The mask only cuts inside the element's box. Everything painted outside it is left alone, so decorations that paint there work as usual.
 
-With `tailwind-pill-border` loaded, **Tailwind's own `border-*` utilities drive it** — `border-2 border-red-500 border-dashed` on a pill does exactly what you'd expect, including reserving the same room for layout. Nothing new to learn; on any element that isn't a pill they keep behaving normally. Without the plugin, set `--squircle-pill-border-width`, `--squircle-pill-border-color` (defaults to `currentColor`) and `--squircle-pill-border-style` yourself.
+**Borders, outlines and rings are drawn by the pill**, along its true outline: a native one would follow the stadium `border-radius`, which sits up to a few pixels outside the pill, enough for a crisp line to part from it. With `tailwind-pill-border` loaded, Tailwind's own utilities drive them, and nothing new needs learning:
 
-The stadium `border-radius` is kept even under the mask, so native decorations that stay inside the box follow a shape close enough that the mask only trims them: `shadow-inner`, an `outline` with a negative `outline-offset`, the browser's focus ring with `focus-visible:-outline-offset-2`. The one thing that needs help is what's painted _outside_ the box: `filter` runs before the mask, so a drop shadow goes on a wrapper (`<div class="drop-shadow-lg"><button class="squircle-pill …">`), and an outer ring is a masked wrapper with padding.
+- `border-*`: a band along the inside of the outline, solid, dashed or dotted. It reserves the same room in layout as a real border.
+- `outline-*` and `outline-offset-*`: a band outside the outline, or inside it with a negative offset, solid, dashed or dotted.
+- `ring-*` and `ring-offset-*`: a band outside the outline, beyond an offset band in the offset colour, as Tailwind draws them.
+- `inset-ring-*`: a band inside the border.
+
+They're drawn on the pill's `::after` (the border) and `::before` (the rest), so those two pseudo-elements are the pill's own. Variants work as anywhere else, so `focus-visible:ring-2` draws a focus ring along the pill. On any element that isn't a pill, the utilities keep behaving normally. Without the plugin, set the pill's own properties: `--squircle-pill-border-width`, `-border-color` and `-border-style`, `--squircle-pill-outline-width`, `-outline-offset`, `-outline-color` and `-outline-style`, `--squircle-pill-ring-width`, `-ring-color`, `-ring-offset-width` and `-ring-offset-color`, and `--squircle-pill-inset-ring-width` and `-inset-ring-color`.
+
+**Shadows are left to the browser.** `shadow-*`, `drop-shadow-*` and the browser's own focus ring all just work. They follow the stadium, which the pill sits inside, so a hairline gap can show between a pill and its shadow where the caps meet the edges: about a pixel at the default easing, a few at the strongest. Inner shadows (`shadow-inner`, `inset-shadow-*`) follow the stadium too, trimmed to the pill. One wrinkle with the worklet: Chromium's masks stop where the element's own painting does, and a `filter` doesn't count, so a drop shadow needs saying how far it reaches. `tailwind-pill-border` does that for `drop-shadow-*`; without it, or for another filter, set `--squircle-pill-filter-outset` to the distance on the pill.
 
 ### Combining with Tailwind's mask utilities
 
-The pill's mask is layered with Tailwind's own, so `mask-*` utilities on a pill add to its shape rather than replacing it: `squircle-pill mask-b-from-20%` is a pill that fades out towards the bottom, in the polyfill too. That covers the gradient families — `mask-linear-*`, `mask-radial-*`, `mask-conic-*` and the edge shorthands like `mask-t-*` and `mask-x-*`. A raw `mask-image` from anywhere else, such as `mask-[url(…)]`, isn't composed; put it on a wrapper.
+The pill's mask is layered with Tailwind's own, so `mask-*` utilities on a pill add to its shape rather than replacing it: `squircle-pill mask-b-from-20%` is a pill that fades out towards the bottom, in the polyfill too. They fade what's inside the element's box, the pill itself; a shadow or outline outside it is left whole. That covers the gradient families — `mask-linear-*`, `mask-radial-*`, `mask-conic-*` and the edge shorthands like `mask-t-*` and `mask-x-*`. A raw `mask-image` from anywhere else, such as `mask-[url(…)]`, isn't composed; put it on a wrapper.
 
 ### Fallback
 
@@ -534,7 +541,7 @@ It runs the worklet's own geometry on the main thread: a `ResizeObserver` watche
 
 A clip-path the element already has is kept. An element can only have one, so the polyfill reads the element's own, cuts it to the pill's outline, and sets the two as one clip. That covers `sr-only` and arbitrary `[clip-path:…]` values, which is everything Tailwind emits: it has no clip-path utilities of its own. `inset()`, `rect()`, `xywh()`, `circle()`, `ellipse()`, `polygon()` and `path()` without arcs are folded in, against any reference box. A clip it can't flatten, such as a `url()` reference, is left to stand on its own, without the pill shape. With the worklet none of this is needed, because the shape is a mask and a clip applies on top of it.
 
-It picks up pills added or removed later, and re-reads a pill when its `class` changes. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a media query — need a `refresh()`:
+It picks up pills added or removed later, and re-reads a pill when its `class` changes and when it gains or loses focus, hover or a press, so `focus-visible:` and `hover:` decorations work too. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a media query — need a `refresh()`:
 
 ```js
 const pills = polyfillPills();

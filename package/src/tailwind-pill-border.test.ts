@@ -8,7 +8,13 @@ import { createCompiler } from "./test-utils";
 import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_FILTER_OUTSET_VAR_NAME,
+  PILL_INSET_RING_WIDTH_VAR_NAME,
+  PILL_OUTLINE_COLOR_VAR_NAME,
+  PILL_OUTLINE_OFFSET_VAR_NAME,
+  PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
+  PILL_RING_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -109,6 +115,95 @@ describe("tailwind-pill-border.ts", () => {
       expect(css).toContain("&:is(.pillbox)");
       // The gate is the namespaced attribute, not the class, so it stays.
       expect(css).not.toContain(".squircle-pill");
+    });
+  });
+
+  describe("outlines and rings", () => {
+    const ruleFor = (css: string, selector: string) => {
+      const start = css.lastIndexOf(`${selector} {\n    &:is(.squircle-pill)`);
+      return start === -1 ? "" : css.slice(start, css.indexOf("\n  }\n", start));
+    };
+
+    it("mirrors outline width, colour and offset onto pills, negative offsets included", async () => {
+      const css = await compileBorder([
+        "outline",
+        "outline-2",
+        "outline-3",
+        "outline-white",
+        "outline-offset-4",
+        "-outline-offset-2",
+      ]);
+      expect(ruleFor(css, ".outline")).toContain(`${PILL_OUTLINE_WIDTH_VAR_NAME}: 1px`);
+      expect(ruleFor(css, ".outline-2")).toContain(`${PILL_OUTLINE_WIDTH_VAR_NAME}: 2px`);
+      expect(ruleFor(css, ".outline-3")).toContain(`${PILL_OUTLINE_WIDTH_VAR_NAME}: 3px`);
+      expect(ruleFor(css, ".outline-white")).toContain(`${PILL_OUTLINE_COLOR_VAR_NAME}:`);
+      expect(ruleFor(css, ".outline-offset-4")).toContain(`${PILL_OUTLINE_OFFSET_VAR_NAME}: 4px`);
+      expect(css).toContain(`${PILL_OUTLINE_OFFSET_VAR_NAME}: calc(2px * -1)`);
+      // Tailwind's own outline is still emitted, for everything that isn't a pill.
+      expect(css).toContain("outline-width: 2px");
+    });
+
+    it("keeps the native outline from painting on pills only while the pill draws one", async () => {
+      const css = await compileBorder(["outline-2", "outline-offset-4"]);
+      const width = ruleFor(css, ".outline-2");
+      expect(width).toContain(`${LOADED} {\n      outline-color: transparent;`);
+      // An offset alone paints nothing to suppress.
+      expect(ruleFor(css, ".outline-offset-4")).not.toContain("outline-color");
+    });
+
+    it("mirrors ring and inset ring widths, with v4's 1px for a bare ring", async () => {
+      const css = await compileBorder(["ring", "ring-2", "ring-[3px]", "inset-ring-2"]);
+      expect(ruleFor(css, ".ring")).toContain(`${PILL_RING_WIDTH_VAR_NAME}: 1px`);
+      expect(ruleFor(css, ".ring-2")).toContain(`${PILL_RING_WIDTH_VAR_NAME}: 2px`);
+      expect(css).toContain(`${PILL_RING_WIDTH_VAR_NAME}: 3px`);
+      expect(ruleFor(css, ".inset-ring-2")).toContain(`${PILL_INSET_RING_WIDTH_VAR_NAME}: 2px`);
+    });
+
+    it("empties the native ring shadows on pills, leaving other shadows alone", async () => {
+      const css = await compileBorder(["ring-2", "inset-ring-2", "shadow-lg"]);
+      const ring = ruleFor(css, ".ring-2");
+      expect(ring).toContain("--tw-ring-shadow: 0 0 #0000");
+      expect(ring).toContain("--tw-ring-offset-shadow: 0 0 #0000");
+      expect(ring).not.toContain("--tw-shadow:");
+      expect(ruleFor(css, ".inset-ring-2")).toContain("--tw-inset-ring-shadow: 0 0 #0000");
+    });
+
+    it("follows variants, so focus rings are drawn along the pill too", async () => {
+      const css = await compileBorder(["focus-visible:ring-2"]);
+      expect(css).toMatch(
+        new RegExp(
+          `&:focus-visible \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_RING_WIDTH_VAR_NAME}: 2px`,
+        ),
+      );
+    });
+
+    it("leaves ring colours to Tailwind's variables, which the pill reads", async () => {
+      const css = await compileBorder(["ring-white", "ring-offset-2"]);
+      expect(css).toContain("--tw-ring-color:");
+      expect(css).not.toContain(`${PILL_RING_WIDTH_VAR_NAME}: white`);
+    });
+  });
+
+  describe("drop shadows", () => {
+    it("tells the mask how far a drop shadow reaches, and that none reaches nowhere", async () => {
+      const css = await compileBorder(["drop-shadow-xl", "drop-shadow-none"]);
+      expect(css).toMatch(
+        new RegExp(
+          `\\.drop-shadow-xl \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_FILTER_OUTSET_VAR_NAME}: 6rem`,
+        ),
+      );
+      expect(css).toMatch(
+        new RegExp(
+          `\\.drop-shadow-none \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_FILTER_OUTSET_VAR_NAME}: 0px`,
+        ),
+      );
+      // Tailwind's own filter is untouched.
+      expect(css).toContain("--tw-drop-shadow:");
+    });
+
+    it("leaves drop shadow colours alone", async () => {
+      const css = await compileBorder(["drop-shadow-black/60"]);
+      expect(css).not.toContain(PILL_FILTER_OUTSET_VAR_NAME);
     });
   });
 });

@@ -12,25 +12,37 @@ interface Point {
   y: number;
 }
 
-/** Records the polyline the worklet emits — that polyline is the shape. */
+/**
+ * Records the polyline the worklet emits — that polyline is the shape. Up to
+ * the first fill: what the mask leaves open around the pill comes after.
+ */
 class RecordingContext {
   fillStyle: unknown = "";
+  strokeStyle: unknown = "";
+  lineWidth = 0;
+  lineJoin = "";
   vertices: Point[] = [];
   closed = false;
+  filled = false;
 
   beginPath(): void {}
-  fill(): void {}
+  fill(): void {
+    this.filled = true;
+  }
+  stroke(): void {}
+  setLineDash(): void {}
+  rect(): void {}
   moveTo(x: number, y: number): void {
-    this.vertices.push({ x, y });
+    if (!this.filled) this.vertices.push({ x, y });
   }
   lineTo(x: number, y: number): void {
-    this.vertices.push({ x, y });
+    if (!this.filled) this.vertices.push({ x, y });
   }
   arc(): void {
-    throw new Error("the outline must be emitted as a polyline");
+    if (!this.filled) throw new Error("the outline must be emitted as a polyline");
   }
   closePath(): void {
-    this.closed = true;
+    if (!this.filled) this.closed = true;
   }
 }
 

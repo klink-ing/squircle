@@ -32,8 +32,9 @@ describe("tailwind-pill.ts utilities", () => {
   it("masks the element to the pill once the worklet has loaded", async () => {
     const css = await compilePill(["squircle-pill"]);
     expect(css).toContain(`${LOADED} {`);
-    expect(css).toContain("mask-image: paint(pill-shape)");
-    expect(css).toContain("-webkit-mask-image: paint(pill-shape)");
+    expect(css).toMatch(/[^-]mask-image: [^;]*paint\(pill-shape\);/);
+    expect(css).toMatch(/-webkit-mask-image: [^;]*paint\(pill-shape\);/);
+    expect(css).toContain("mask-image: paint(pill-ring)");
   });
 
   it("never gates on @supports alone", async () => {
@@ -95,23 +96,36 @@ describe("tailwind-pill.ts utilities", () => {
   });
 
   describe("combined with Tailwind's mask utilities", () => {
-    it("lists Tailwind's mask layers after its own shape, intersected", async () => {
+    it("intersects Tailwind's mask layers with its own shape, inside the box only", async () => {
       // `mask-b-from-50%` and friends fill these three layers; listing them
       // keeps the pill shape when one is used, and the fallbacks keep the
-      // mask valid where Tailwind never registered them.
+      // mask valid where Tailwind never registered them. The two opaque
+      // layers on top, each excluded, open everything outside the box, for
+      // outlines, rings and shadows.
       const css = await compilePill(["squircle-pill"]);
+      const opaque = "linear-gradient(#fff, #fff)";
       expect(css).toContain(
-        "mask-image: paint(pill-shape), var(--tw-mask-linear, linear-gradient(#fff, #fff)), var(--tw-mask-radial, linear-gradient(#fff, #fff)), var(--tw-mask-conic, linear-gradient(#fff, #fff))",
+        `mask-image: ${opaque}, ${opaque}, var(--tw-mask-linear, ${opaque}), var(--tw-mask-radial, ${opaque}), var(--tw-mask-conic, ${opaque}), paint(pill-shape)`,
       );
-      expect(css).toContain("mask-composite: intersect");
-      expect(css).toContain("-webkit-mask-composite: source-in");
+      expect(css).toContain(
+        "mask-composite: exclude, exclude, intersect, intersect, intersect, add",
+      );
+      expect(css).toContain(
+        "-webkit-mask-composite: xor, xor, source-in, source-in, source-in, source-over",
+      );
+      expect(css).toContain(
+        "mask-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat",
+      );
+      expect(css).toContain("mask-clip: no-clip");
     });
 
     it("sets the shape on a doubled selector, so a mask utility cannot replace it", async () => {
       // Tailwind emits its mask utilities after the pill, at single-class
       // specificity; equal specificity would let the later one win outright.
       const css = await compilePill(["squircle-pill", "mask-b-from-50%"]);
-      const shape = css.indexOf("mask-image: paint(pill-shape), var(--tw-mask-linear");
+      const shape = css.indexOf(
+        "mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), var(--tw-mask-linear",
+      );
       expect(
         css.lastIndexOf(`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) && {`, shape),
       ).toBeGreaterThan(-1);

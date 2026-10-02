@@ -9,11 +9,8 @@ interface Example {
   classes: string;
   /** What to expect. */
   note: string;
-  /**
-   * How the example is built: on the pill itself, or the way the README
-   * recommends for what a pill's shape would otherwise erase.
-   */
-  build?: "pill" | "ring-wrapper" | "gap-wrapper" | "shadow-wrapper";
+  /** A plain pill, or a focusable button for focus states. */
+  build?: "pill" | "button";
 }
 
 interface Section {
@@ -69,83 +66,70 @@ const sections: Section[] = [
   {
     title: "Outlines",
     intro:
-      "An outline is drawn around the stadium border-radius. Inside the box the pill only trims it; outside the box the pill's shape erases it, so an outer outline goes on a wrapper.",
+      "Drawn by the pill along its own outline, with tailwind-pill-border loaded: offset outwards, or inwards with a negative offset, solid, dashed or dotted.",
     examples: [
+      { classes: "outline-2 outline-white", note: "Hugging the outline." },
+      { classes: "outline-2 outline-offset-4 outline-white", note: "Offset 4px out." },
       {
-        classes: "outline-2 outline-white",
-        note: "Outside the box: erased by the pill's shape.",
-      },
-      {
-        classes: "outline-2 outline-offset-4 outline-white",
-        note: "Offset further out: erased too.",
+        classes: "outline-2 outline-offset-2 outline-dashed outline-amber-300",
+        note: "Dashed, offset 2px out.",
       },
       {
         classes: "outline-2 -outline-offset-2 outline-white",
-        note: "Inset just inside the edge: follows the stadium, trimmed to the pill.",
+        note: "Inset 2px, just inside the edge.",
       },
-      {
-        classes: "outline-2 -outline-offset-6 outline-white",
-        note: "Inset further: a stadium inside the pill.",
-      },
-      {
-        classes: "squircle-pill bg-white p-0.5",
-        note: "The outline on a padded pill wrapper instead.",
-        build: "ring-wrapper",
-      },
-      {
-        classes: "squircle-pill bg-white p-0.5 › squircle-pill bg-zinc-950 p-1",
-        note: "An offset outline: a wrapper with a gap pill inside it.",
-        build: "gap-wrapper",
-      },
+      { classes: "outline-2 -outline-offset-6 outline-white", note: "Inset 6px." },
     ],
   },
   {
     title: "Tailwind ring utilities",
     intro:
-      "Rings are box-shadows. Outer rings sit outside the box and are erased like an outline; inset rings stay inside it.",
+      "Drawn by the pill along its own outline too, with tailwind-pill-border loaded. A ring offset is a band of its own colour, as in Tailwind.",
     examples: [
-      { classes: "ring-2 ring-white", note: "Outside the box: erased by the pill's shape." },
+      { classes: "ring-2 ring-white", note: "A ring hugging the outline." },
       {
         classes: "ring-2 ring-white ring-offset-2 ring-offset-zinc-950",
-        note: "With an offset: erased too.",
+        note: "With a 2px offset in the page's colour.",
       },
       {
-        classes: "inset-ring-2 inset-ring-white",
-        note: "Inside the box: follows the stadium, trimmed to the pill.",
+        classes: "ring-4 ring-amber-300/60",
+        note: "Semi-transparent, so the background shows through.",
+      },
+      { classes: "inset-ring-2 inset-ring-white", note: "An inset ring, inside the edge." },
+    ],
+  },
+  {
+    title: "Focus",
+    intro:
+      "Tab through these. The pill picks up focus states like any other, outside the box included; with no utility at all the browser's own focus ring shows, around the stadium.",
+    examples: [
+      {
+        classes: "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+        note: "An offset outline on keyboard focus.",
+        build: "button",
       },
       {
-        classes: "squircle-pill bg-white p-0.5",
-        note: "The ring on a padded pill wrapper instead.",
-        build: "ring-wrapper",
+        classes:
+          "focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+        note: "A ring with an offset on keyboard focus.",
+        build: "button",
       },
+      { classes: "", note: "The browser's own focus ring.", build: "button" },
     ],
   },
   {
     title: "Shadows",
     intro:
-      "An outer shadow falls outside the box, and a filter runs before the pill's shape is applied, so both go on a wrapper. Inner shadows stay inside the box. Shown on light tiles so the shadows stand out.",
+      "Shadows paint outside the pill, which it leaves alone, so they just work. They start from the stadium border-radius, which the pill sits at most a pixel or two inside, so a hairline can show at the ends. Inner shadows follow the stadium and are trimmed to the pill. Shown on light tiles so the shadows stand out.",
     light: true,
     examples: [
+      { classes: "shadow-xl shadow-black/60", note: "A box shadow." },
+      { classes: "drop-shadow-xl drop-shadow-black/60", note: "A drop shadow filter." },
+      { classes: "shadow-inner shadow-black/80", note: "An inner shadow." },
+      { classes: "inset-shadow-sm inset-shadow-black/80", note: "An inset shadow." },
       {
-        classes: "shadow-xl shadow-black/60",
-        note: "Outside the box: erased by the pill's shape.",
-      },
-      {
-        classes: "drop-shadow-xl drop-shadow-black/60",
-        note: "A filter on the pill: shaped away with it.",
-      },
-      {
-        classes: "shadow-inner shadow-black/80",
-        note: "Inside the box: follows the stadium, trimmed to the pill.",
-      },
-      {
-        classes: "inset-shadow-sm inset-shadow-black/80",
-        note: "Inside the box: follows the stadium, trimmed to the pill.",
-      },
-      {
-        classes: "drop-shadow-xl drop-shadow-black/60",
-        note: "The drop shadow on a plain wrapper: follows the pill's real shape.",
-        build: "shadow-wrapper",
+        classes: "shadow-lg shadow-black/50 ring-2 ring-white",
+        note: "A shadow under a ring.",
       },
     ],
   },
@@ -209,27 +193,15 @@ const PILL = "squircle-pill h-12 w-40 bg-indigo-500";
                     ]}
                   >
                     {build === "pill" && <div class={`${PILL} ${classes}`} />}
-                    {build === "ring-wrapper" && (
-                      <div class="squircle-pill bg-white p-0.5">
-                        <div class={PILL} />
-                      </div>
-                    )}
-                    {build === "gap-wrapper" && (
-                      <div class="squircle-pill bg-white p-0.5">
-                        <div class="squircle-pill bg-zinc-950 p-1">
-                          <div class={PILL} />
-                        </div>
-                      </div>
-                    )}
-                    {build === "shadow-wrapper" && (
-                      <div class={classes}>
-                        <div class={PILL} />
-                      </div>
+                    {build === "button" && (
+                      <button type="button" class={`${PILL} text-sm font-medium ${classes}`}>
+                        Tab to me
+                      </button>
                     )}
                   </div>
                   <div>
                     <p class="font-mono text-xs break-all text-zinc-200">
-                      {build === "pill" ? classes : `wrapper: ${classes}`}
+                      {classes || "(no classes)"}
                     </p>
                     <p class="mt-1 text-xs text-zinc-400">{note}</p>
                   </div>

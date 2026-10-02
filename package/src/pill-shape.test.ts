@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { renderPillCss } from "./pill-css";
-import { paintDef } from "./pill-shape.worklet";
+import { decorationDef, paintDef, ringDef } from "./pill-shape.worklet";
 import {
   CSS_NAMESPACE,
   DEFAULT_PILL_AMT,
@@ -18,8 +18,19 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_CLIP_VAR_NAME,
+  PILL_INSET_RING_COLOR_VAR_NAME,
+  PILL_INSET_RING_WIDTH_VAR_NAME,
+  PILL_MASK_BANDS_VAR_NAME,
+  PILL_OUTLINE_COLOR_VAR_NAME,
+  PILL_OUTLINE_OFFSET_VAR_NAME,
+  PILL_OUTLINE_STYLE_VAR_NAME,
+  PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_RING_CLIP_VAR_NAME,
+  PILL_RING_COLOR_VAR_NAME,
+  PILL_RING_OFFSET_COLOR_VAR_NAME,
+  PILL_RING_OFFSET_WIDTH_VAR_NAME,
+  PILL_RING_WIDTH_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
@@ -35,7 +46,13 @@ const initialValueOf = (css: string, name: string): string | undefined =>
   new RegExp(`@property\\s+${name}\\s*\\{[^}]*initial-value:\\s*([^;]+);`).exec(css)?.[1].trim();
 
 const inputProperties = (paintDef as unknown as { inputProperties: string[] }).inputProperties;
-const customInputs = inputProperties.filter((p) => p.startsWith("--"));
+const decorationInputs = (decorationDef as unknown as { inputProperties: string[] })
+  .inputProperties;
+const ringInputs = (ringDef as unknown as { inputProperties: string[] }).inputProperties;
+// What any of the paints reads: the shape's, the ring's or the decoration's.
+const customInputs = [...inputProperties, ...ringInputs, ...decorationInputs].filter((p) =>
+  p.startsWith("--"),
+);
 
 type Ctx = {
   fillStyle: string;
@@ -56,20 +73,24 @@ const paintWith = (props: Record<string, string> | undefined, width = 240, heigh
     filled: false,
     stroked: false,
     vertices: [],
+    // Up to the first fill: what the mask leaves open around the pill comes
+    // after, as more paths, filled and stroked.
     beginPath() {
-      ctx.paths++;
+      if (!ctx.filled) ctx.paths++;
     },
     fill() {
       ctx.filled = true;
     },
     stroke() {
-      ctx.stroked = true;
+      if (!ctx.filled) ctx.stroked = true;
     },
     clip() {},
     setLineDash() {},
     closePath() {},
-    moveTo: (x: number, y: number) => ctx.vertices.push({ x, y }),
-    lineTo: (x: number, y: number) => ctx.vertices.push({ x, y }),
+    rect() {},
+    arc() {},
+    moveTo: (x: number, y: number) => !ctx.filled && ctx.vertices.push({ x, y }),
+    lineTo: (x: number, y: number) => !ctx.filled && ctx.vertices.push({ x, y }),
   };
   const lookup = {
     get: (n: string) => (props?.[n] !== undefined ? { toString: () => props[n] } : undefined),
@@ -96,13 +117,41 @@ describe("pill-shape worklet contract", () => {
     expect(PILL_WORKLET_ATTRIBUTE).toBe(`data-${CSS_NAMESPACE}-pill-worklet`);
   });
 
-  it("reads exactly the properties it needs", () => {
+  it("reads exactly the properties it needs, and no more", () => {
+    // Every input is gathered for every pill on every resize, so the mask
+    // takes the decoration's bands packed into one.
     expect(inputProperties).toEqual([
+      PILL_AMT_VAR_NAME,
+      PILL_EASE_SPREAD_VAR_NAME,
+      PILL_CONTINUITY_VAR_NAME,
+      PILL_MASK_BANDS_VAR_NAME,
+      // Whether the element paints anything outside the stadium itself.
+      "box-shadow",
+      "filter",
+      "outline-style",
+    ]);
+    expect(ringInputs).toEqual([
       PILL_AMT_VAR_NAME,
       PILL_EASE_SPREAD_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
       PILL_STROKE_WIDTH_VAR_NAME,
       PILL_BORDER_STYLE_VAR_NAME,
+    ]);
+    expect(decorationInputs).toEqual([
+      PILL_AMT_VAR_NAME,
+      PILL_EASE_SPREAD_VAR_NAME,
+      PILL_CONTINUITY_VAR_NAME,
+      PILL_BORDER_WIDTH_VAR_NAME,
+      PILL_OUTLINE_WIDTH_VAR_NAME,
+      PILL_OUTLINE_OFFSET_VAR_NAME,
+      PILL_OUTLINE_COLOR_VAR_NAME,
+      PILL_OUTLINE_STYLE_VAR_NAME,
+      PILL_RING_WIDTH_VAR_NAME,
+      PILL_RING_COLOR_VAR_NAME,
+      PILL_RING_OFFSET_WIDTH_VAR_NAME,
+      PILL_RING_OFFSET_COLOR_VAR_NAME,
+      PILL_INSET_RING_WIDTH_VAR_NAME,
+      PILL_INSET_RING_COLOR_VAR_NAME,
     ]);
   });
 
@@ -169,7 +218,9 @@ describe("pill-shape worklet contract", () => {
       // Painting it as a background covers whatever background the element
       // already had; masking keeps it and shapes it instead.
       expect(stylesheet).not.toContain("background-image: paint(");
-      expect(stylesheet).toContain("mask-image: paint(pill-shape)");
+      expect(stylesheet).toMatch(/[^-]mask-image: [^;]*paint\(pill-shape\);/);
+      // The border ring, masked to its band by the shape in stroke mode.
+      expect(stylesheet).toContain("mask-image: paint(pill-ring)");
     });
 
     it("masks only once the worklet is known to have loaded", () => {
