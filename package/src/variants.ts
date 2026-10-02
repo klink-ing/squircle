@@ -62,27 +62,38 @@ export const PILL_RING_OFFSET_COLOR_VAR_NAME: string = pillVar("ring-offset-colo
 export const PILL_INSET_RING_WIDTH_VAR_NAME: string = pillVar("inset-ring-width");
 export const PILL_INSET_RING_COLOR_VAR_NAME: string = pillVar("inset-ring-color");
 /**
- * How far a `filter` on a pill — a drop shadow — reaches past its box. The
- * worklet's mask stops where the element's own painting does, which a filter
- * doesn't count towards in Chromium, so a pill with one has to say how far.
- * `tailwind-pill-border` sets it for `drop-shadow-*`.
+ * The pill's box shadows, as a `box-shadow` list. The pill draws the outer
+ * ones itself, cast by its own outline: a native shadow starts at the
+ * stadium `border-radius`, a pixel or more outside the pill near its caps.
+ * The inset ones paint inside it as usual. With Tailwind this is built from
+ * the `shadow-*`, `inset-shadow-*` and ring utilities' own variables.
  */
-export const PILL_FILTER_OUTSET_VAR_NAME: string = pillVar("filter-outset");
+export const PILL_BOX_SHADOW_VAR_NAME: string = pillVar("box-shadow");
 /**
- * Internal: `""` on a pill `tailwind-pill-border` has seen an outline, ring
- * or drop shadow utility on, which is what gives it the `::before` those are
+ * How far those shadows reach past the box — offset, blur and spread
+ * together — which the box they are drawn on has to grow by.
+ * `tailwind-pill-border` sets it for `shadow-*`.
+ */
+export const PILL_SHADOW_REACH_VAR_NAME: string = pillVar("shadow-reach");
+/**
+ * Internal: how far everything the pill draws around itself reaches past
+ * its box — outline, ring, shadows — worked out by the stylesheet.
+ */
+export const PILL_REACH_VAR_NAME: string = pillVar("reach");
+/**
+ * Internal: `""` on a pill `tailwind-pill-border` has seen a border, outline,
+ * ring or shadow utility on, which is what gives it the `::after` those are
  * drawn on; `none` otherwise.
  */
 export const PILL_DECORATED_VAR_NAME: string = pillVar("decorated");
-/**
- * Internal: the outline's offset and width, the ring's offset and width and
- * the outline's style, packed for the worklet's mask; see `maskBands`.
- */
-export const PILL_MASK_BANDS_VAR_NAME: string = pillVar("mask-bands");
-/** Internal: the polyfill's drawing of those, as an image for `::before`. */
+/** Internal: the polyfill's drawing of those, as an image for `::after`. */
 export const PILL_DECORATION_VAR_NAME: string = pillVar("decoration");
-/** Internal: what the worklet keys stroke mode off, set on the ring only. */
-export const PILL_STROKE_WIDTH_VAR_NAME: string = pillVar("stroke-width");
+/**
+ * Internal: where the polyfill's drawing is a single band — a border, ring or
+ * outline alone — the band's `clip-path` for `::after`, its colour then being
+ * the image. A clip is far cheaper to redraw on resize than an image.
+ */
+export const PILL_DECORATION_CLIP_VAR_NAME: string = pillVar("decoration-clip");
 export const DEFAULT_PILL_EASE_SPREAD = 1 as const;
 /**
  * Geometric continuity of the pill's easing: `2` matches curvature where the
@@ -99,20 +110,11 @@ export const DEFAULT_PILL_CONTINUITY = 2 as const;
 export const PILL_WORKLET_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-worklet`;
 /**
  * Attribute `polyfillPills()` sets on `<html>` where there is no paint
- * worklet. The pills then take their shapes from the two `clip-path` values
- * below, which it computes per element from the same geometry the worklet
- * draws.
+ * worklet. The pills then take their shape from the `clip-path` below, which
+ * it computes per element from the same geometry the worklet draws.
  */
 export const PILL_POLYFILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-polyfill`;
 export const PILL_CLIP_VAR_NAME: string = pillVar("clip");
-/**
- * Set by `polyfillPills()` on a pill whose `clip-path` it has computed. Only
- * then does the pill's clip replace the element's own, which it already has
- * folded in; without it — before the polyfill gets to a pill, or where a
- * square needs no clip — the element's own `clip-path` applies untouched.
- */
-export const PILL_CLIPPED_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-clipped`;
-export const PILL_RING_CLIP_VAR_NAME: string = pillVar("ring-clip");
 /** What the standalone stylesheet hangs its rules off, so it works without Tailwind. */
 export const PILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill`;
 /**

@@ -17,10 +17,10 @@ declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
 const NS = `--${typeof __SQUIRCLE_CSS_NAMESPACE__ === "string" ? __SQUIRCLE_CSS_NAMESPACE__ : "squircle"}-pill`;
 const AMT_VAR = `${NS}-amt`;
 const EASE_SPREAD_VAR = `${NS}-ease-spread`;
-const STROKE_WIDTH_VAR = `${NS}-stroke-width`;
 const BORDER_STYLE_VAR = `${NS}-border-style`;
 const CONTINUITY_VAR = `${NS}-continuity`;
 const BORDER_WIDTH_VAR = `${NS}-border-width`;
+const BORDER_COLOR_VAR = `${NS}-border-color`;
 const OUTLINE_WIDTH_VAR = `${NS}-outline-width`;
 const OUTLINE_OFFSET_VAR = `${NS}-outline-offset`;
 const OUTLINE_COLOR_VAR = `${NS}-outline-color`;
@@ -31,12 +31,14 @@ const RING_OFFSET_WIDTH_VAR = `${NS}-ring-offset-width`;
 const RING_OFFSET_COLOR_VAR = `${NS}-ring-offset-color`;
 const INSET_RING_WIDTH_VAR = `${NS}-inset-ring-width`;
 const INSET_RING_COLOR_VAR = `${NS}-inset-ring-color`;
-const MASK_BANDS_VAR = `${NS}-mask-bands`;
-/** What the element itself might paint outside the stadium; see `paintsOutside`. */
-const OUTER_PAINT_INPUTS = ["box-shadow", "filter", "outline-style"];
-/** What decides the decoration's bands; see `decorationBands`. */
+const BOX_SHADOW_VAR = `${NS}-box-shadow`;
+const REACH_VAR = `${NS}-reach`;
+/** What decides the decoration; see `decorationBands` and `decorationShadows`. */
 const DECORATION_INPUTS = [
+  REACH_VAR,
   BORDER_WIDTH_VAR,
+  BORDER_COLOR_VAR,
+  BORDER_STYLE_VAR,
   OUTLINE_WIDTH_VAR,
   OUTLINE_OFFSET_VAR,
   OUTLINE_COLOR_VAR,
@@ -47,6 +49,7 @@ const DECORATION_INPUTS = [
   RING_OFFSET_COLOR_VAR,
   INSET_RING_WIDTH_VAR,
   INSET_RING_COLOR_VAR,
+  BOX_SHADOW_VAR,
 ];
 
 /** One band of a decoration; see `decorationBands`. */
@@ -55,6 +58,59 @@ interface Band {
   to: number;
   color: string;
   dash: number[];
+}
+
+/** One outer box shadow, in px; see `decorationShadows`. */
+interface Shadow {
+  x: number;
+  y: number;
+  blur: number;
+  spread: number;
+  color: string;
+}
+
+/** Splits at top-level `separator`s, leaving parentheses whole. */
+function splitTopLevel(value: string, separator: "," | " "): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of value) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (depth === 0 && (separator === "," ? ch === "," : /\s/.test(ch))) {
+      if (current.trim()) parts.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}
+
+/**
+ * A shadow's length in px, or `null` for a token that isn't one. A custom
+ * property hands the list over as written, so `rem` and `em` are taken at
+ * the default 16px.
+ */
+function lengthInPx(token: string): number | null {
+  const m = /^(-?(?:\d+\.?\d*|\.\d+))(px|rem|em)?$/.exec(token);
+  if (!m) return null;
+  const value = Number(m[1]);
+  if (!m[2]) return value === 0 ? 0 : null;
+  return m[2] === "px" ? value : value * 16;
+}
+
+/** Whether a colour as written could show at all. */
+function isVisible(color: string): boolean {
+  const c = color.trim().toLowerCase();
+  return !(
+    c === "transparent" ||
+    c === "#0000" ||
+    c === "#00000000" ||
+    /^rgba\(.*,\s*0\)$/.test(c) ||
+    /\/\s*0%?\s*\)$/.test(c)
+  );
 }
 
 interface PaintSize {
@@ -251,45 +307,26 @@ const MAX_SEGMENTS = 256;
 export const paintDef = class PillShape implements PaintWorklet {
   /*
    * As few as it can do with: every input is gathered for every pill on every
-   * resize, which adds up over hundreds of them. The decoration's bands
-   * arrive packed into one; see `maskBands`.
+   * resize, which adds up over hundreds of them.
    */
   static get inputProperties() {
-    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR, MASK_BANDS_VAR, ...OUTER_PAINT_INPUTS];
+    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR];
   }
 
   /**
-   * Dash pattern for the stroke, in multiples of its width, for
-   * the border style. `none` and `hidden` suppress the ring entirely,
-   * matching what those keywords do to a real border.
+   * Dash pattern for a band `width` wide drawn in a border or outline
+   * `style`, in multiples of its width; `null` for `none` and `hidden`, which
+   * draw nothing, as those keywords do to a real border.
    *
    * The worklet keeps its own vocabulary rather than reading a framework's
    * variables directly; the Tailwind layer maps `--tw-border-style` onto this.
    */
-  resolveDash(props: PaintProperties | undefined, width: number): number[] | null {
-    const style = props?.get(BORDER_STYLE_VAR)?.toString().trim();
-    if (style === "none" || style === "hidden") return null;
-    if (style === "dashed") return [width * 3, width * 2];
-    if (style === "dotted") return [width, width * 2];
+  resolveDash(style: string | undefined, width: number): number[] | null {
+    const value = style?.trim() || "solid";
+    if (value === "none" || value === "hidden") return null;
+    if (value === "dashed") return [width * 3, width * 2];
+    if (value === "dotted") return [width, width * 2];
     return [];
-  }
-
-  /**
-   * Stroke width, in pixels, or `null` when this paint is a fill.
-   *
-   * The ring pseudo is the only thing that sets the stroke-width property, so
-   * its mere presence is what selects stroke mode; the element itself never
-   * carries it and is always filled. A ring of zero width draws nothing at
-   * all — a `border-2`-less pill has no border, not a full-face one — while
-   * anything larger draws an inset band of exactly that width, hugging the
-   * inside of the outline. The value arrives in px, resolved by the registered
-   * border-width property it is fed from.
-   */
-  resolveStrokeWidth(props?: PaintProperties): number | null {
-    const raw = props?.get(STROKE_WIDTH_VAR)?.toString().trim() ?? "";
-    if (raw === "") return null;
-    const width = Number.parseFloat(raw);
-    return Number.isFinite(width) && width > 0 ? width : 0;
   }
 
   /** The requested easing angle, in radians, before it is fitted to the box. */
@@ -700,29 +737,16 @@ export const paintDef = class PillShape implements PaintWorklet {
     return points;
   }
 
+  /**
+   * Fills the pill, opaque. It is consumed as a mask — of the copy of the
+   * element's background that the pill shows — where only the alpha channel
+   * counts and the background supplies the colour. Reading `color` here would
+   * mean `color: transparent` erased the pill.
+   */
   paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {
     const { width, height } = size;
     if (width <= 0 || height <= 0) return;
-
-    /*
-     * Opaque, always. The shape is consumed as a mask, where only the alpha
-     * channel counts, and the element's own background supplies the colour.
-     * Reading `color` here would mean `color: transparent` erased the element.
-     */
-    const stroke = this.resolveStrokeWidth(props);
-    // A ring with no width, or with `border-style: none`, leaves nothing to draw.
-    if (stroke !== null && stroke <= 0) return;
-    const dash = stroke !== null ? this.resolveDash(props, stroke) : [];
-    if (dash === null) return;
-
-    if (stroke !== null) {
-      ctx.strokeStyle = "#000";
-      // Doubled, because the half outside the outline is clipped away below.
-      ctx.lineWidth = stroke * 2;
-      if (dash.length > 0) ctx.setLineDash(dash);
-    } else {
-      ctx.fillStyle = "#000";
-    }
+    ctx.fillStyle = "#000";
     ctx.beginPath();
     const outline = this.boxOutline(width, height, props);
     for (let i = 0; i < outline.length; i++) {
@@ -731,76 +755,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       else ctx.lineTo(p.x, p.y);
     }
     ctx.closePath();
-
-    if (stroke !== null) {
-      /*
-       * Clip to the outline before stroking, so the band sits wholly inside it.
-       * A centred stroke would spill half its width past the outline, and that
-       * half is cut off by the edge of the paint canvas rather than by the
-       * shape — which trims it on the flat edges, where the outline runs along
-       * the canvas boundary, but not through the caps, where the outline curves
-       * inward. The ring would come out flattened and uneven.
-       */
-      ctx.clip();
-      ctx.stroke();
-      return;
-    }
     ctx.fill();
-    const bands = this.maskBands(props);
-    if (bands.length > 0 || this.paintsOutside(props)) {
-      this.surround(ctx, width, height, outline, bands);
-    }
-  }
-
-  /**
-   * As the element's mask, what else to leave open inside the border box: the
-   * box's corners outside the stadium `border-radius`, and the decoration's
-   * bands, dashes and all.
-   *
-   * The background paints only inside the stadium, so outside it there is
-   * nothing to hide — only what is drawn around the pill, a shadow or a ring,
-   * which near the caps falls inside the box. Between the stadium and the
-   * pill the background does paint, and stays hidden, except under the bands,
-   * which cover it.
-   */
-  surround(
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number,
-    outline: Point[],
-    bands: Band[],
-  ): void {
-    ctx.beginPath();
-    ctx.rect(0, 0, width, height);
-    const r = Math.min(width, height) / 2;
-    if (width >= height) {
-      ctx.moveTo(r, 0);
-      ctx.lineTo(width - r, 0);
-      ctx.arc(width - r, r, r, -Math.PI / 2, Math.PI / 2);
-      ctx.lineTo(r, height);
-      ctx.arc(r, r, r, Math.PI / 2, (3 * Math.PI) / 2);
-    } else {
-      ctx.moveTo(width, r);
-      ctx.lineTo(width, height - r);
-      ctx.arc(r, height - r, r, 0, Math.PI);
-      ctx.lineTo(0, r);
-      ctx.arc(r, r, r, Math.PI, 2 * Math.PI);
-    }
-    ctx.closePath();
-    ctx.fill("evenodd");
-
-    if (bands.length === 0) return;
-    ctx.strokeStyle = "#000";
-    ctx.lineJoin = "round";
-    for (const band of bands) {
-      const path = this.offsetOutline(outline, (band.from + band.to) / 2);
-      ctx.beginPath();
-      path.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-      ctx.closePath();
-      ctx.lineWidth = band.to - band.from;
-      ctx.setLineDash(band.dash);
-      ctx.stroke();
-    }
   }
 
   /** The size-independent transition for an easing; see `Transition`. */
@@ -822,7 +777,7 @@ export const paintDef = class PillShape implements PaintWorklet {
    * The quadrant for a box, with the easing fitted to it.
    *
    * Memoised, because the same shape is painted at least twice — once as the
-   * element's mask and once as its ring — and again on every repaint that
+   * background's mask and once as its decoration — and again on every repaint that
    * changes nothing about it, such as a hover. The quadrant is the expensive
    * part, and it depends only on these five values.
    */
@@ -918,53 +873,6 @@ export const paintDef = class PillShape implements PaintWorklet {
     });
   }
 
-  /**
-   * Whether the element paints anything of its own outside the stadium — a
-   * shadow, a filter, an outline such as the browser's focus ring — which the
-   * mask then has to leave open. Most pills paint nothing there, and are
-   * spared drawing it.
-   */
-  paintsOutside(props?: PaintProperties): boolean {
-    const value = (name: string) => props?.get(name)?.toString().trim() ?? "";
-    const shadow = value("box-shadow");
-    const filter = value("filter");
-    const outline = value("outline-style");
-    return (
-      (shadow !== "" && shadow !== "none") ||
-      (filter !== "" && filter !== "none") ||
-      (outline !== "" && outline !== "none")
-    );
-  }
-
-  /**
-   * The bands the decoration draws outside the pill, which is all the mask
-   * needs to leave open for them: what lies inside the pill is open already,
-   * and colour doesn't matter. Packed by the stylesheet into one property —
-   * the outline's offset and width, the ring's offset and width, the
-   * outline's style — to spare the mask ten inputs.
-   */
-  maskBands(props?: PaintProperties): Band[] {
-    const [outlineOffset, outline, ringOffset, ring, style = "solid"] = (
-      props?.get(MASK_BANDS_VAR)?.toString().trim() ?? ""
-    ).split(/\s+/);
-    const px = (value: string | undefined) => {
-      const n = Number.parseFloat(value ?? "");
-      return Number.isFinite(n) ? n : 0;
-    };
-    const bands: Band[] = [];
-    if (px(ring) > 0) {
-      bands.push({ from: 0, to: Math.max(px(ringOffset), 0) + px(ring), color: "", dash: [] });
-    }
-    const width = px(outline);
-    if (width > 0 && style !== "none" && style !== "hidden") {
-      const from = px(outlineOffset);
-      const dash =
-        style === "dashed" ? [width * 3, width * 2] : style === "dotted" ? [width, width * 2] : [];
-      bands.push({ from, to: from + width, color: "", dash });
-    }
-    return bands;
-  }
-
   /** A length property in px, or 0 where it is unset or not a number. */
   resolveLength(props: PaintProperties | undefined, name: string): number {
     const value = Number.parseFloat(props?.get(name)?.toString() ?? "");
@@ -972,16 +880,39 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * How far the outline and the ring reach beyond the border box, which is
-   * how much larger than it the decoration's box is. Matches the `inset` the
-   * stylesheet gives that box, term for term.
+   * How far the decoration reaches beyond the border box — the outline, the
+   * ring, the shadows — which is how much larger than it the decoration's box
+   * is on every side. The stylesheet works it out, and sizes that box by it.
    */
   decorationOutset(props?: PaintProperties): number {
-    const outline =
-      this.resolveLength(props, OUTLINE_OFFSET_VAR) + this.resolveLength(props, OUTLINE_WIDTH_VAR);
-    const ring =
-      this.resolveLength(props, RING_OFFSET_WIDTH_VAR) + this.resolveLength(props, RING_WIDTH_VAR);
-    return Math.max(0, outline, ring);
+    return Math.max(this.resolveLength(props, REACH_VAR), 0);
+  }
+
+  /**
+   * The outer shadows in a `box-shadow` list, in px, first on top as CSS
+   * paints them. Inset shadows are left to the copy of the background, which
+   * paints them itself; invisible ones are dropped.
+   */
+  decorationShadows(props?: PaintProperties): Shadow[] {
+    const value = props?.get(BOX_SHADOW_VAR)?.toString().trim() ?? "";
+    if (value === "" || value === "none") return [];
+    const shadows: Shadow[] = [];
+    for (const layer of splitTopLevel(value, ",")) {
+      const tokens = splitTopLevel(layer, " ");
+      if (tokens.includes("inset")) continue;
+      const lengths: number[] = [];
+      const color: string[] = [];
+      for (const token of tokens) {
+        const length = lengthInPx(token);
+        if (length === null) color.push(token);
+        else lengths.push(length);
+      }
+      const [x = 0, y = 0, blur = 0, spread = 0] = lengths;
+      const paint = color.join(" ") || "currentColor";
+      if (lengths.length < 2 || !isVisible(paint)) continue;
+      shadows.push({ x, y, blur: Math.max(blur, 0), spread, color: paint });
+    }
+    return shadows;
   }
 
   /**
@@ -994,9 +925,14 @@ export const paintDef = class PillShape implements PaintWorklet {
    */
   decorationBands(props?: PaintProperties): Band[] {
     const color = (name: string) => props?.get(name)?.toString().trim() ?? "";
-    const visible = (c: string) => c !== "" && c !== "transparent" && !/^rgba\(.*,\s*0\)$/.test(c);
+    const visible = (c: string) => c !== "" && isVisible(c);
     const bands: Band[] = [];
     const border = this.resolveLength(props, BORDER_WIDTH_VAR);
+    const borderColor = color(BORDER_COLOR_VAR);
+    const borderDash = this.resolveDash(props?.get(BORDER_STYLE_VAR)?.toString(), border);
+    if (border > 0 && visible(borderColor) && borderDash !== null) {
+      bands.push({ from: -border, to: 0, color: borderColor, dash: borderDash });
+    }
 
     const insetRing = this.resolveLength(props, INSET_RING_WIDTH_VAR);
     const insetRingColor = color(INSET_RING_COLOR_VAR);
@@ -1019,16 +955,10 @@ export const paintDef = class PillShape implements PaintWorklet {
 
     const outline = this.resolveLength(props, OUTLINE_WIDTH_VAR);
     const outlineColor = color(OUTLINE_COLOR_VAR);
-    const style = props?.get(OUTLINE_STYLE_VAR)?.toString().trim() || "solid";
-    if (outline > 0 && visible(outlineColor) && style !== "none" && style !== "hidden") {
+    const outlineDash = this.resolveDash(props?.get(OUTLINE_STYLE_VAR)?.toString(), outline);
+    if (outline > 0 && visible(outlineColor) && outlineDash !== null) {
       const offset = this.resolveLength(props, OUTLINE_OFFSET_VAR);
-      const dash =
-        style === "dashed"
-          ? [outline * 3, outline * 2]
-          : style === "dotted"
-            ? [outline, outline * 2]
-            : [];
-      bands.push({ from: offset, to: offset + outline, color: outlineColor, dash });
+      bands.push({ from: offset, to: offset + outline, color: outlineColor, dash: outlineDash });
     }
     return bands;
   }
@@ -1052,19 +982,16 @@ export const paintDef = class PillShape implements PaintWorklet {
 // call keeps this module importable from tests and bundlers.
 declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
 
-/** The border ring, on `::after`: the shape in stroke mode. */
-export const ringDef = class PillRing extends paintDef {
-  static override get inputProperties() {
-    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR, STROKE_WIDTH_VAR, BORDER_STYLE_VAR];
-  }
-};
-
 /**
- * The pill's outline, ring and inset ring, painted on `::before` over a box
- * larger than the element's border box by `decorationOutset` on every side.
+ * Everything the pill draws around its outline, on `::after`, over a box
+ * larger than the element's border box by `decorationOutset` on every side:
+ * its box shadows, then its border, inset ring, ring and outline.
+ *
  * Each band is a stroke along the outline moved out to the band's middle, as
  * wide as the band: the outline is convex, so that is exactly the region
- * between the band's two edges.
+ * between the band's two edges. The shadows are cast by the outline itself,
+ * grown by their spread, and drawn only outside it, as CSS draws a box
+ * shadow only outside the box.
  */
 export const decorationDef = class PillDecoration extends paintDef {
   static override get inputProperties() {
@@ -1073,7 +1000,8 @@ export const decorationDef = class PillDecoration extends paintDef {
 
   override paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {
     const bands = this.decorationBands(props);
-    if (bands.length === 0) return;
+    const shadows = this.decorationShadows(props);
+    if (bands.length === 0 && shadows.length === 0) return;
     const outset = this.decorationOutset(props);
     const width = size.width - 2 * outset;
     const height = size.height - 2 * outset;
@@ -1082,12 +1010,40 @@ export const decorationDef = class PillDecoration extends paintDef {
       x: p.x + outset,
       y: p.y + outset,
     }));
+    const trace = (path: Point[], dx = 0, dy = 0) => {
+      ctx.beginPath();
+      path.forEach((p, i) =>
+        i === 0 ? ctx.moveTo(p.x + dx, p.y + dy) : ctx.lineTo(p.x + dx, p.y + dy),
+      );
+      ctx.closePath();
+    };
+
+    if (shadows.length > 0) {
+      ctx.save();
+      // Only outside the outline.
+      ctx.beginPath();
+      ctx.rect(0, 0, size.width, size.height);
+      outline.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.clip("evenodd");
+      // The shape itself is drawn far off the canvas, its shadow thrown back
+      // onto it, so only the shadow lands. Last first, as CSS stacks them.
+      const away = size.width + size.height + 1000;
+      ctx.fillStyle = "#000";
+      for (const shadow of [...shadows].reverse()) {
+        ctx.shadowColor = shadow.color;
+        ctx.shadowBlur = shadow.blur;
+        ctx.shadowOffsetX = shadow.x + away;
+        ctx.shadowOffsetY = shadow.y;
+        trace(this.offsetOutline(outline, shadow.spread), -away);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     ctx.lineJoin = "round";
     for (const band of bands) {
-      const path = this.offsetOutline(outline, (band.from + band.to) / 2);
-      ctx.beginPath();
-      path.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-      ctx.closePath();
+      trace(this.offsetOutline(outline, (band.from + band.to) / 2));
       ctx.strokeStyle = band.color;
       ctx.lineWidth = band.to - band.from;
       ctx.setLineDash(band.dash);
@@ -1098,6 +1054,5 @@ export const decorationDef = class PillDecoration extends paintDef {
 
 if (typeof registerPaint !== "undefined") {
   registerPaint("pill-shape", paintDef);
-  registerPaint("pill-ring", ringDef);
   registerPaint("pill-decoration", decorationDef);
 }

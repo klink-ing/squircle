@@ -8,15 +8,47 @@ import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_DECORATED_VAR_NAME,
-  PILL_FILTER_OUTSET_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
   PILL_OUTLINE_OFFSET_VAR_NAME,
   PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_RING_WIDTH_VAR_NAME,
+  PILL_SHADOW_REACH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
+
+/**
+ * How far a `box-shadow` list reaches past the box it is cast by: offset,
+ * blur and spread together, for the furthest outer shadow. Inset shadows,
+ * and lengths it can't read, count for nothing.
+ */
+export function shadowReach(value: string): number {
+  let reach = 0;
+  let depth = 0;
+  let layer = "";
+  const layers: string[] = [];
+  for (const ch of value) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      layers.push(layer);
+      layer = "";
+    } else layer += ch;
+  }
+  layers.push(layer);
+  for (const shadow of layers) {
+    if (/\binset\b/.test(shadow)) continue;
+    // Lengths outside any colour function, in order: x, y, blur, spread.
+    const bare = shadow.replace(/[a-z-]+\([^()]*(?:\([^()]*\)[^()]*)*\)/gi, " ");
+    const lengths = [...bare.matchAll(/(^|\s)(-?(?:\d+\.?\d*|\.\d+))(px|rem|em)?(?=\s|$)/g)].map(
+      (m) => Number(m[2]) * (m[3] === "rem" || m[3] === "em" ? 16 : 1),
+    );
+    const [x = 0, y = 0, blur = 0, spread = 0] = lengths;
+    reach = Math.max(reach, Math.max(Math.abs(x), Math.abs(y)) + Math.max(blur, 0) + spread);
+  }
+  return Math.ceil(Math.max(reach, 0));
+}
 
 export interface SquirclePillBorderPluginOptions {
   /** Class name of the pill utility these borders apply to (default: "squircle-pill") */
@@ -27,11 +59,11 @@ export interface SquirclePillBorderPluginOptions {
  * Teaches Tailwind's own `border-*`, `outline-*` and `ring-*` utilities to
  * drive the border, outline and rings a pill draws along its own outline.
  *
- * A pill is shaped by a mask, and a mask erases everything outside the shape,
- * so a real CSS border survives only as a stadium ring clipped to the pill.
- * The shape's border has to be drawn by the worklet instead, from the pill's
- * own width and colour properties — which would otherwise mean a second way
- * of spelling something Tailwind already spells.
+ * A real CSS border follows the stadium `border-radius`, which the pill sits
+ * up to a few pixels inside near its caps, so the pill hides it and draws its
+ * own along its outline instead, from its own width and colour properties —
+ * which would otherwise mean a second way of spelling something Tailwind
+ * already spells.
  *
  * This registers those same utility names again. Tailwind does not treat that
  * as an override: it emits a second rule alongside its own, so `border-2` keeps
@@ -48,25 +80,33 @@ export interface SquirclePillBorderPluginOptions {
  * `border-dashed` and friends need no help — they set `--tw-border-style`, and
  * the pill utility reads that variable directly.
  *
- * Outlines and rings are the same story one step out. They paint outside the
- * box, which the pill leaves alone, so natively they would show — but around
- * the stadium `border-radius`, which the pill sits up to a few pixels inside,
- * enough for a crisp line to visibly part from it. So their widths, an
- * outline's colour and offset are mirrored too, and the native ones are kept
- * from painting on pills while the pill draws its own. Ring colours, the ring
+ * Outlines and rings are the same story one step out: natively they would
+ * follow the stadium too, far enough from the pill for a crisp line to
+ * visibly part from it. So their widths, an outline's colour and offset are
+ * mirrored too, and the native ones are kept from painting on pills while the
+ * pill draws its own. Ring colours, the ring
  * offset and the outline style already live in Tailwind variables, which the
  * pill utility reads directly. The browser's own focus ring, set by no
  * utility, is left as it is.
  *
- * Shadows are left to the browser, which draws them outside the pill. A drop
- * shadow is a `filter`, though, which Chromium's masks stop short of unless
- * told how far it reaches; `drop-shadow-*` tells them.
+ * Box shadows are drawn by the pill too, cast by its own outline, from the
+ * shadow list Tailwind's utilities build, which the pill utility reads. The
+ * one thing it can't read from CSS is how far a shadow reaches, which the box
+ * it is drawn on has to grow by; `shadow-*` says. Drop shadows need nothing:
+ * a filter on a pill already follows its shape.
+ *
+ * Every pill draws its border, outline, rings and shadows on `::after`, which
+ * costs a paint per resize even with nothing to draw; with this plugin
+ * loaded, a pill only has one when one of those utilities is on it.
  */
 const squirclePillBorder: ReturnType<typeof plugin.withOptions<SquirclePillBorderPluginOptions>> =
   plugin.withOptions<SquirclePillBorderPluginOptions>(
     (options = {}) =>
-      ({ matchUtilities, theme }) => {
+      ({ addBase, matchUtilities, theme }) => {
         const prefix = options.prefix ?? "squircle-pill";
+
+        // No `::after` unless a utility below asks for one.
+        addBase({ [`.${prefix}`]: { [PILL_DECORATED_VAR_NAME]: "none" } });
 
         /*
          * Scoped to pills, so a border utility keeps behaving normally
@@ -107,8 +147,14 @@ const squirclePillBorder: ReturnType<typeof plugin.withOptions<SquirclePillBorde
           type: "length" as const,
         });
 
+        // Gives the pill the `::after` its border, outline, rings and shadows
+        // are drawn on.
+        const decorated = { [PILL_DECORATED_VAR_NAME]: '""' };
         matchUtilities(
-          { border: (value: string) => onPill({ [PILL_BORDER_WIDTH_VAR_NAME]: value }) },
+          {
+            border: (value: string) =>
+              onPill({ [PILL_BORDER_WIDTH_VAR_NAME]: value, ...decorated }),
+          },
           asWidths(theme("borderWidth"), "1px"),
         );
         matchUtilities(
@@ -117,8 +163,6 @@ const squirclePillBorder: ReturnType<typeof plugin.withOptions<SquirclePillBorde
         );
 
         const noOutline = { "outline-color": "transparent" };
-        // Gives the pill the `::before` its outline and rings are drawn on.
-        const decorated = { [PILL_DECORATED_VAR_NAME]: '""' };
         matchUtilities(
           {
             outline: (value: string) =>
@@ -140,18 +184,18 @@ const squirclePillBorder: ReturnType<typeof plugin.withOptions<SquirclePillBorde
           { ...asWidths(theme("outlineOffset")), supportsNegativeValues: true },
         );
 
-        // Far enough for the largest of Tailwind's drop shadows, blur and
-        // offset together; `drop-shadow-none` needs nothing.
+        // The shadow list itself reaches the pill through Tailwind's own
+        // variables; only its reach has to be worked out here.
         matchUtilities(
           {
-            "drop-shadow": (value: string) => ({
-              [`&:is(.${prefix})`]:
-                value === "none" || value === "0 0 #0000"
-                  ? { [PILL_FILTER_OUTSET_VAR_NAME]: "0px" }
-                  : { [PILL_FILTER_OUTSET_VAR_NAME]: "6rem", ...decorated },
+            shadow: (value: string) => ({
+              [`&:is(.${prefix})`]: {
+                [PILL_SHADOW_REACH_VAR_NAME]: `${shadowReach(value)}px`,
+                ...decorated,
+              },
             }),
           },
-          { values: theme("dropShadow") ?? {}, type: "any" },
+          { values: theme("boxShadow") ?? {}, type: "any" },
         );
 
         matchUtilities(

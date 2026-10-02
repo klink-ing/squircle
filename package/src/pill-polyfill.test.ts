@@ -6,15 +6,18 @@
 import { describe, expect, it } from "vitest";
 import {
   pillClipPath,
+  pillDecoration,
   pillDecorationImage,
   pillOutlinePath,
   pillOutlinePoints,
-  pillRingClipPath,
 } from "./pill-polyfill";
 import { paintDef } from "./pill-shape.worklet";
 import {
   PILL_AMT_VAR_NAME,
+  PILL_BORDER_COLOR_VAR_NAME,
+  PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_BOX_SHADOW_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
@@ -23,6 +26,7 @@ import {
   PILL_OUTLINE_OFFSET_VAR_NAME,
   PILL_OUTLINE_STYLE_VAR_NAME,
   PILL_OUTLINE_WIDTH_VAR_NAME,
+  PILL_REACH_VAR_NAME,
   PILL_RING_COLOR_VAR_NAME,
   PILL_RING_OFFSET_COLOR_VAR_NAME,
   PILL_RING_OFFSET_WIDTH_VAR_NAME,
@@ -42,28 +46,19 @@ const parse = (d: string): Point[][] =>
       })),
     );
 
-const pathData = (clip: string) => /"([^"]*)"/.exec(clip)?.[1] ?? "";
-
 /** The vertices the worklet itself draws, without the repeats where quadrants meet. */
 const workletVertices = (width: number, height: number, values: Record<string, string> = {}) => {
   const vertices: Point[] = [];
-  // Up to the first fill: what the mask leaves open around the pill comes after.
-  let filled = false;
   const push = (x: number, y: number) => {
     const last = vertices.at(-1);
-    if (filled) return;
     if (!last || Math.abs(last.x - x) > 1e-6 || Math.abs(last.y - y) > 1e-6)
       vertices.push({ x, y });
   };
   const ctx = {
     fillStyle: "",
     beginPath() {},
-    fill() {
-      filled = true;
-    },
+    fill() {},
     closePath() {},
-    rect() {},
-    arc() {},
     moveTo: push,
     lineTo: push,
   };
@@ -137,153 +132,17 @@ describe("pill polyfill", () => {
     });
   });
 
-  describe("element clip", () => {
-    /** Whether `clip` covers `p`, by the even-odd rule its path is drawn with. */
-    const covers = (clip: string | null, p: Point) => {
-      if (clip === null) return true;
-      if (clip === "inset(50%)") return false;
-      let crossings = 0;
-      for (const ring of parse(pathData(clip))) {
-        for (let i = 0; i < ring.length; i++) {
-          const a = ring[i] as Point;
-          const b = ring[(i + 1) % ring.length] as Point;
-          if (a.y > p.y !== b.y > p.y && p.x < a.x + ((p.y - a.y) * (b.x - a.x)) / (b.y - a.y)) {
-            crossings++;
-          }
-        }
-      }
-      return crossings % 2 === 1;
-    };
-
-    /**
-     * A point between the pill and the stadium, where the gap between them is
-     * widest: the background paints there, so the clip has to hide it.
-     */
-    const sliver = (width: number, height: number) => {
-      const r = height / 2;
-      const outline = pillOutlinePoints(width, height);
-      let best = { x: 0, y: 0, gap: 0 };
-      for (let x = 1; x < r; x += 0.25) {
-        const stadiumTop = r - Math.sqrt(r * r - (r - x) ** 2);
-        // The pill's top edge at x, interpolated between its points.
-        let pillTop = Number.POSITIVE_INFINITY;
-        for (let i = 0; i < outline.length; i++) {
-          const a = outline[i] as Point;
-          const b = outline[(i + 1) % outline.length] as Point;
-          if (a.y < r && b.y < r && (a.x - x) * (b.x - x) <= 0 && a.x !== b.x) {
-            pillTop = Math.min(pillTop, a.y + ((x - a.x) * (b.y - a.y)) / (b.x - a.x));
-          }
-        }
-        if (pillTop - stadiumTop > best.gap)
-          best = { x, y: (stadiumTop + pillTop) / 2, gap: pillTop - stadiumTop };
-      }
-      expect(best.gap).toBeGreaterThan(0.5);
-      return { x: best.x, y: best.y };
-    };
-
-    it("is the pill inside the stadium, and everything else", () => {
-      const clip = pillClipPath(240, 60);
-      expect(clip).toMatch(/^path\(evenodd, "/);
-      expect(covers(clip, { x: 120, y: 30 })).toBe(true);
-      // Between the pill and the stadium, where the background would show.
-      expect(covers(clip, sliver(240, 60))).toBe(false);
-      // The box's corners, outside the stadium, where only what is drawn
-      // around the pill paints.
-      expect(covers(clip, { x: 1, y: 1 })).toBe(true);
-      expect(covers(clip, { x: 239, y: 59 })).toBe(true);
-      // Outside the box, where outlines, rings and shadows paint.
-      for (const p of [
-        { x: -4, y: 30 },
-        { x: 120, y: -40 },
-        { x: 300, y: 90 },
-      ]) {
-        expect(covers(clip, p), `${p.x},${p.y}`).toBe(true);
-      }
-    });
-
-    it("opens the gap under a ring, which covers the background there", () => {
-      const ringed = pillClipPath(240, 60, {}, undefined, {
-        [PILL_RING_WIDTH_VAR_NAME]: "2px",
-        [PILL_RING_COLOR_VAR_NAME]: "white",
-      });
-      expect(covers(ringed, sliver(240, 60))).toBe(true);
-      expect(covers(ringed, { x: 120, y: 30 })).toBe(true);
-      expect(covers(ringed, { x: 1, y: 1 })).toBe(true);
-    });
-
-    it("is just the pill where nothing paints outside the stadium", () => {
-      const plain = pillClipPath(240, 60, {}, undefined, {}, false);
-      expect(plain).toBe(`path("${pillOutlinePath(240, 60)}")`);
-      expect(covers(plain, { x: 1, y: 1 })).toBe(false);
-      // A decoration needs room all the same.
-      const ringed = pillClipPath(
-        240,
-        60,
-        {},
-        undefined,
-        { [PILL_RING_WIDTH_VAR_NAME]: "2px", [PILL_RING_COLOR_VAR_NAME]: "white" },
-        false,
-      );
-      expect(covers(ringed, { x: 1, y: 1 })).toBe(true);
-      // And an own clip is still kept.
-      const half = pillClipPath(240, 60, {}, { value: "inset(0px 50% 0px 0px)" }, {}, false);
-      expect(covers(half, { x: 60, y: 30 })).toBe(true);
-      expect(covers(half, { x: 180, y: 30 })).toBe(false);
+  describe("background clip", () => {
+    it("is the pill's outline, in the coordinates of its box", () => {
+      expect(pillClipPath(240, 60)).toBe(`path("${pillOutlinePath(240, 60)}")`);
+      const shape = { amt: "3" };
+      expect(pillClipPath(240, 60, shape)).toBe(`path("${pillOutlinePath(240, 60, shape)}")`);
     });
 
     it("is not needed for a square, whose stadium is already its circle", () => {
       expect(pillClipPath(48, 48)).toBeNull();
       expect(pillClipPath(48, 47)).not.toBeNull();
-    });
-
-    it("is the pill as it is where the element clips nothing of its own", () => {
-      expect(pillClipPath(240, 60, {}, { value: "none" })).toBe(pillClipPath(240, 60));
-    });
-
-    it("keeps the element's own clip, cut to the outline, outside the box too", () => {
-      // The left half of the box: the outline's left half, and nothing
-      // outside the box, which the own clip doesn't reach.
-      const half = pillClipPath(240, 60, {}, { value: "inset(0px 50% 0px 0px)" });
-      expect(covers(half, { x: 60, y: 30 })).toBe(true);
-      expect(covers(half, { x: 180, y: 30 })).toBe(false);
-      expect(covers(half, sliver(240, 60))).toBe(false);
-      expect(covers(half, { x: 1, y: 1 })).toBe(true);
-      expect(covers(half, { x: -4, y: 30 })).toBe(false);
-      // A clip reaching past the box keeps what's outside it there.
-      const wide = pillClipPath(240, 60, {}, { value: "inset(-20px)" });
-      expect(covers(wide, { x: -10, y: 30 })).toBe(true);
-      expect(covers(wide, { x: -30, y: 30 })).toBe(false);
-      expect(covers(wide, sliver(240, 60))).toBe(false);
-      // And a square keeps it too, cut to its circle.
-      const corner = pillClipPath(48, 48, {}, { value: "polygon(0px 0px, 48px 0px, 0px 48px)" });
-      expect(covers(corner, { x: 16, y: 16 })).toBe(true);
-      // Outside the circle, where only what's drawn around the pill paints.
-      expect(covers(corner, { x: 2, y: 2 })).toBe(true);
-      expect(covers(corner, { x: 32, y: 32 })).toBe(false);
-    });
-
-    it("cuts a tall pill's own clip to its outline too", () => {
-      const clip = pillClipPath(60, 240, {}, { value: "polygon(0px 0px, 100% 0px, 0px 100%)" });
-      expect(covers(clip, { x: 15, y: 60 })).toBe(true);
-      expect(covers(clip, { x: 45, y: 200 })).toBe(false);
-    });
-
-    it("clips everything for sr-only, and keeps an even-odd hole", () => {
-      expect(pillClipPath(240, 60, {}, { value: "inset(50%)" })).toBe("inset(50%)");
-      const ring = pillClipPath(
-        240,
-        60,
-        {},
-        {
-          value: 'path(evenodd, "M0 0H240V60H0Z M100 20H140V40H100Z")',
-        },
-      );
-      expect(covers(ring, { x: 60, y: 30 })).toBe(true);
-      expect(covers(ring, { x: 120, y: 30 })).toBe(false);
-    });
-
-    it("leaves a clip it can't flatten to stand on its own", () => {
-      expect(pillClipPath(240, 60, {}, { value: 'url("#shape")' })).toBeNull();
+      expect(pillClipPath(0, 60)).toBeNull();
     });
   });
 
@@ -292,15 +151,76 @@ describe("pill polyfill", () => {
       pillDecorationImage(width, height, values);
     const svg = (image: string | null) =>
       decodeURIComponent(/^url\("data:image\/svg\+xml,(.*)"\)$/.exec(image ?? "")?.[1] ?? "");
+    const strokes = (drawing: string) =>
+      [...drawing.matchAll(/<path d="([^"]*)" fill="none"[^>]*style="stroke:([^"]*)"/g)].map(
+        (m) => ({ points: parse(m[1] as string)[0] as Point[], color: m[2] as string }),
+      );
 
-    it("draws nothing without an outline or a ring", () => {
+    it("draws nothing without a border, outline, ring or shadow", () => {
       expect(decorate({})).toBeNull();
       expect(decorate({ [PILL_OUTLINE_COLOR_VAR_NAME]: "red" })).toBeNull();
+      expect(decorate({ [PILL_BOX_SHADOW_VAR_NAME]: "0 0 #0000" })).toBeNull();
     });
 
-    it("strokes an outline beyond its offset, on a canvas grown to reach it", () => {
+    it("strokes the border as a band its width wide, just inside the outline", () => {
+      const drawing = svg(
+        decorate({ [PILL_BORDER_WIDTH_VAR_NAME]: "3px", [PILL_BORDER_COLOR_VAR_NAME]: "red" }),
+      );
+      // Nothing reaches outside the box.
+      expect(drawing).toContain('width="240" height="60"');
+      expect(drawing).toContain('stroke-width="3"');
+      const [border] = strokes(drawing);
+      expect(border?.color).toBe("red");
+      const outline = pillOutlinePoints(240, 60);
+      for (const p of border?.points ?? []) expect(distanceTo(p, outline)).toBeCloseTo(1.5, 1);
+      for (const p of border?.points ?? []) {
+        expect(p.x).toBeGreaterThan(1.4);
+        expect(p.y).toBeGreaterThan(1.4);
+      }
+    });
+
+    it("insets a tall pill's border inwards too, though its outline runs the other way", () => {
+      const [border] = strokes(
+        svg(
+          decorate(
+            { [PILL_BORDER_WIDTH_VAR_NAME]: "3px", [PILL_BORDER_COLOR_VAR_NAME]: "red" },
+            60,
+            240,
+          ),
+        ),
+      );
+      for (const p of border?.points ?? []) {
+        expect(p.x).toBeGreaterThan(1.4);
+        expect(p.y).toBeGreaterThan(1.4);
+      }
+    });
+
+    it("rings a square too, though its background needs no clip", () => {
+      expect(
+        decorate(
+          { [PILL_BORDER_WIDTH_VAR_NAME]: "2px", [PILL_BORDER_COLOR_VAR_NAME]: "red" },
+          48,
+          48,
+        ),
+      ).not.toBeNull();
+    });
+
+    it("dashes and dots the way the worklet does, and skips none and hidden", () => {
+      const border = { [PILL_BORDER_WIDTH_VAR_NAME]: "2px", [PILL_BORDER_COLOR_VAR_NAME]: "red" };
+      expect(svg(decorate({ ...border, [PILL_BORDER_STYLE_VAR_NAME]: "dashed" }))).toContain(
+        'stroke-dasharray="6 4"',
+      );
+      expect(svg(decorate({ ...border, [PILL_BORDER_STYLE_VAR_NAME]: "dotted" }))).toContain(
+        'stroke-dasharray="2 4"',
+      );
+      expect(decorate({ ...border, [PILL_BORDER_STYLE_VAR_NAME]: "none" })).toBeNull();
+      expect(decorate({ ...border, [PILL_BORDER_STYLE_VAR_NAME]: " hidden " })).toBeNull();
+    });
+
+    it("strokes an outline beyond its offset, on a canvas grown by the reach", () => {
       const drawing = svg(
         decorate({
+          [PILL_REACH_VAR_NAME]: "6px",
           [PILL_OUTLINE_WIDTH_VAR_NAME]: "2px",
           [PILL_OUTLINE_OFFSET_VAR_NAME]: "4px",
           [PILL_OUTLINE_COLOR_VAR_NAME]: "rgb(255, 0, 0)",
@@ -309,11 +229,11 @@ describe("pill polyfill", () => {
       // 4px of offset and 2px of outline on each side.
       expect(drawing).toContain('width="252" height="72"');
       expect(drawing).toContain('stroke-width="2"');
-      expect(drawing).toContain("stroke:rgb(255, 0, 0)");
       // Centred 5px out from the outline, which itself sits 6px in.
-      const [band] = parse(/ d="([^"]*)"/.exec(drawing)?.[1] ?? "") as [Point[]];
+      const [band] = strokes(drawing);
+      expect(band?.color).toBe("rgb(255, 0, 0)");
       const outline = pillOutlinePoints(240, 60).map((p) => ({ x: p.x + 6, y: p.y + 6 }));
-      for (const p of band) expect(distanceTo(p, outline)).toBeCloseTo(5, 1);
+      for (const p of band?.points ?? []) expect(distanceTo(p, outline)).toBeCloseTo(5, 1);
     });
 
     it("dashes a dashed outline and skips one with no style", () => {
@@ -327,10 +247,12 @@ describe("pill polyfill", () => {
       expect(decorate({ ...outline, [PILL_OUTLINE_STYLE_VAR_NAME]: "none" })).toBeNull();
     });
 
-    it("lays a ring beyond its offset band, and an inset ring inside the border", () => {
+    it("lays the border, an inset ring inside it, and a ring beyond its offset band", () => {
       const drawing = svg(
         decorate({
+          [PILL_REACH_VAR_NAME]: "5px",
           [PILL_BORDER_WIDTH_VAR_NAME]: "1px",
+          [PILL_BORDER_COLOR_VAR_NAME]: "black",
           [PILL_RING_WIDTH_VAR_NAME]: "2px",
           [PILL_RING_COLOR_VAR_NAME]: "blue",
           [PILL_RING_OFFSET_WIDTH_VAR_NAME]: "3px",
@@ -340,66 +262,135 @@ describe("pill polyfill", () => {
         }),
       );
       expect(drawing).toContain('width="250" height="70"');
-      // Bottom first: the inset ring, the offset band, the ring.
-      const strokes = [...drawing.matchAll(/stroke:(\w+)/g)].map((m) => m[1]);
-      expect(strokes).toEqual(["green", "white", "blue"]);
+      // Bottom first: the border, the inset ring, the offset band, the ring.
+      const drawn = strokes(drawing);
+      expect(drawn.map((s) => s.color)).toEqual(["black", "green", "white", "blue"]);
       const outline = pillOutlinePoints(240, 60).map((p) => ({ x: p.x + 5, y: p.y + 5 }));
-      const [inner, offset, ring] = [...drawing.matchAll(/ d="([^"]*)"/g)].map(
-        (m) => (parse(m[1] as string)[0] as Point[])[0] as Point,
-      ) as [Point, Point, Point];
+      const [border, inner, offset, ring] = drawn.map((s) => s.points[0] as Point) as [
+        Point,
+        Point,
+        Point,
+        Point,
+      ];
+      expect(distanceTo(border, outline)).toBeCloseTo(0.5, 1);
       expect(distanceTo(inner, outline)).toBeCloseTo(2, 1);
       expect(distanceTo(offset, outline)).toBeCloseTo(1.5, 1);
       expect(distanceTo(ring, outline)).toBeCloseTo(4, 1);
     });
+
+    it("casts outer shadows outside the outline only, blurred as CSS blurs them", () => {
+      const drawing = svg(
+        decorate({
+          [PILL_REACH_VAR_NAME]: "20px",
+          [PILL_BOX_SHADOW_VAR_NAME]:
+            "inset 0 2px 4px red, 0 0 0 2px blue, 0 4px 8px -2px rgb(0 0 0 / 0.6)",
+        }),
+      );
+      expect(drawing).toContain('width="280" height="100"');
+      // The box with the outline cut out of it.
+      expect(drawing).toMatch(/<clipPath id="o"><path clip-rule="evenodd" d="M0 0H280V100H0Z/);
+      // Last first; the inset one is left to the copy of the background.
+      const fills = [...drawing.matchAll(/style="fill:([^"]*)"/g)].map((m) => m[1]);
+      expect(fills).toEqual(["rgb(0 0 0 / 0.6)", "blue"]);
+      expect(drawing).not.toContain("red");
+      // A standard deviation of half the blur radius, and none for a hard one.
+      expect(drawing).toContain('<feGaussianBlur stdDeviation="4"/>');
+      expect([...drawing.matchAll(/<filter /g)]).toHaveLength(1);
+      // Spread and offset: the hard ring grown 2px, the soft one shrunk 2px
+      // and dropped 4px.
+      const shadows = [...drawing.matchAll(/<path d="([^"]*)"[^>]*style="fill:/g)].map(
+        (m) => parse(m[1] as string)[0] as Point[],
+      );
+      const top = (points: Point[]) => Math.min(...points.map((p) => p.y));
+      expect(top(shadows[0] as Point[])).toBeCloseTo(20 + 2 + 4, 1);
+      expect(top(shadows[1] as Point[])).toBeCloseTo(20 - 2, 1);
+    });
   });
 
-  describe("ring clip", () => {
-    it("is a band exactly the border width wide, inside the outline", () => {
-      const clip = pillRingClipPath(240, 60, 3, "solid") as string;
-      expect(clip.startsWith('path(evenodd, "')).toBe(true);
+  describe("single band", () => {
+    const border = { [PILL_BORDER_WIDTH_VAR_NAME]: "3px", [PILL_BORDER_COLOR_VAR_NAME]: "red" };
+    const pathData = (clip: string) => /"([^"]*)"/.exec(clip)?.[1] ?? "";
+
+    it("is its colour through a clip, rather than an image", () => {
+      const drawing = pillDecoration(240, 60, border);
+      expect(drawing?.image).toBe("linear-gradient(red, red)");
+      expect(drawing?.clip).toMatch(/^path\(evenodd, "/);
+    });
+
+    it("clips to a band exactly the border wide, inside the outline", () => {
+      const clip = pillDecoration(240, 60, border)?.clip as string;
       const [outer, inner] = parse(pathData(clip)) as [Point[], Point[]];
       expect(outer.length).toBe(inner.length);
-      for (const p of inner) expect(distanceTo(p, outer)).toBeCloseTo(3, 1);
-      // Inside the box, so inside the outline it was inset from.
+      const outline = pillOutlinePoints(240, 60);
+      for (const p of outer) expect(distanceTo(p, outline)).toBeCloseTo(0, 1);
       for (const p of inner) {
+        expect(distanceTo(p, outline)).toBeCloseTo(3, 1);
         expect(p.x).toBeGreaterThan(2.9);
-        expect(p.x).toBeLessThan(240 - 2.9);
         expect(p.y).toBeGreaterThan(2.9);
-        expect(p.y).toBeLessThan(60 - 2.9);
       }
     });
 
     it("insets a tall pill's band inwards too, though its outline runs the other way", () => {
-      const clip = pillRingClipPath(60, 240, 3, "solid") as string;
-      const [outer, inner] = parse(pathData(clip)) as [Point[], Point[]];
+      const clip = pillDecoration(60, 240, border)?.clip as string;
+      const [, inner] = parse(pathData(clip)) as [Point[], Point[]];
       for (const p of inner) {
-        expect(distanceTo(p, outer)).toBeCloseTo(3, 1);
         expect(p.x).toBeGreaterThan(2.9);
         expect(p.y).toBeGreaterThan(2.9);
       }
     });
 
-    it("rings a square too, though it needs no element clip", () => {
-      expect(pillRingClipPath(48, 48, 2, "solid")).not.toBeNull();
+    it("lies on the decoration's grown box, for an outline beyond its offset", () => {
+      const clip = pillDecoration(240, 60, {
+        [PILL_REACH_VAR_NAME]: "6px",
+        [PILL_OUTLINE_WIDTH_VAR_NAME]: "2px",
+        [PILL_OUTLINE_OFFSET_VAR_NAME]: "4px",
+        [PILL_OUTLINE_COLOR_VAR_NAME]: "white",
+      })?.clip as string;
+      const outline = pillOutlinePoints(240, 60).map((p) => ({ x: p.x + 6, y: p.y + 6 }));
+      const [outer, inner] = parse(pathData(clip)) as [Point[], Point[]];
+      for (const p of outer) expect(distanceTo(p, outline)).toBeCloseTo(6, 1);
+      for (const p of inner) expect(distanceTo(p, outline)).toBeCloseTo(4, 1);
     });
 
-    it("cuts dashes and dots along the outline the way the worklet dashes", () => {
+    it("cuts dashes and dots along the band the way the worklet dashes", () => {
+      const dashes = (style: string) =>
+        parse(
+          pathData(
+            pillDecoration(240, 60, {
+              [PILL_BORDER_WIDTH_VAR_NAME]: "2px",
+              [PILL_BORDER_COLOR_VAR_NAME]: "red",
+              [PILL_BORDER_STYLE_VAR_NAME]: style,
+            })?.clip as string,
+          ),
+        ).length;
+      // Measured along the centre line, 1px inside the outline: a convex
+      // curve moved in by 1 is shorter by 2π.
       const outline = pillOutlinePoints(240, 60);
-      const length = outline.reduce((sum, p, i) => {
+      const perimeter = outline.reduce((sum, p, i) => {
         const q = outline[(i + 1) % outline.length] as Point;
         return sum + Math.hypot(q.x - p.x, q.y - p.y);
       }, 0);
+      const centre = perimeter - 2 * Math.PI;
       // Width 2: dashes are 6 on, 4 off; dots 2 on, 4 off.
-      const dashes = parse(pathData(pillRingClipPath(240, 60, 2, "dashed") as string));
-      expect(dashes.length).toBe(Math.ceil(length / 10));
-      const dots = parse(pathData(pillRingClipPath(240, 60, 2, "dotted") as string));
-      expect(dots.length).toBe(Math.ceil(length / 6));
+      expect(dashes("dashed")).toBe(Math.ceil(centre / 10));
+      expect(dashes("dotted")).toBe(Math.ceil(centre / 6));
     });
 
-    it("draws nothing without a width, or for none and hidden", () => {
-      expect(pillRingClipPath(240, 60, 0, "solid")).toBeNull();
-      expect(pillRingClipPath(240, 60, 3, "none")).toBeNull();
-      expect(pillRingClipPath(240, 60, 3, " hidden ")).toBeNull();
+    it("leaves more than one band, or any shadow, to the image", () => {
+      const both = pillDecoration(240, 60, {
+        ...border,
+        [PILL_RING_WIDTH_VAR_NAME]: "2px",
+        [PILL_RING_COLOR_VAR_NAME]: "blue",
+      });
+      expect(both?.clip).toBeNull();
+      expect(both?.image).toMatch(/^url\("data:image\/svg\+xml,/);
+      const shadowed = pillDecoration(240, 60, {
+        ...border,
+        [PILL_REACH_VAR_NAME]: "10px",
+        [PILL_BOX_SHADOW_VAR_NAME]: "0 2px 4px black",
+      });
+      expect(shadowed?.clip).toBeNull();
+      expect(pillDecoration(240, 60, {})).toBeNull();
     });
   });
 });

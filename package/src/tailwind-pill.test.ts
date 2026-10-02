@@ -11,12 +11,15 @@ import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_BOX_SHADOW_VAR_NAME,
+  PILL_CLIP_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
+  PILL_DECORATED_VAR_NAME,
+  PILL_DECORATION_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
-  PILL_CLIPPED_ATTRIBUTE,
   PILL_POLYFILL_ATTRIBUTE,
-  PILL_RING_CLIP_VAR_NAME,
-  PILL_STROKE_WIDTH_VAR_NAME,
+  PILL_REACH_VAR_NAME,
+  PILL_RING_COLOR_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -29,121 +32,104 @@ const compilePillAll = (candidates: string[], block = "") =>
 const LOADED = `:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`;
 
 describe("tailwind-pill.ts utilities", () => {
-  it("masks the element to the pill once the worklet has loaded", async () => {
+  it("shapes a copy of the background once the worklet has loaded", async () => {
     const css = await compilePill(["squircle-pill"]);
     expect(css).toContain(`${LOADED} {`);
-    expect(css).toMatch(/[^-]mask-image: [^;]*paint\(pill-shape\);/);
-    expect(css).toMatch(/-webkit-mask-image: [^;]*paint\(pill-shape\);/);
-    expect(css).toContain("mask-image: paint(pill-ring)");
+    const before = css.slice(css.indexOf("&::before"));
+    expect(before).toContain("background: inherit");
+    expect(before).toMatch(/[^-]mask-image: paint\(pill-shape\);/);
+    expect(before).toMatch(/-webkit-mask-image: paint\(pill-shape\);/);
+    expect(css).toContain("background: paint(pill-decoration)");
   });
 
   it("never gates on @supports alone", async () => {
     // `@supports (mask-image: paint(pill-shape))` is true for any paint
     // name, loaded or not, so a mask gated on it alone would erase every
-    // pill the moment the worklet failed to load.
+    // pill's background the moment the worklet failed to load.
     const css = await compilePill(["squircle-pill"]);
     expect(css).not.toContain("@supports");
   });
 
-  it("never paints the shape as a background", async () => {
-    // A painted background covers whatever background the element already had.
-    // Masking keeps the element's own background — colour, gradient, image —
-    // and shapes that instead.
+  it("hides the element's own background and box shadows, on a doubled selector", async () => {
+    // Painted into the stadium `border-radius`, they would show as a hairline
+    // just outside the pill. Doubled, so a `bg-*` or `shadow-*` utility,
+    // emitted after the pill, cannot bring them back.
     const css = await compilePill(["squircle-pill"]);
-    expect(css).not.toContain("background-image: paint(");
+    const own = css.slice(
+      css.indexOf(
+        `:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) && {`,
+      ),
+    );
+    const block = own.slice(0, own.indexOf("}"));
+    expect(block).toContain("background-clip: text");
+    expect(block).toContain("box-shadow: none");
   });
 
-  it("draws a border the shape can actually follow", async () => {
-    // A CSS border would be a stadium ring clipped to the pill, so the
-    // worklet strokes one on ::after instead, grown back out over the room
-    // the real border reserves.
+  it("leaves masks and clip-paths on the element to Tailwind", async () => {
+    // The shape is on the copy of the background, so `mask-*` and
+    // `clip-path` utilities apply to the whole pill as they would anywhere.
+    const css = await compilePill(["squircle-pill", "mask-b-from-50%"]);
+    const pill = css.slice(css.indexOf(".squircle-pill {"), css.indexOf(".mask-b-from-50\\%"));
+    // Everything but the pill's own pseudo-elements.
+    const element = pill.replace(/&::(?:before|after) \{[^}]*\}/g, "");
+    expect(element).not.toMatch(/mask|clip-path/);
+  });
+
+  it("draws its decoration on ::after, over a box grown by its reach", async () => {
+    // A CSS border would follow the stadium, so the pill draws its own along
+    // its outline, outside the room the real border reserves.
     const css = await compilePill(["squircle-pill"]);
     expect(css).toContain("&::after");
-    expect(css).toContain(`${PILL_STROKE_WIDTH_VAR_NAME}: var(${PILL_BORDER_WIDTH_VAR_NAME})`);
-    expect(css).toContain(`inset: calc(-1 * var(${PILL_BORDER_WIDTH_VAR_NAME}))`);
-    expect(css).toContain(`background: var(${PILL_BORDER_COLOR_VAR_NAME})`);
+    expect(css).toContain(
+      `inset: calc(-1 * (var(${PILL_BORDER_WIDTH_VAR_NAME}) + var(${PILL_REACH_VAR_NAME})))`,
+    );
+    // Only where `tailwind-pill-border` saw a utility that draws something.
+    expect(css).toContain(`content: var(${PILL_DECORATED_VAR_NAME}, "")`);
     expect(css).toContain("border-color: transparent");
   });
 
-  it("hands the ring the element's values by inheritance alone", async () => {
-    // WebKit never restyles `::after` when a non-inheriting property it pulls
-    // down with `inherit` changes, so nothing reaches the ring that way.
+  it("hands the pseudo-elements the element's values by inheritance alone", async () => {
+    // WebKit never restyles a pseudo-element when a non-inheriting property
+    // it pulls down with `inherit` changes.
     const css = await compilePill(["squircle-pill"]);
-    const ring = css.slice(css.indexOf("&::after"));
-    expect(ring.slice(0, ring.indexOf("}"))).not.toContain(": inherit");
+    expect(css).not.toMatch(/--[\w-]+: inherit/);
   });
 
-  it("bridges Tailwind's border style variable into the pill's own, on the element", async () => {
+  it("bridges Tailwind's variables into the pill's own, on the element", async () => {
     // Where a utility exposes a variable, read it rather than asking for a
-    // second source of truth. Tailwind registers --tw-border-style as
-    // non-inheriting, so it is mapped where it is set and the ring inherits
-    // the result.
+    // second source of truth. Tailwind registers these as non-inheriting, so
+    // they are mapped where they are set and the pseudo-elements inherit the
+    // result.
     const css = await compilePill(["squircle-pill"]);
     const own = /:where\(&\) \{([^}]*)\}/.exec(css)?.[1];
     expect(own).toContain(`${PILL_BORDER_STYLE_VAR_NAME}: var(--tw-border-style, solid)`);
+    expect(own).toContain(`${PILL_RING_COLOR_VAR_NAME}: var(--tw-ring-color, currentColor)`);
+    expect(own).toContain(
+      `${PILL_BOX_SHADOW_VAR_NAME}: var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000), var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow, 0 0 #0000)`,
+    );
   });
 
-  it("starts each pill with no border or ring of its own, at zero specificity", async () => {
+  it("starts each pill with no decoration of its own, at zero specificity", async () => {
     // Same default colour a real border has, so `border-2` alone draws a
-    // visible ring, and a value set any other way wins whatever the order;
-    // the reset keeps a pill nested in a bordered one from inheriting its
-    // parent's ring.
+    // visible border, and a value set any other way wins whatever the order;
+    // the reset keeps a pill nested in a bordered one from drawing its
+    // parent's border.
     const css = await compilePill(["squircle-pill"]);
     const own = /:where\(&\) \{([^}]*)\}/.exec(css)?.[1];
     expect(own).toContain(`${PILL_BORDER_WIDTH_VAR_NAME}: 0px;`);
     expect(own).toContain(`${PILL_BORDER_COLOR_VAR_NAME}: currentColor;`);
-    expect(own).toContain(`${PILL_RING_CLIP_VAR_NAME}: initial;`);
+    expect(own).toContain(`${PILL_CLIP_VAR_NAME}: initial;`);
+    expect(own).toContain(`${PILL_DECORATION_VAR_NAME}: initial;`);
   });
 
-  describe("combined with Tailwind's mask utilities", () => {
-    it("intersects Tailwind's mask layers with its own shape, inside the box only", async () => {
-      // `mask-b-from-50%` and friends fill these three layers; listing them
-      // keeps the pill shape when one is used, and the fallbacks keep the
-      // mask valid where Tailwind never registered them. The two opaque
-      // layers on top, each excluded, open everything outside the box, for
-      // outlines, rings and shadows.
-      const css = await compilePill(["squircle-pill"]);
-      const opaque = "linear-gradient(#fff, #fff)";
-      expect(css).toContain(
-        `mask-image: ${opaque}, ${opaque}, var(--tw-mask-linear, ${opaque}), var(--tw-mask-radial, ${opaque}), var(--tw-mask-conic, ${opaque}), paint(pill-shape)`,
-      );
-      expect(css).toContain(
-        "mask-composite: exclude, exclude, intersect, intersect, intersect, add",
-      );
-      expect(css).toContain(
-        "-webkit-mask-composite: xor, xor, source-in, source-in, source-in, source-over",
-      );
-      expect(css).toContain(
-        "mask-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat",
-      );
-      expect(css).toContain("mask-clip: no-clip");
-    });
-
-    it("sets the shape on a doubled selector, so a mask utility cannot replace it", async () => {
-      // Tailwind emits its mask utilities after the pill, at single-class
-      // specificity; equal specificity would let the later one win outright.
-      const css = await compilePill(["squircle-pill", "mask-b-from-50%"]);
-      const shape = css.indexOf(
-        "mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), var(--tw-mask-linear",
-      );
-      expect(
-        css.lastIndexOf(`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) && {`, shape),
-      ).toBeGreaterThan(-1);
-      expect(css.indexOf(".mask-b-from-50\\%")).toBeGreaterThan(shape);
-    });
-
-    it("shapes with a clip under the polyfill, leaving mask-image to Tailwind", async () => {
-      const css = await compilePill(["squircle-pill"]);
-      // Only on pills the polyfill has given a clip, so until then, or where
-      // it needs none, the element's own clip-path stands.
-      const branch = css.slice(
-        css.indexOf(
-          `:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &&:where([${PILL_CLIPPED_ATTRIBUTE}]) {`,
-        ),
-      );
-      expect(branch).toContain("clip-path: var(");
-      expect(branch.slice(0, branch.indexOf("}"))).not.toContain("mask-image");
-    });
+  it("shapes with a clip under the polyfill, on the copy of the background", async () => {
+    const css = await compilePill(["squircle-pill"]);
+    const branch = css.slice(css.indexOf(`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) & {`));
+    const before = branch.slice(branch.indexOf("&::before"));
+    expect(before.slice(0, before.indexOf("}"))).toContain(
+      `clip-path: var(${PILL_CLIP_VAR_NAME}, none)`,
+    );
+    expect(branch).toContain(`background-image: var(${PILL_DECORATION_VAR_NAME}, none)`);
   });
 
   describe("the stadium underneath", () => {

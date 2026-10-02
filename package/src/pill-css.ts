@@ -14,27 +14,26 @@ import {
   PILL_BORDER_STYLE_FALLBACK,
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
-  PILL_CONTINUITY_VAR_NAME,
-  PILL_EASE_SPREAD_VAR_NAME,
+  PILL_BOX_SHADOW_VAR_NAME,
   PILL_CLIP_VAR_NAME,
-  PILL_CLIPPED_ATTRIBUTE,
+  PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATED_VAR_NAME,
+  PILL_DECORATION_CLIP_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_FILTER_OUTSET_VAR_NAME,
+  PILL_EASE_SPREAD_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
-  PILL_MASK_BANDS_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
   PILL_OUTLINE_OFFSET_VAR_NAME,
   PILL_OUTLINE_STYLE_VAR_NAME,
   PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
-  PILL_RING_CLIP_VAR_NAME,
+  PILL_REACH_VAR_NAME,
   PILL_RING_COLOR_VAR_NAME,
   PILL_RING_OFFSET_COLOR_VAR_NAME,
   PILL_RING_OFFSET_WIDTH_VAR_NAME,
   PILL_RING_WIDTH_VAR_NAME,
-  PILL_STROKE_WIDTH_VAR_NAME,
+  PILL_SHADOW_REACH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -42,15 +41,16 @@ import {
 export type PillCss = { [key: string]: string | PillCss };
 
 /**
- * Where the pill's rules come from decides how its border is wired up.
+ * Where the pill's rules come from decides how its border and shadows are
+ * wired up.
  *
- * `tailwind`: the `border-*` utilities own the real border, and
- * `tailwind-pill-border` mirrors their width and colour into the pill's own
- * properties; `border-dashed` and friends are read through `--tw-border-style`.
+ * `tailwind`: the `border-*`, `shadow-*` and ring utilities own those, and
+ * the pill reads them — through `tailwind-pill-border` for widths, and
+ * through Tailwind's own variables for styles, colours and shadow lists.
  *
  * `standalone`: the pill's own properties are the only API, so they drive a
  * real border too. That real border is what shows without the worklet, a
- * stadium ring, and what reserves room for the drawn ring with it.
+ * stadium ring, and what reserves room for the drawn one with it.
  */
 export type PillCssFlavor = "tailwind" | "standalone";
 
@@ -60,15 +60,32 @@ export type PillCssFlavor = "tailwind" | "standalone";
  * typed and animatable, and resolves lengths to px before the worklet sees
  * them.
  *
- * Everything the ring on `::after` reads inherits, so the ring gets it the
- * ordinary way. Pulling a non-inheriting property down with `inherit` works
- * once, but WebKit never restyles the pseudo when it changes: a hover colour,
- * a new width, or the clip the polyfill computes after the first paint would
- * never reach the ring in Safari. A pill nested in a bordered pill is kept
- * from drawing its parent's ring by resetting the border on every pill
+ * Everything the pseudo-elements read inherits, so they get it the ordinary
+ * way. Pulling a non-inheriting property down with `inherit` works once, but
+ * WebKit never restyles the pseudo when it changes: a hover colour, a new
+ * width, or the clip the polyfill computes after the first paint would never
+ * reach it in Safari. A pill nested in a decorated pill is kept from drawing
+ * its parent's border, rings and shadows by resetting them on every pill
  * instead; see `pillCssObj`.
  */
 export function pillPropertyRegistrations(): Record<string, Record<string, string>> {
+  const lengths = [
+    PILL_BORDER_WIDTH_VAR_NAME,
+    PILL_OUTLINE_WIDTH_VAR_NAME,
+    PILL_OUTLINE_OFFSET_VAR_NAME,
+    PILL_RING_WIDTH_VAR_NAME,
+    PILL_RING_OFFSET_WIDTH_VAR_NAME,
+    PILL_INSET_RING_WIDTH_VAR_NAME,
+    PILL_SHADOW_REACH_VAR_NAME,
+    PILL_REACH_VAR_NAME,
+  ];
+  const colors = [
+    PILL_BORDER_COLOR_VAR_NAME,
+    PILL_OUTLINE_COLOR_VAR_NAME,
+    PILL_RING_COLOR_VAR_NAME,
+    PILL_RING_OFFSET_COLOR_VAR_NAME,
+    PILL_INSET_RING_COLOR_VAR_NAME,
+  ];
   return {
     [`@property ${PILL_AMT_VAR_NAME}`]: {
       syntax: '"<number>"',
@@ -85,178 +102,107 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
       "initial-value": String(DEFAULT_PILL_CONTINUITY),
       inherits: "true",
     },
-    [`@property ${PILL_BORDER_WIDTH_VAR_NAME}`]: {
-      syntax: '"<length>"',
-      "initial-value": "0px",
-      inherits: "true",
-    },
-    [`@property ${PILL_BORDER_COLOR_VAR_NAME}`]: {
-      syntax: '"<color>"',
-      "initial-value": "transparent",
-      inherits: "true",
-    },
-    // The outline, ring and inset ring, inheriting for `::before` like the
-    // border does for `::after`, and reset on every pill the same way.
     ...Object.fromEntries(
-      [
-        PILL_OUTLINE_WIDTH_VAR_NAME,
-        PILL_OUTLINE_OFFSET_VAR_NAME,
-        PILL_RING_WIDTH_VAR_NAME,
-        PILL_RING_OFFSET_WIDTH_VAR_NAME,
-        PILL_INSET_RING_WIDTH_VAR_NAME,
-      ].map((name) => [
+      lengths.map((name) => [
         `@property ${name}`,
         { syntax: '"<length>"', "initial-value": "0px", inherits: "true" },
       ]),
     ),
     ...Object.fromEntries(
-      [
-        PILL_OUTLINE_COLOR_VAR_NAME,
-        PILL_RING_COLOR_VAR_NAME,
-        PILL_RING_OFFSET_COLOR_VAR_NAME,
-        PILL_INSET_RING_COLOR_VAR_NAME,
-      ].map((name) => [
+      colors.map((name) => [
         `@property ${name}`,
         { syntax: '"<color>"', "initial-value": "transparent", inherits: "true" },
       ]),
     ),
-    // The polyfill's drawing of those, for `::before`.
+    // The polyfill's shape for the background, and its drawing of the rest.
+    [`@property ${PILL_CLIP_VAR_NAME}`]: { syntax: '"*"', inherits: "true" },
     [`@property ${PILL_DECORATION_VAR_NAME}`]: { syntax: '"*"', inherits: "true" },
-    // The polyfill's per-element clips. The element's own is read only by the
-    // element, so it doesn't inherit: a pill nested in another never wears
-    // its parent's shape. The ring's does, for `::after`, and is reset on
-    // every pill instead.
-    [`@property ${PILL_CLIP_VAR_NAME}`]: { syntax: '"*"', inherits: "false" },
-    [`@property ${PILL_RING_CLIP_VAR_NAME}`]: { syntax: '"*"', inherits: "true" },
+    [`@property ${PILL_DECORATION_CLIP_VAR_NAME}`]: { syntax: '"*"', inherits: "true" },
   };
 }
 
-const maskWith = (image: string): PillCss => ({
-  "-webkit-mask-image": image,
-  "mask-image": image,
-  "-webkit-mask-size": "100% 100%",
-  "mask-size": "100% 100%",
-  "-webkit-mask-repeat": "no-repeat",
-  "mask-repeat": "no-repeat",
-  "mask-mode": "alpha",
-});
-
-/**
- * Tailwind's mask utilities — `mask-b-from-50%`, `mask-radial-*` and the rest
- * — build `mask-image` from these three layers, intersected, each opaque
- * until a utility sets it. Listing them with the pill's own shape keeps the
- * shape when one is used, instead of the two fighting over `mask-image`. The
- * fallbacks cover pages where Tailwind never registered them.
- */
-const OPAQUE = "linear-gradient(#fff, #fff)";
-const TAILWIND_MASK_LAYERS = ["--tw-mask-linear", "--tw-mask-radial", "--tw-mask-conic"].map(
-  (name) => `var(${name}, ${OPAQUE})`,
-);
-
-/**
- * The element's mask: inside the border box, the pill and what the worklet
- * leaves open around it — see `surround` — intersected with any `extra`
- * layers, such as Tailwind's; outside the box, everything. So outlines, rings
- * and shadows survive, inside the box and out.
- *
- * Mask layers composite from the bottom up, each with the result below it.
- * Bottom to top: the pill, the extras intersected with it, the border box
- * excluded from that, and an opaque layer repeated past the box in every
- * direction excluded from that. Two exclusions — XOR — of a shape inside the
- * box give back the shape inside the box and everything outside it, soft
- * edges and all. `mask-clip: no-clip` is what lets the repeated layer reach
- * outside the box at all.
- */
-const openMask = (extra: string[]): PillCss => {
-  const images = [OPAQUE, OPAQUE, ...extra, "paint(pill-shape)"];
-  const list = (first: string, second: string, rest: string, last: string) =>
-    [first, second, ...extra.map(() => rest), last].join(", ");
-  return {
-    "-webkit-mask-image": images.join(", "),
-    "mask-image": images.join(", "),
-    "-webkit-mask-size": "100% 100%",
-    "mask-size": "100% 100%",
-    "-webkit-mask-repeat": list("repeat", "no-repeat", "no-repeat", "no-repeat"),
-    "mask-repeat": list("repeat", "no-repeat", "no-repeat", "no-repeat"),
-    "-webkit-mask-clip": "no-clip",
-    "mask-clip": "no-clip",
-    "-webkit-mask-composite": list("xor", "xor", "source-in", "source-over"),
-    "mask-composite": list("exclude", "exclude", "intersect", "add"),
-    "mask-mode": "alpha",
-  };
-};
-
-/** Clips everything away: a ring with nothing computed for it draws nothing. */
-const CLIP_ALL = "inset(50%)";
+/** Tailwind's ring and shadow variables, in the order `box-shadow` lists them. */
+const TAILWIND_BOX_SHADOW = [
+  "--tw-inset-shadow",
+  "--tw-inset-ring-shadow",
+  "--tw-ring-offset-shadow",
+  "--tw-ring-shadow",
+  "--tw-shadow",
+]
+  .map((name) => `var(${name}, 0 0 #0000)`)
+  .join(", ");
 
 /**
  * The rules one pill utility carries, with `&` standing for the utility's own
  * selector.
  *
- * The shape is applied as a mask, not painted as a background, so the element
- * keeps whatever background it already has — a colour, a gradient, an image —
- * and that background is what gets pill-shaped.
+ * Nothing about the element itself is masked. Its background is hidden —
+ * clipped to its text, which sits on top of it anyway — and painted again on
+ * `::before`, under the content, shaped exactly to the pill. Whatever the
+ * background is, a colour, a gradient, an image, that copy of it is what
+ * shows. Hiding the original matters: it would paint into the stadium
+ * `border-radius`, which sits up to a few pixels outside the pill near its
+ * caps, and in that sliver no shadow could show.
  *
- * The mask cuts the pill out of the border box and leaves everything outside
- * the box alone, so shadows, drop shadows and the browser's focus ring, which
- * paint there, survive; they follow the stadium `border-radius`, which the
- * pill sits at most a few pixels inside. A border can't survive inside the
- * box, so it is drawn, on `::after`, by the same worklet in stroke mode, as
- * an inset band along the inside of the outline. Outlines and rings, crisp
- * enough for those few pixels to show, are drawn too, on `::before`, along
- * the outline itself.
+ * Around the pill, on `::after`, the pill draws its own border, outline,
+ * rings and box shadows, cast by its true outline; the element's own box
+ * shadows are switched off, and the copy of the background paints the inset
+ * ones. A drop shadow, a filter on the element, sees the pill-shaped copy and
+ * follows it by itself. A mask on the element — Tailwind's `mask-*` — applies
+ * as it would anywhere, shadows and all.
  */
 export function pillCssObj(flavor: PillCssFlavor): PillCss {
-  const ring = (ringShape: PillCss): PillCss => ({
+  const background = (shape: PillCss): PillCss => ({
     content: '""',
     position: "absolute",
-    "pointer-events": "none",
-    // The shape, border and ring clip all arrive by inheritance; see
-    // `pillPropertyRegistrations`.
-    // The pseudo is positioned against the padding box, but the real border
-    // still reserves its width for layout, so the ring has to grow back out
-    // by that much to hug the border box the mask covers.
+    // The pseudo is positioned against the padding box; the border box is
+    // what it has to cover.
     inset: `calc(-1 * var(${PILL_BORDER_WIDTH_VAR_NAME}))`,
-    background: `var(${PILL_BORDER_COLOR_VAR_NAME})`,
-    // Set on the ring only: its presence is what switches the worklet from
-    // filling the shape to stroking it. Fed from the registered width so the
-    // worklet sees a px value whatever unit the width was written in.
-    [PILL_STROKE_WIDTH_VAR_NAME]: `var(${PILL_BORDER_WIDTH_VAR_NAME})`,
-    ...ringShape,
+    "z-index": "-1",
+    "pointer-events": "none",
+    "border-radius": "inherit",
+    background: "inherit",
+    // A border as wide as the element's, so a background positioned against
+    // the padding box lines up with the original. Painted under it too.
+    border: `var(${PILL_BORDER_WIDTH_VAR_NAME}) solid transparent`,
+    "-webkit-background-clip": "border-box",
+    "background-clip": "border-box",
+    // The inset shadows paint inside the copy; the outer ones are cut away
+    // with everything else outside the pill, and drawn on `::after` instead.
+    "box-shadow": `var(${PILL_BOX_SHADOW_VAR_NAME}, none)`,
+    ...shape,
   });
 
-  /*
-   * The outline, ring and inset ring, on `::before`: the border box grown on
-   * every side by as far as the outline and the ring reach past it, the same
-   * reach the worklet and the polyfill draw to. Under the border, which is on
-   * `::after`.
-   */
   const decoration = (paint: PillCss): PillCss => ({
-    // With Tailwind, only on pills `tailwind-pill-border` has seen an outline,
-    // ring or drop shadow utility on: a pseudo on every pill, even drawing
-    // nothing, costs a paint each per resize. Without it, always.
-    content: flavor === "tailwind" ? `var(${PILL_DECORATED_VAR_NAME}, none)` : '""',
+    // With Tailwind, only on pills `tailwind-pill-border` has seen a border,
+    // outline, ring or shadow utility on: a pseudo on every pill, even drawing
+    // nothing, costs a paint each per resize. Without that plugin, always.
+    content: flavor === "tailwind" ? `var(${PILL_DECORATED_VAR_NAME}, "")` : '""',
     position: "absolute",
     "pointer-events": "none",
-    inset: `calc(-1 * (var(${PILL_BORDER_WIDTH_VAR_NAME}) + max(0px, var(${PILL_OUTLINE_OFFSET_VAR_NAME}) + var(${PILL_OUTLINE_WIDTH_VAR_NAME}), var(${PILL_RING_OFFSET_WIDTH_VAR_NAME}) + var(${PILL_RING_WIDTH_VAR_NAME}))))`,
+    inset: `calc(-1 * (var(${PILL_BORDER_WIDTH_VAR_NAME}) + var(${PILL_REACH_VAR_NAME})))`,
     ...paint,
   });
 
-  const shaped = (ringShape: PillCss, decorationPaint: PillCss): PillCss => ({
+  const shaped = (shape: PillCss, paint: PillCss): PillCss => ({
     // The worklet only runs where there is an area to paint.
     "min-width": "1px",
     "min-height": "1px",
     position: "relative",
-    // The real border must not paint: under the mask it is a stadium ring
-    // clipped to the pill. Its width still reserves room for the drawn one.
+    // Keeps the copy of the background, at `z-index: -1`, above the element's
+    // own and below its content.
+    isolation: "isolate",
+    // The real border must not paint: it is a stadium ring. Its width still
+    // reserves room for the drawn one.
     "border-color": "transparent",
-    "&::before": decoration(decorationPaint),
-    "&::after": ring(ringShape),
+    "&::before": background(shape),
+    "&::after": decoration(paint),
   });
 
   return {
     // A stadium on every branch: it is the whole fallback without the
-    // worklet, and what native inset decorations follow with it.
+    // worklet, and what an outline the pill doesn't draw itself — the
+    // browser's focus ring — follows with it.
     "border-radius": FULL_RADIUS,
     ...(flavor === "standalone"
       ? {
@@ -265,96 +211,87 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
           "border-color": `var(${PILL_BORDER_COLOR_VAR_NAME})`,
         }
       : {}),
-    // Same default a real border has. Zero specificity, so a colour set any
-    // other way — a utility, a rule, an inline style — wins whatever the
-    // order.
+    // Same default colours a real border and ring have. Zero specificity, so
+    // a value set any other way — a utility, a rule, an inline style — wins
+    // whatever the order.
     //
-    // The border and the ring clip inherit, so each pill also starts from
-    // none of either, rather than drawing a bordered parent's ring.
+    // Everything here inherits, so each pill also starts from none of it,
+    // rather than drawing a decorated parent's border, rings or shadows.
     ":where(&)": {
       [PILL_BORDER_WIDTH_VAR_NAME]: "0px",
       [PILL_BORDER_COLOR_VAR_NAME]: "currentColor",
-      [PILL_RING_CLIP_VAR_NAME]: "initial",
       [PILL_OUTLINE_WIDTH_VAR_NAME]: "0px",
       [PILL_OUTLINE_OFFSET_VAR_NAME]: "0px",
       [PILL_OUTLINE_COLOR_VAR_NAME]: "currentColor",
       [PILL_RING_WIDTH_VAR_NAME]: "0px",
       [PILL_INSET_RING_WIDTH_VAR_NAME]: "0px",
+      [PILL_SHADOW_REACH_VAR_NAME]: "0px",
+      [PILL_CLIP_VAR_NAME]: "initial",
       [PILL_DECORATION_VAR_NAME]: "initial",
-      [PILL_FILTER_OUTSET_VAR_NAME]: "0px",
-      // What the worklet's mask needs of those, in one property; see
-      // `maskBands`. The lengths are registered, so they arrive here in px.
-      [PILL_MASK_BANDS_VAR_NAME]: `var(${PILL_OUTLINE_OFFSET_VAR_NAME}) var(${PILL_OUTLINE_WIDTH_VAR_NAME}) var(${PILL_RING_OFFSET_WIDTH_VAR_NAME}) var(${PILL_RING_WIDTH_VAR_NAME}) var(${PILL_OUTLINE_STYLE_VAR_NAME}, solid)`,
-      ...(flavor === "tailwind" ? { [PILL_DECORATED_VAR_NAME]: "none" } : {}),
+      [PILL_DECORATION_CLIP_VAR_NAME]: "initial",
+      // How far the outline, the ring and the shadows reach past the box,
+      // which the decoration's box grows by.
+      [PILL_REACH_VAR_NAME]: `max(0px, var(${PILL_OUTLINE_OFFSET_VAR_NAME}) + var(${PILL_OUTLINE_WIDTH_VAR_NAME}), var(${PILL_RING_OFFSET_WIDTH_VAR_NAME}) + var(${PILL_RING_WIDTH_VAR_NAME}), var(${PILL_SHADOW_REACH_VAR_NAME}))`,
       ...(flavor === "tailwind"
         ? {
-            // `border-dashed` and friends set `--tw-border-style`, so the ring
-            // reads it rather than asking for a second source of truth. It is
-            // mapped here, on the element, because Tailwind registers it as
-            // non-inheriting; the ring inherits the result.
+            // `border-dashed` and friends set `--tw-border-style`, so the
+            // pill reads it rather than asking for a second source of truth.
+            // Mapped here, on the element, because Tailwind registers it as
+            // non-inheriting; the pseudo-elements inherit the result.
             [PILL_BORDER_STYLE_VAR_NAME]: `var(--tw-border-style, ${PILL_BORDER_STYLE_FALLBACK})`,
-            // Likewise the outline's style, and every ring setting Tailwind
-            // keeps in a variable of its own. Widths aren't among them — a
-            // ring's is folded into its shadow — so `tailwind-pill-border`
-            // mirrors those, and the outline's, from the utilities.
+            // Likewise the outline's style, every ring setting Tailwind keeps
+            // in a variable of its own, and its whole shadow list. Widths
+            // aren't among them — a ring's is folded into its shadow — so
+            // `tailwind-pill-border` mirrors those from the utilities.
             [PILL_OUTLINE_STYLE_VAR_NAME]: "var(--tw-outline-style, solid)",
             [PILL_RING_COLOR_VAR_NAME]: "var(--tw-ring-color, currentColor)",
             [PILL_RING_OFFSET_WIDTH_VAR_NAME]: "var(--tw-ring-offset-width, 0px)",
             [PILL_RING_OFFSET_COLOR_VAR_NAME]: "var(--tw-ring-offset-color, #fff)",
             [PILL_INSET_RING_COLOR_VAR_NAME]: "var(--tw-inset-ring-color, currentColor)",
+            [PILL_BOX_SHADOW_VAR_NAME]: TAILWIND_BOX_SHADOW,
           }
         : {
             [PILL_RING_COLOR_VAR_NAME]: "currentColor",
             [PILL_RING_OFFSET_WIDTH_VAR_NAME]: "0px",
             [PILL_RING_OFFSET_COLOR_VAR_NAME]: "transparent",
             [PILL_INSET_RING_COLOR_VAR_NAME]: "currentColor",
+            [PILL_BOX_SHADOW_VAR_NAME]: "none",
           }),
     },
     // Only once the worklet has actually loaded; see PILL_WORKLET_ATTRIBUTE.
     // `:where()` keeps the specificity that of the bare utility.
     [`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`]: shaped(
-      // The ring sits inside the element, so the element's mask — the shape
-      // and any Tailwind mask with it — already fades it too.
-      maskWith("paint(pill-ring)"),
       {
-        background: "paint(pill-decoration)",
-        // Chromium masks nothing past the element's ink overflow, and a
-        // `filter` doesn't count towards it, so a `drop-shadow` would be cut
-        // off at the border box. A transparent shadow as wide as the filter
-        // reaches counts, and adds no scrollable overflow; forced colours drop
-        // it, where an outline would turn visible. Only as wide as asked for:
-        // every pill's mask is rasterised over all of it.
-        "box-shadow": `0 0 0 var(${PILL_FILTER_OUTSET_VAR_NAME}, 0px) transparent`,
+        "-webkit-mask-image": "paint(pill-shape)",
+        "mask-image": "paint(pill-shape)",
+        "-webkit-mask-size": "100% 100%",
+        "mask-size": "100% 100%",
+        "-webkit-mask-repeat": "no-repeat",
+        "mask-repeat": "no-repeat",
+        "mask-mode": "alpha",
       },
+      { background: "paint(pill-decoration)" },
     ),
-    // Without a worklet, `polyfillPills()` computes the same shapes per
-    // element as `clip-path: path()` — vector clips, which the browser applies
-    // directly, where a mask image would have to be decoded and rasterised on
-    // every resize. Until they are computed the element shows its stadium, and
-    // the ring nothing at all.
+    // Without a worklet, `polyfillPills()` computes the same shape per
+    // element as a `clip-path: path()`, and the decoration as an image — or,
+    // for a single band, as a clip over its colour. Until they are computed
+    // the background shows as a stadium.
     [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &`]: shaped(
-      { "clip-path": `var(${PILL_RING_CLIP_VAR_NAME}, ${CLIP_ALL})` },
+      { "clip-path": `var(${PILL_CLIP_VAR_NAME}, none)` },
       {
         "background-image": `var(${PILL_DECORATION_VAR_NAME}, none)`,
         "background-size": "100% 100%",
         "background-repeat": "no-repeat",
+        "clip-path": `var(${PILL_DECORATION_CLIP_VAR_NAME}, none)`,
       },
     ),
-    // The shape itself, on a doubled selector so it outranks a mask or clip
-    // utility on the same element whichever order they are emitted in.
-    // Tailwind emits its mask utilities after this one, at the same
-    // single-class specificity, which would otherwise replace the shape
-    // rather than combine with it.
-    [`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &&`]: openMask(
-      flavor === "tailwind" ? TAILWIND_MASK_LAYERS : [],
-    ),
-    // A clip, not a mask, so Tailwind's mask utilities apply on top as they
-    // would on any element. An element has only one clip, though, so the
-    // polyfill folds the element's own — `sr-only`, a `[clip-path:…]` — into
-    // this one, and marks the pills it has done that for; the rest keep their
-    // own clip.
-    [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &&:where([${PILL_CLIPPED_ATTRIBUTE}])`]: {
-      "clip-path": `var(${PILL_CLIP_VAR_NAME}, none)`,
+    // Hiding the element's own background and shadows, on a doubled selector
+    // so it outranks a background or shadow utility, or a `background`
+    // shorthand, on the same element whichever order they are emitted in.
+    [`:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) &&`]: {
+      "-webkit-background-clip": "text",
+      "background-clip": "text",
+      "box-shadow": "none",
     },
   };
 }

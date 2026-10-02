@@ -10,7 +10,7 @@ import Layout from "../../components/Layout.astro";
     over 120 frames so every pill resizes, and changes aspect ratio, every frame. Runs happen in
     a fresh iframe each, because a registered paint worklet cannot be unregistered.
     <strong class="text-zinc-300">worklet</strong> is the CSS Paint API path,
-    <strong class="text-zinc-300">polyfill</strong> the SVG-mask fallback forced on, and
+    <strong class="text-zinc-300">polyfill</strong> the clip-path fallback forced on, and
     <strong class="text-zinc-300">none</strong> the plain stadium as a baseline. Frame times are
     the gaps between animation frames, so anything over 16.7&nbsp;ms is a dropped frame at
     60&nbsp;Hz. Keep this tab in front while it runs.

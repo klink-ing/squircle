@@ -79,8 +79,8 @@ async function run() {
   } else if (mode === "polyfill") {
     polyfillPills({ force: true });
   }
-  // Settled once two frames have rendered with the masks in place; for
-  // the polyfill, once every pill has had its mask computed.
+  // Settled once two frames have rendered with the shapes in place; for
+  // the polyfill, once every pill has had its clip computed.
   const pills = [...stage.children] as HTMLElement[];
   for (let i = 0; i < 600; i++) {
     await nextFrame();

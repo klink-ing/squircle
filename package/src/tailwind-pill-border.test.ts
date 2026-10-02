@@ -4,17 +4,19 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { shadowReach } from "./tailwind-pill-border";
 import { createCompiler } from "./test-utils";
 import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
-  PILL_FILTER_OUTSET_VAR_NAME,
+  PILL_DECORATED_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
   PILL_OUTLINE_OFFSET_VAR_NAME,
   PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_RING_WIDTH_VAR_NAME,
+  PILL_SHADOW_REACH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -104,8 +106,7 @@ describe("tailwind-pill-border.ts", () => {
     it("suppresses it for a width as well as a colour", async () => {
       // `border-2` alone is a visible border — Tailwind's default colour is
       // currentColor — so a width alone must suppress the real one too, or it
-      // paints under the mask as a stadium ring while the drawn ring sits on
-      // top of it.
+      // paints a stadium ring around the drawn one.
       const css = await compileBorder(["border-2"]);
       expect(css).toContain(`${LOADED} {\n      border-color: transparent;`);
     });
@@ -184,26 +185,46 @@ describe("tailwind-pill-border.ts", () => {
     });
   });
 
-  describe("drop shadows", () => {
-    it("tells the mask how far a drop shadow reaches, and that none reaches nowhere", async () => {
-      const css = await compileBorder(["drop-shadow-xl", "drop-shadow-none"]);
+  describe("shadows", () => {
+    it("tells the decoration how far a shadow reaches, and gives the pill one", async () => {
+      const css = await compileBorder(["shadow-lg", "shadow-none", "shadow-[0_0_0_3px_red]"]);
+      // 0 10px 15px -3px, 0 4px 6px -4px: 10 + 15 - 3.
       expect(css).toMatch(
         new RegExp(
-          `\\.drop-shadow-xl \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_FILTER_OUTSET_VAR_NAME}: 6rem`,
+          `\\.shadow-lg \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_SHADOW_REACH_VAR_NAME}: 22px;\\s*${PILL_DECORATED_VAR_NAME}: "";`,
         ),
       );
       expect(css).toMatch(
         new RegExp(
-          `\\.drop-shadow-none \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_FILTER_OUTSET_VAR_NAME}: 0px`,
+          `\\.shadow-none \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_SHADOW_REACH_VAR_NAME}: 0px`,
         ),
       );
-      // Tailwind's own filter is untouched.
-      expect(css).toContain("--tw-drop-shadow:");
+      expect(css).toContain(`${PILL_SHADOW_REACH_VAR_NAME}: 3px`);
+      // Tailwind's own shadow is untouched: the pill reads its variables.
+      expect(css).toContain("--tw-shadow:");
     });
 
-    it("leaves drop shadow colours alone", async () => {
-      const css = await compileBorder(["drop-shadow-black/60"]);
-      expect(css).not.toContain(PILL_FILTER_OUTSET_VAR_NAME);
+    it("leaves shadow colours alone", async () => {
+      const css = await compileBorder(["shadow-black/60"]);
+      expect(css).not.toContain(PILL_SHADOW_REACH_VAR_NAME);
     });
+
+    it("gives only decorated pills an ::after", async () => {
+      const css = await compileBorder(["border-2", "outline-2", "ring-2", "inset-ring-2"]);
+      expect(css).toContain(`.squircle-pill {\n    ${PILL_DECORATED_VAR_NAME}: none;`);
+      expect([...css.matchAll(new RegExp(`${PILL_DECORATED_VAR_NAME}: ""`, "g"))]).toHaveLength(4);
+      // A colour alone draws nothing.
+      expect(await compileBorder(["border-red-500"])).not.toContain(
+        `${PILL_DECORATED_VAR_NAME}: ""`,
+      );
+    });
+  });
+
+  it("measures shadow reach from offset, blur and spread, ignoring inset ones", () => {
+    expect(shadowReach("0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)")).toBe(4);
+    expect(shadowReach("-8px 2px 4px 2px red")).toBe(14);
+    expect(shadowReach("inset 0 2px 4px black")).toBe(0);
+    expect(shadowReach("0 0 0 0.25rem var(--c, rgb(0 0 0))")).toBe(4);
+    expect(shadowReach("0 0 #0000")).toBe(0);
   });
 });

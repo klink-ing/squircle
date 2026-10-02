@@ -13,8 +13,7 @@ interface Point {
 }
 
 /**
- * Records the polyline the worklet emits — that polyline is the shape. Up to
- * the first fill: what the mask leaves open around the pill comes after.
+ * Records the polyline the worklet emits — that polyline is the shape.
  */
 class RecordingContext {
   fillStyle: unknown = "";

@@ -26,7 +26,7 @@ const sections: Section[] = [
   {
     title: "Clip paths of its own",
     intro:
-      "An element can have only one clip-path. The worklet shapes with a mask, so a clip just applies on top; the polyfill shapes with a clip, so it cuts the element's own clip to the pill outline and sets the two as one.",
+      "The pill shapes a copy of its background rather than the element itself, so the element's own clip-path applies on top of it, border and all, with the worklet and the polyfill alike.",
     examples: [
       { classes: "[clip-path:inset(0_0_0_50%)]", note: "The right half of the pill." },
       {
@@ -46,7 +46,7 @@ const sections: Section[] = [
   {
     title: "Tailwind mask utilities",
     intro:
-      "Layered with the pill's own mask, so each one adds to the shape instead of replacing it.",
+      "A mask on the element applies to the whole pill, as it would to any element: the shape is on the copy of its background, so the two never compete.",
     examples: [
       { classes: "mask-b-from-20%", note: "Fades out towards the bottom." },
       { classes: "mask-r-from-40%", note: "Fades out towards the right." },
@@ -120,7 +120,7 @@ const sections: Section[] = [
   {
     title: "Shadows",
     intro:
-      "Shadows paint outside the pill, which it leaves alone, so they just work. They start from the stadium border-radius, which the pill sits at most a pixel or two inside, so a hairline can show at the ends. Inner shadows follow the stadium and are trimmed to the pill. Shown on light tiles so the shadows stand out.",
+      "Box shadows are cast by the pill's own outline, so they meet it with no gap. A drop shadow follows the pill-shaped background by itself; inner shadows are painted inside the pill. Shown on light tiles so the shadows stand out.",
     light: true,
     examples: [
       { classes: "shadow-xl shadow-black/60", note: "A box shadow." },
