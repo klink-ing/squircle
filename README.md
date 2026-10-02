@@ -513,6 +513,30 @@ The stadium `border-radius` is kept even under the mask, so native decorations t
 
 Without the worklet — Safari, Firefox, or before `registerPillWorklet()` resolves — a pill is a plain `rounded-full` stadium with a real border, and nothing else. Not a superellipse: on a pill the cap is the whole shape, so a superellipse would change the silhouette rather than soften a corner. No layout shift when the worklet lands.
 
+### Polyfill for browsers without paint worklets
+
+To get the real shape in Safari and Firefox too, load the polyfill where the worklet isn't available:
+
+```js
+import { registerPillWorklet } from "@klinking/squircle/pill-worklet";
+
+if (!(await registerPillWorklet())) {
+  const { polyfillPills } = await import("@klinking/squircle/pill-polyfill");
+  polyfillPills();
+}
+```
+
+It runs the worklet's own geometry on the main thread: a `ResizeObserver` watches every pill, and on each new size the outline (and the ring, if the pill has a border) is set as an SVG mask on two custom properties the pill styles read. The shapes are identical to the worklet's, borders and dashes included. Each pill shows its stadium until its mask is computed, so there is no flash of anything worse.
+
+It picks up pills added or removed later, and re-reads a pill when its `class` changes. Changes it can't see — an inline `style` setting a pill property, a stylesheet swap — need a `refresh()`:
+
+```js
+const pills = polyfillPills();
+pills.refresh(element); // or pills.refresh() for all of them
+```
+
+The cost is main-thread work on resize; the site's `/bench/pills` page measures it against the worklet for a few thousand pills at once, and `website/scripts/bench-pills.mjs` runs the same matrix headlessly.
+
 </details>
 
 <details>

@@ -1,0 +1,165 @@
+---
+import Layout from "../../components/Layout.astro";
+---
+
+<Layout title="Pill resize benchmark — @klinking/squircle">
+  <h2 class="mb-2 text-2xl font-bold">Pill resize benchmark</h2>
+  <p class="mb-4 max-w-3xl text-sm text-zinc-400">
+    Each run renders a number of pills at mixed sizes — a quarter with a border, a quarter at G3
+    — whose widths are a share of their container, then shrinks that container to 45% and back
+    over 120 frames so every pill resizes, and changes aspect ratio, every frame. Runs happen in
+    a fresh iframe each, because a registered paint worklet cannot be unregistered.
+    <strong class="text-zinc-300">worklet</strong> is the CSS Paint API path,
+    <strong class="text-zinc-300">polyfill</strong> the SVG-mask fallback forced on, and
+    <strong class="text-zinc-300">none</strong> the plain stadium as a baseline. Frame times are
+    the gaps between animation frames, so anything over 16.7&nbsp;ms is a dropped frame at
+    60&nbsp;Hz. Keep this tab in front while it runs.
+  </p>
+
+  <form id="config" class="mb-4 flex flex-wrap items-end gap-6 text-sm">
+    <fieldset>
+      <legend class="mb-1 text-xs text-zinc-400">pill counts</legend>
+      <div class="flex gap-3">
+        {
+          [10, 100, 500, 1000, 2000].map((n) => (
+            <label class="flex items-center gap-1">
+              <input type="checkbox" name="count" value={n} checked={n <= 1000} />
+              {n}
+            </label>
+          ))
+        }
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend class="mb-1 text-xs text-zinc-400">modes</legend>
+      <div class="flex gap-3">
+        {
+          ["none", "worklet", "polyfill"].map((m) => (
+            <label class="flex items-center gap-1">
+              <input type="checkbox" name="mode" value={m} checked />
+              {m}
+            </label>
+          ))
+        }
+      </div>
+    </fieldset>
+    <button
+      type="submit"
+      class="rounded bg-indigo-600 px-4 py-1.5 font-medium text-white hover:bg-indigo-500"
+    >
+      Run
+    </button>
+    <span id="progress" class="font-mono text-xs text-zinc-400"></span>
+  </form>
+
+  <div class="mb-6 overflow-x-auto">
+    <table id="results" class="w-full text-right font-mono text-xs">
+      <thead class="text-zinc-400">
+        <tr>
+          <th class="text-left">mode</th>
+          <th>pills</th>
+          <th>setup ms</th>
+          <th>mean frame</th>
+          <th>p50</th>
+          <th>p95</th>
+          <th>max</th>
+          <th>frames &gt;20ms</th>
+          <th>long tasks (ms)</th>
+        </tr>
+      </thead>
+      <tbody class="text-zinc-200"></tbody>
+    </table>
+  </div>
+
+  <iframe
+    id="frame"
+    title="benchmark run"
+    class="mb-12 h-[480px] w-full rounded border border-zinc-800"
+  ></iframe>
+
+  <script>
+    interface Result {
+      mode: string;
+      count: number;
+      setupMs: number;
+      meanFrameMs: number;
+      p50FrameMs: number;
+      p95FrameMs: number;
+      maxFrameMs: number;
+      slowFrames: number;
+      longTasks: number;
+      longTaskMs: number;
+    }
+
+    const form = document.getElementById("config") as HTMLFormElement;
+    const frame = document.getElementById("frame") as HTMLIFrameElement;
+    const body = document.querySelector("#results tbody") as HTMLElement;
+    const progress = document.getElementById("progress") as HTMLElement;
+    const state = window as unknown as {
+      __pillBench: { done: boolean; results: (Result | { error: string })[] };
+    };
+
+    function runOne(mode: string, count: number): Promise<Result | { error: string }> {
+      return new Promise((resolve) => {
+        const onMessage = (event: MessageEvent) => {
+          if (event.source !== frame.contentWindow || event.data?.type !== "pill-bench") return;
+          window.removeEventListener("message", onMessage);
+          resolve(event.data.result ?? { error: event.data.error });
+        };
+        window.addEventListener("message", onMessage);
+        frame.src = `/bench/pill-frame/?mode=${mode}&count=${count}&t=${Date.now()}`;
+      });
+    }
+
+    function row(result: Result | { error: string }, mode: string, count: number) {
+      const tr = document.createElement("tr");
+      const cells =
+        "error" in result
+          ? [mode, count, result.error, "", "", "", "", "", ""]
+          : [
+              result.mode,
+              result.count,
+              result.setupMs,
+              result.meanFrameMs.toFixed(1),
+              result.p50FrameMs.toFixed(1),
+              result.p95FrameMs.toFixed(1),
+              result.maxFrameMs.toFixed(1),
+              result.slowFrames,
+              `${result.longTasks} (${result.longTaskMs})`,
+            ];
+      cells.forEach((value, i) => {
+        const td = document.createElement("td");
+        td.textContent = String(value);
+        if (i === 0) td.className = "text-left";
+        tr.append(td);
+      });
+      body.append(tr);
+    }
+
+    async function runAll(counts: number[], modes: string[]) {
+      state.__pillBench = { done: false, results: [] };
+      body.replaceChildren();
+      const total = counts.length * modes.length;
+      let n = 0;
+      for (const count of counts) {
+        for (const mode of modes) {
+          progress.textContent = `run ${++n} of ${total}: ${mode}, ${count} pills`;
+          const result = await runOne(mode, count);
+          state.__pillBench.results.push(result);
+          row(result, mode, count);
+        }
+      }
+      progress.textContent = "done";
+      state.__pillBench.done = true;
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      void runAll(data.getAll("count").map(Number), data.getAll("mode").map(String));
+    });
+
+    // `?auto` runs the checked matrix on load, for scripted runs.
+    if (new URLSearchParams(location.search).has("auto")) form.requestSubmit();
+  </script>
+</Layout>

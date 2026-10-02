@@ -17,6 +17,9 @@ import {
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
+  PILL_MASK_VAR_NAME,
+  PILL_POLYFILL_ATTRIBUTE,
+  PILL_RING_MASK_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
@@ -168,6 +171,22 @@ describe("pill-shape worklet contract", () => {
       for (const selector of masked) {
         expect(selector).toContain(`:where(:root[${PILL_WORKLET_ATTRIBUTE}])`);
       }
+    });
+
+    it("takes the polyfill's masks only where the polyfill runs", () => {
+      // Without a mask computed yet, the element shows its stadium (`none`)
+      // and the ring nothing at all, rather than a full-face border colour.
+      const branch = stylesheet.slice(
+        stylesheet.indexOf(`:where(:root[${PILL_POLYFILL_ATTRIBUTE}])`),
+      );
+      expect(branch).toContain(`mask-image: var(${PILL_MASK_VAR_NAME}, none)`);
+      expect(branch).toContain(
+        `mask-image: var(${PILL_RING_MASK_VAR_NAME}, linear-gradient(transparent, transparent))`,
+      );
+      expect(branch).toContain(`${PILL_RING_MASK_VAR_NAME}: inherit`);
+      expect(stylesheet).not.toMatch(
+        new RegExp(`^\\[${PILL_ATTRIBUTE}\\] \\{[^}]*${PILL_MASK_VAR_NAME}`, "m"),
+      );
     });
 
     it("is a plain stadium on every branch", () => {

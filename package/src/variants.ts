@@ -61,6 +61,14 @@ export const DEFAULT_PILL_CONTINUITY = 2 as const;
  * a pill is a plain stadium.
  */
 export const PILL_WORKLET_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-worklet`;
+/**
+ * Attribute `polyfillPills()` sets on `<html>` where there is no paint
+ * worklet. The pills then take their masks from the two properties below,
+ * which it computes per element from the same geometry the worklet draws.
+ */
+export const PILL_POLYFILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-polyfill`;
+export const PILL_MASK_VAR_NAME: string = pillVar("mask");
+export const PILL_RING_MASK_VAR_NAME: string = pillVar("ring-mask");
 /** What the standalone stylesheet hangs its rules off, so it works without Tailwind. */
 export const PILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill`;
 /**

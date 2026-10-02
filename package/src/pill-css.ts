@@ -16,6 +16,9 @@ import {
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
+  PILL_MASK_VAR_NAME,
+  PILL_POLYFILL_ATTRIBUTE,
+  PILL_RING_MASK_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
@@ -70,18 +73,25 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
       "initial-value": "transparent",
       inherits: "false",
     },
+    // The polyfill's per-element masks. Non-inheriting, so a pill nested in
+    // another never wears its parent's shape before its own is computed.
+    [`@property ${PILL_MASK_VAR_NAME}`]: { syntax: '"*"', inherits: "false" },
+    [`@property ${PILL_RING_MASK_VAR_NAME}`]: { syntax: '"*"', inherits: "false" },
   };
 }
 
-const mask: PillCss = {
-  "-webkit-mask-image": "paint(pill-shape)",
-  "mask-image": "paint(pill-shape)",
+const maskWith = (image: string): PillCss => ({
+  "-webkit-mask-image": image,
+  "mask-image": image,
   "-webkit-mask-size": "100% 100%",
   "mask-size": "100% 100%",
   "-webkit-mask-repeat": "no-repeat",
   "mask-repeat": "no-repeat",
   "mask-mode": "alpha",
-};
+});
+
+/** Nothing shows through: a ring with nothing computed for it draws nothing. */
+const CLEAR = "linear-gradient(transparent, transparent)";
 
 /**
  * The rules one pill utility carries, with `&` standing for the utility's own
@@ -102,7 +112,7 @@ const mask: PillCss = {
  * go on a wrapper, where it applies to the already-masked result.
  */
 export function pillCssObj(flavor: PillCssFlavor): PillCss {
-  const ring: PillCss = {
+  const ring = (ringMask: PillCss): PillCss => ({
     content: '""',
     position: "absolute",
     "pointer-events": "none",
@@ -132,8 +142,20 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
           [PILL_BORDER_STYLE_VAR_NAME]: `var(--tw-border-style, ${PILL_BORDER_STYLE_FALLBACK})`,
         }
       : {}),
-    ...mask,
-  };
+    ...ringMask,
+  });
+
+  const shaped = (elementMask: PillCss, ringMask: PillCss): PillCss => ({
+    ...elementMask,
+    // The worklet only runs where there is an area to paint.
+    "min-width": "1px",
+    "min-height": "1px",
+    position: "relative",
+    // The real border must not paint: under the mask it is a stadium ring
+    // clipped to the pill. Its width still reserves room for the drawn one.
+    "border-color": "transparent",
+    "&::after": ring(ringMask),
+  });
 
   return {
     // A stadium on every branch: it is the whole fallback without the
@@ -154,17 +176,20 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     },
     // Only once the worklet has actually loaded; see PILL_WORKLET_ATTRIBUTE.
     // `:where()` keeps the specificity that of the bare utility.
-    [`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`]: {
-      ...mask,
-      // The worklet only runs where there is an area to paint.
-      "min-width": "1px",
-      "min-height": "1px",
-      position: "relative",
-      // The real border must not paint: under the mask it is a stadium ring
-      // clipped to the pill. Its width still reserves room for the drawn one.
-      "border-color": "transparent",
-      "&::after": ring,
-    },
+    [`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`]: shaped(
+      maskWith("paint(pill-shape)"),
+      maskWith("paint(pill-shape)"),
+    ),
+    // Without a worklet, `polyfillPills()` computes the same shapes as SVG
+    // masks per element. Until it has, the element shows its stadium, and the
+    // ring nothing at all.
+    [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &`]: shaped(
+      maskWith(`var(${PILL_MASK_VAR_NAME}, none)`),
+      {
+        [PILL_RING_MASK_VAR_NAME]: "inherit",
+        ...maskWith(`var(${PILL_RING_MASK_VAR_NAME}, ${CLEAR})`),
+      },
+    ),
   };
 }
 

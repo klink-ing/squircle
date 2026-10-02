@@ -8,6 +8,7 @@ import { createCompiler } from "./test-utils";
 import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_POLYFILL_ATTRIBUTE,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -15,7 +16,7 @@ const { compilePlugin } = createCompiler(import.meta.dirname);
 const compileBorder = (candidates: string[], block = "") =>
   compilePlugin(candidates, block, "./tailwind-pill-border.ts");
 
-const LOADED = `:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &:is(.squircle-pill)`;
+const LOADED = `:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) &:is(.squircle-pill)`;
 
 describe("tailwind-pill-border.ts", () => {
   describe("extends rather than replaces", () => {
@@ -77,14 +78,19 @@ describe("tailwind-pill-border.ts", () => {
       }
     });
 
-    it("suppresses the real border's paint only once the worklet has loaded", async () => {
+    it("suppresses the real border's paint only once the worklet or polyfill draws", async () => {
       // Without the worklet the real border is the pill's border, a stadium
       // ring on the fallback shape, and has to keep painting.
       const css = await compileBorder(["border-red-500"]);
       expect(css).toContain(`${LOADED} {\n      border-color: transparent;`);
       const suppressions = [...css.matchAll(/border-color: transparent/g)].length;
       const gated = [
-        ...css.matchAll(new RegExp(`:where\\(:root\\[${PILL_WORKLET_ATTRIBUTE}\\]\\)`, "g")),
+        ...css.matchAll(
+          new RegExp(
+            `:where\\(:root\\[${PILL_WORKLET_ATTRIBUTE}\\], :root\\[${PILL_POLYFILL_ATTRIBUTE}\\]\\)`,
+            "g",
+          ),
+        ),
       ].length;
       expect(suppressions).toBe(gated);
     });

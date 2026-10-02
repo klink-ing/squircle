@@ -78,6 +78,7 @@ export default defineConfig({
       // Siblings: the registration helper locates the worklet relative to
       // itself, so the two have to land in the same directory.
       "pill-worklet": "./src/pill-worklet.ts",
+      "pill-polyfill": "./src/pill-polyfill.ts",
       "pill-shape.worklet": "./src/pill-shape.worklet.ts",
     },
     format: "esm",

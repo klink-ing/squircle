@@ -7,6 +7,7 @@ import plugin from "tailwindcss/plugin";
 import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_POLYFILL_ATTRIBUTE,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -51,16 +52,18 @@ const squirclePillBorder: ReturnType<typeof plugin.withOptions<SquirclePillBorde
          * class, which is what lets the pill suppress the real border's paint
          * without depending on which rule Tailwind happens to emit last.
          *
-         * The suppression only applies once the worklet has loaded: without
-         * it the real border is the pill's border, a stadium ring on the
-         * fallback shape, and must keep painting. Width and colour both
-         * suppress it, because either one alone is a visible border.
+         * The suppression only applies once the worklet or the polyfill is
+         * drawing the ring: without either, the real border is the pill's
+         * border, a stadium ring on the fallback shape, and must keep
+         * painting. Width and colour both suppress it, because either one
+         * alone is a visible border.
          */
         const onPill = (declarations: Record<string, string>) => ({
           [`&:is(.${prefix})`]: declarations,
-          [`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &:is(.${prefix})`]: {
-            "border-color": "transparent",
-          },
+          [`:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) &:is(.${prefix})`]:
+            {
+              "border-color": "transparent",
+            },
         });
 
         matchUtilities(
