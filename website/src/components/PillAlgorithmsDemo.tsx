@@ -18,6 +18,14 @@ interface Quadrant {
   join: number;
   capRadius: number;
   edgeStart: number;
+  /**
+   * Exact curvature at each point, from each construction's own formula.
+   * Estimating it from the points instead measures the sampling: the shipped
+   * worklet spaces its vertices by how far a chord may stray from the curve,
+   * so they thin out along the near-straight tail and a three-point estimate
+   * jitters there.
+   */
+  k: number[];
 }
 
 const propsFrom = (values: Record<string, string | number>) => ({
@@ -27,25 +35,11 @@ const propsFrom = (values: Record<string, string | number>) => ({
 
 // ── Measurement ─────────────────────────────────────────────────
 
-/** Menger curvature at b. */
-function menger(a: Point, b: Point, c: Point): number {
-  const ab = Math.hypot(b.x - a.x, b.y - a.y);
-  const bc = Math.hypot(c.x - b.x, c.y - b.y);
-  const ca = Math.hypot(a.x - c.x, a.y - c.y);
-  if (ab === 0 || bc === 0 || ca === 0) return 0;
-  const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-  return (2 * Math.abs(cross)) / (ab * bc * ca);
-}
-
-function profile({ points }: Quadrant): { s: number[]; k: number[] } {
+function profile({ points, k }: Quadrant): { s: number[]; k: number[] } {
   const s = [0];
   for (let i = 1; i < points.length; i++) {
     s.push(s[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
   }
-  const k = points.map((_, i) =>
-    i === 0 || i === points.length - 1 ? 0 : menger(points[i - 1], points[i], points[i + 1]),
-  );
-  k[0] = k[1];
   return { s, k };
 }
 
@@ -74,6 +68,24 @@ function stats(q: Quadrant): Record<string, string> {
 
 // ── Geometry, from the worklets themselves ──────────────────────
 
+const ARC_SAMPLES = 120;
+
+/** Points along a cap arc of radius `rho`, centred on the axis at half-height `r`. */
+function arcPoints(r: number, rho: number, beta: number): Point[] {
+  const sweep = Math.PI / 2 - beta;
+  const out: Point[] = [];
+  for (let i = 0; i <= ARC_SAMPLES; i++) {
+    const theta = Math.PI + (sweep * i) / ARC_SAMPLES;
+    out.push({ x: rho + rho * Math.cos(theta), y: r + rho * Math.sin(theta) });
+  }
+  return out;
+}
+
+/**
+ * The shipped easing, rebuilt from the worklet's own fit, profile and
+ * quadrature, at every one of its integration steps rather than the sparser
+ * vertices it draws.
+ */
 function spiralQuadrant(amt: number, spread: number, continuity: number): Quadrant {
   const worklet = new PillShape();
   const props = propsFrom({
@@ -81,32 +93,82 @@ function spiralQuadrant(amt: number, spread: number, continuity: number): Quadra
     [`${NS}-ease-spread`]: spread,
     [`${NS}-continuity`]: continuity,
   });
-  const points = worklet.fittedQuadrant(
-    W,
-    H,
+  const c = worklet.resolveContinuity(props);
+  const fitted = worklet.fitEasing(
+    R,
+    W / 2,
     worklet.resolveEase(props),
     worklet.resolveExponent(props),
-    worklet.resolveContinuity(props),
+    c,
   );
-  // The arc is the run of vertices on one circle from the start.
-  const k0 = menger(points[0], points[1], points[2]);
-  let join = points.length - 1;
-  for (let i = 1; i + 1 < points.length; i++) {
-    if (Math.abs(menger(points[i - 1], points[i], points[i + 1]) - k0) > 0.01 * k0) {
-      join = i - 1;
-      break;
+  const prof = worklet.profile(fitted.exponent, c);
+  const fresnel = worklet.fresnel(fitted.beta, prof);
+  const { radius } = worklet.capMetrics(R, fitted.beta, prof.lambda, fresnel);
+
+  const points = arcPoints(R, radius, fitted.beta);
+  const k = points.map(() => 1 / radius);
+  const join = points.length - 1;
+
+  if (fitted.beta > 0 && prof.lambda > 0) {
+    const { remaining } = prof;
+    const n = remaining.length - 1;
+    const length = prof.lambda * radius * fitted.beta;
+    const ds = length / n;
+    const start = points[join];
+    for (let i = 1; i <= n; i++) {
+      points.push({ x: start.x + length * fresnel.cos[i], y: start.y - length * fresnel.sin[i] });
+      // Turn per unit length, centred where both neighbours exist.
+      const a = Math.max(i - 1, 0);
+      const b = Math.min(i + 1, n);
+      k.push((fitted.beta * (remaining[a] - remaining[b])) / ((b - a) * ds));
     }
+    k[k.length - 1] = 0;
   }
-  return { points, join, capRadius: 1 / k0, edgeStart: points[points.length - 1].x };
+  return { points, join, capRadius: radius, edgeStart: points[points.length - 1].x, k };
+}
+
+/**
+ * Signed curvature of a Bézier curve at `t`, from its first two derivatives.
+ * Signed, so a blend that reverses its bend shows up below zero rather than
+ * folded back above it.
+ */
+function bezierCurvature(controls: Point[], t: number): number {
+  const derive = (pts: Point[]) =>
+    pts.slice(1).map((p, i) => ({
+      x: (pts.length - 1) * (p.x - pts[i].x),
+      y: (pts.length - 1) * (p.y - pts[i].y),
+    }));
+  const at = (pts: Point[]) => {
+    let cur = pts;
+    while (cur.length > 1) {
+      cur = cur.slice(1).map((p, i) => ({
+        x: cur[i].x + (p.x - cur[i].x) * t,
+        y: cur[i].y + (p.y - cur[i].y) * t,
+      }));
+    }
+    return cur[0];
+  };
+  const d1 = derive(controls);
+  const v = at(d1);
+  const a = at(derive(d1));
+  const speed = Math.hypot(v.x, v.y);
+  return speed === 0 ? 0 : (v.x * a.y - v.y * a.x) / speed ** 3;
 }
 
 function hermiteQuadrant(values: Record<string, string | number>): Quadrant {
-  const { arc, blend, edgeStart, capRadius } = filletQuadrant(
+  const { arc, blend, controls, edgeStart, capRadius } = filletQuadrant(
     R,
     W / 2,
     readParams(propsFrom(values)),
   );
-  return { points: [...arc, ...blend], join: arc.length - 1, capRadius, edgeStart };
+  const k = [
+    ...arc.map(() => 1 / capRadius),
+    ...blend.map((_, i) => bezierCurvature(controls, (i + 1) / blend.length)),
+  ];
+  // Orient the sign so the blend bends the way the arc does where it leaves it.
+  const sign = Math.sign(bezierCurvature(controls, 0)) || 1;
+  for (let i = arc.length; i < k.length; i++) k[i] *= sign;
+  return { points: [...arc, ...blend], join: arc.length - 1, capRadius, edgeStart, k };
 }
 
 // ── Drawing ─────────────────────────────────────────────────────
@@ -115,11 +177,17 @@ const polyline = (pts: Point[]) => pts.map((p) => `${p.x.toFixed(2)},${p.y.toFix
 
 function Comb({ q, colour }: { q: Quadrant; colour: string }) {
   const { points, join } = q;
-  const { k } = profile(q);
+  const { s, k } = profile(q);
   const combScale = 0.7 * R;
   const right = Math.min(Math.max(q.edgeStart + 0.6 * R, 2 * R), W / 2);
+  // Evenly spaced along the curve, so both sides read the same however
+  // densely each is sampled.
+  const spacing = s[s.length - 1] / 90;
+  let lastTooth = -Infinity;
   const teeth: string[] = [];
   for (let i = 1; i + 1 < points.length; i++) {
+    if (s[i] - lastTooth < spacing) continue;
+    lastTooth = s[i];
     const t = { x: points[i + 1].x - points[i - 1].x, y: points[i + 1].y - points[i - 1].y };
     const len = Math.hypot(t.x, t.y) || 1;
     const n = { x: t.y / len, y: -t.x / len };
@@ -165,7 +233,9 @@ function Plot({ q, colour }: { q: Quadrant; colour: string }) {
   const PH = 90;
   const pad = 6;
   const x = (v: number) => pad + ((PW - 2 * pad) * v) / total;
-  const y = (v: number) => PH - pad - ((PH - 2 * pad) * Math.min(v * R, 1.15)) / 1.15;
+  // A little room below zero, where a blend that reverses its bend dips.
+  const y = (v: number) =>
+    PH - pad - ((PH - 2 * pad) * (Math.min(Math.max(v * R, -0.15), 1.15) + 0.15)) / 1.3;
   const pts = s.map((v, i) => ({ x: x(v), y: y(k[i]) }));
   return (
     <svg
