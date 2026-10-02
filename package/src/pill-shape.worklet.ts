@@ -41,8 +41,8 @@ interface FresnelTotals {
 }
 
 interface Fresnel extends FresnelTotals {
-  cos: number[];
-  sin: number[];
+  cos: Float64Array;
+  sin: Float64Array;
 }
 
 /**
@@ -56,7 +56,7 @@ interface Fresnel extends FresnelTotals {
  * the same `beta`.
  */
 interface Profile {
-  remaining: number[];
+  remaining: Float64Array;
   lambda: number;
 }
 
@@ -75,6 +75,43 @@ const DEFAULT_CONTINUITY: Continuity = 2;
 
 const QUADRANT_CACHE_SIZE = 64;
 const quadrantCache = new Map<string, Point[]>();
+
+/**
+ * The narrowest pill, as half-length over half-height, that fits a requested
+ * easing unchanged, keyed by the request. Wider pills skip the fit entirely,
+ * which is most of them: the boundary depends only on the request, not on the
+ * element's size.
+ */
+const fitsAsAskedCache = new Map<string, number>();
+/** Fitted easings for narrower pills, keyed by aspect ratio and request. */
+const FIT_CACHE_SIZE = 256;
+/**
+ * How closely the fit pins down the easing angle, relative to the request.
+ * Whatever it settles on fits the box; this only decides how much of the
+ * requested easing is kept, and 1e-4 of it is far below anything visible.
+ */
+const FIT_TOLERANCE = 1e-4;
+const fitCache = new Map<string, { beta: number; exponent: number }>();
+
+/**
+ * The transition for one easing — its profile, the running integrals that
+ * place its points, and the cap radius over the half-height — keyed by the
+ * easing. It depends on no size at all, so every pill wide enough for its
+ * requested easing shares one, and a new size only has to scale and sample it.
+ */
+interface Transition {
+  profile: Profile;
+  fresnel: Fresnel;
+  radiusRatio: number;
+}
+const TRANSITION_CACHE_SIZE = 64;
+const transitionCache = new Map<string, Transition>();
+
+const remember = <V>(cache: Map<string, V>, size: number, key: string, value: V): V => {
+  if (cache.size >= size) cache.delete(cache.keys().next().value as string);
+  cache.set(key, value);
+  return value;
+};
 
 /**
  * The pill amount sets how soft the easing is: how much of each cap is
@@ -122,6 +159,24 @@ const MIN_SPREAD = -CLOTHOID_EXPONENT;
 
 /** Integration steps along one transition. Trapezoid error here is sub-pixel. */
 const EASE_STEPS = 512;
+
+/**
+ * `log(1 - t)` and `log(1 - t^2)` at every integration node. Both profiles
+ * raise one of these fixed bases to a varying power at each node, and
+ * `exp(p * log(b))` with the logarithm looked up is several times cheaper
+ * than `b ** p`, which recomputes it.
+ */
+const LOG_ONE_MINUS_T = new Float64Array(EASE_STEPS + 1);
+const LOG_ONE_MINUS_T2 = new Float64Array(EASE_STEPS + 1);
+for (let i = 0; i <= EASE_STEPS; i++) {
+  const t = i / EASE_STEPS;
+  LOG_ONE_MINUS_T[i] = Math.log(1 - t);
+  LOG_ONE_MINUS_T2[i] = Math.log(1 - t * t);
+}
+
+/** `base ** power` from the base's logarithm, with `0 ** 0` kept at 1. */
+const powFromLog = (logBase: number, power: number): number =>
+  power === 0 ? 1 : Math.exp(power * logBase);
 
 /**
  * How far the emitted polyline may sit from the true curve, in pixels.
@@ -201,21 +256,24 @@ export const paintDef = class PillShape implements PaintWorklet {
   /** The transition's curvature profile for exponent `q`; see `Profile`. */
   profile(q: number, continuity: Continuity): Profile {
     const h = 1 / EASE_STEPS;
+    const remaining = new Float64Array(EASE_STEPS + 1);
     if (continuity === 2) {
-      const remaining: number[] = [];
-      for (let i = 0; i <= EASE_STEPS; i++) remaining.push((1 - i * h) ** q);
+      for (let i = 0; i <= EASE_STEPS; i++) remaining[i] = powFromLog(LOG_ONE_MINUS_T[i], q);
       return { remaining, lambda: q };
     }
 
-    // Curvature (1 - t^2)^e, integrated for the turn taken so far.
+    // Curvature (1 - t^2)^e, integrated for the turn taken so far; the running
+    // total is kept in `remaining` and normalised in place.
     const e = Math.max(q - 1, 1);
-    const k = (t: number) => (1 - t * t) ** e;
-    const taken = [0];
+    let k0 = 1;
     for (let i = 1; i <= EASE_STEPS; i++) {
-      taken.push(taken[i - 1] + ((k((i - 1) * h) + k(i * h)) / 2) * h);
+      const k1 = powFromLog(LOG_ONE_MINUS_T2[i], e);
+      remaining[i] = remaining[i - 1] + ((k0 + k1) / 2) * h;
+      k0 = k1;
     }
-    const total = taken[EASE_STEPS];
-    return { remaining: taken.map((v) => 1 - v / total), lambda: 1 / total };
+    const total = remaining[EASE_STEPS];
+    for (let i = 0; i <= EASE_STEPS; i++) remaining[i] = 1 - remaining[i] / total;
+    return { remaining, lambda: 1 / total };
   }
 
   /**
@@ -233,35 +291,82 @@ export const paintDef = class PillShape implements PaintWorklet {
    * times over and would otherwise allocate two arrays per probe.
    */
   fresnel(beta: number, { remaining }: Profile): Fresnel {
-    const cos = [0];
-    const sin = [0];
+    const cos = new Float64Array(EASE_STEPS + 1);
+    const sin = new Float64Array(EASE_STEPS + 1);
     const h = 1 / EASE_STEPS;
     let c = 0;
     let s = 0;
+    // Each node's cosine and sine serve both segments it bounds.
+    let c0 = Math.cos(beta * remaining[0]);
+    let s0 = Math.sin(beta * remaining[0]);
 
     for (let i = 1; i <= EASE_STEPS; i++) {
-      const u0 = remaining[i - 1];
-      const u1 = remaining[i];
-      c += ((Math.cos(beta * u0) + Math.cos(beta * u1)) / 2) * h;
-      s += ((Math.sin(beta * u0) + Math.sin(beta * u1)) / 2) * h;
-      cos.push(c);
-      sin.push(s);
+      const c1 = Math.cos(beta * remaining[i]);
+      const s1 = Math.sin(beta * remaining[i]);
+      c += ((c0 + c1) / 2) * h;
+      s += ((s0 + s1) / 2) * h;
+      cos[i] = c;
+      sin[i] = s;
+      c0 = c1;
+      s0 = s1;
     }
 
     return { cos, sin, totalCos: c, totalSin: s };
   }
 
-  fresnelTotals(beta: number, { remaining }: Profile): FresnelTotals {
-    const h = 1 / EASE_STEPS;
-    let totalCos = 0;
-    let totalSin = 0;
-    for (let i = 1; i <= EASE_STEPS; i++) {
-      const u0 = remaining[i - 1];
-      const u1 = remaining[i];
-      totalCos += ((Math.cos(beta * u0) + Math.cos(beta * u1)) / 2) * h;
-      totalSin += ((Math.sin(beta * u0) + Math.sin(beta * u1)) / 2) * h;
-    }
+  fresnelTotals(beta: number, profile: Profile): FresnelTotals {
+    const { totalCos, totalSin } = this.fresnel(beta, profile);
     return { totalCos, totalSin };
+  }
+
+  /**
+   * Where the easing meets the flat edge, over the cap's half-height, for a
+   * cap easing through `beta` with exponent `q`. The fit evaluates this many
+   * times over, so it computes the profile and its quadrature in one pass,
+   * allocating nothing; it matches `capMetrics` over `profile` and `fresnel`.
+   */
+  junctionRatio(beta: number, q: number, continuity: Continuity): number {
+    const h = 1 / EASE_STEPS;
+    let e = 0;
+    let lambda = q;
+    if (continuity === 3) {
+      // G3 needs the profile's total before it can be normalised.
+      e = Math.max(q - 1, 1);
+      let total = 0;
+      let k0 = 1;
+      for (let i = 1; i <= EASE_STEPS; i++) {
+        const k1 = powFromLog(LOG_ONE_MINUS_T2[i], e);
+        total += ((k0 + k1) / 2) * h;
+        k0 = k1;
+      }
+      lambda = 1 / total;
+    }
+
+    let c = 0;
+    let s = 0;
+    let taken = 0;
+    let k0 = 1;
+    let c0 = Math.cos(beta);
+    let s0 = Math.sin(beta);
+    for (let i = 1; i <= EASE_STEPS; i++) {
+      let remaining: number;
+      if (continuity === 2) {
+        remaining = powFromLog(LOG_ONE_MINUS_T[i], q);
+      } else {
+        const k1 = powFromLog(LOG_ONE_MINUS_T2[i], e);
+        taken += ((k0 + k1) / 2) * h;
+        k0 = k1;
+        remaining = 1 - taken * lambda;
+      }
+      const c1 = Math.cos(beta * remaining);
+      const s1 = Math.sin(beta * remaining);
+      c += ((c0 + c1) / 2) * h;
+      s += ((s0 + s1) / 2) * h;
+      c0 = c1;
+      s0 = s1;
+    }
+
+    return this.capMetrics(1, beta, lambda, { totalCos: c, totalSin: s }).junction;
   }
 
   /**
@@ -309,6 +414,24 @@ export const paintDef = class PillShape implements PaintWorklet {
   ): { beta: number; exponent: number } {
     if (wantedBeta <= 0) return { beta: 0, exponent: wantedExponent };
 
+    // The fit depends on the box only through its aspect ratio: the whole
+    // shape scales with the half-height.
+    const ratio = half / r;
+    const request = `${wantedBeta},${wantedExponent},${continuity}`;
+    const fitsAsAsked =
+      fitsAsAskedCache.get(request) ??
+      remember(
+        fitsAsAskedCache,
+        FIT_CACHE_SIZE,
+        request,
+        this.junctionRatio(wantedBeta, wantedExponent, continuity),
+      );
+    if (ratio >= fitsAsAsked) return { beta: wantedBeta, exponent: wantedExponent };
+
+    const key = `${ratio},${request}`;
+    const cached = fitCache.get(key);
+    if (cached) return cached;
+
     // There is only something to trade above the clothoid. At or below it the
     // requested exponent is passed through and the amount absorbs the
     // shortfall, which also keeps the rate away from the 0 and 1 singularities.
@@ -321,23 +444,35 @@ export const paintDef = class PillShape implements PaintWorklet {
         ? Math.min(Math.max(1 / (1 - rate * beta), CLOTHOID_EXPONENT), wantedExponent)
         : wantedExponent;
 
-    const fits = (beta: number): boolean => {
-      const profile = this.profile(exponentFor(beta), continuity);
-      return (
-        this.capMetrics(r, beta, profile.lambda, this.fresnelTotals(beta, profile)).junction <= half
-      );
-    };
+    // How far past the box's centre the easing lands, in half-heights. No
+    // easing at all is a bare semicircle, which lands at 1 and fits any pill.
+    const overrun = (beta: number): number =>
+      this.junctionRatio(beta, exponentFor(beta), continuity) - ratio;
 
-    if (fits(wantedBeta)) return { beta: wantedBeta, exponent: wantedExponent };
-
+    // Regula falsi with the Illinois modification: the overrun is smooth and
+    // monotone in beta, so it converges in a handful of steps where bisection
+    // takes two dozen. `low` always fits, so it is what is returned.
     let low = 0;
     let high = wantedBeta;
-    for (let i = 0; i < 24; i++) {
-      const mid = (low + high) / 2;
-      if (fits(mid)) low = mid;
-      else high = mid;
+    let fLow = 1 - ratio;
+    let fHigh = fitsAsAsked - ratio;
+    let side = 0;
+    for (let i = 0; i < 40 && high - low > FIT_TOLERANCE * wantedBeta; i++) {
+      const mid = high - (fHigh * (high - low)) / (fHigh - fLow);
+      const fMid = overrun(mid);
+      if (fMid <= 0) {
+        low = mid;
+        fLow = fMid;
+        if (side === -1) fHigh /= 2;
+        side = -1;
+      } else {
+        high = mid;
+        fHigh = fMid;
+        if (side === 1) fLow /= 2;
+        side = 1;
+      }
     }
-    return { beta: low, exponent: exponentFor(low) };
+    return remember(fitCache, FIT_CACHE_SIZE, key, { beta: low, exponent: exponentFor(low) });
   }
 
   /**
@@ -350,9 +485,8 @@ export const paintDef = class PillShape implements PaintWorklet {
     q: number,
     continuity: Continuity = DEFAULT_CONTINUITY,
   ): Point[] {
-    const profile = this.profile(q, continuity);
-    const fresnel = this.fresnel(beta, profile);
-    const { radius } = this.capMetrics(r, beta, profile.lambda, fresnel);
+    const { profile, fresnel, radiusRatio } = this.transition(beta, q, continuity);
+    const radius = radiusRatio * r;
     const points: Point[] = [];
 
     // Circular cap, from the leftmost point to where the easing takes over.
@@ -463,6 +597,21 @@ export const paintDef = class PillShape implements PaintWorklet {
     } else {
       ctx.fill();
     }
+  }
+
+  /** The size-independent transition for an easing; see `Transition`. */
+  transition(beta: number, q: number, continuity: Continuity): Transition {
+    const key = `${beta},${q},${continuity}`;
+    const cached = transitionCache.get(key);
+    if (cached) return cached;
+    const profile = this.profile(q, continuity);
+    const fresnel = this.fresnel(beta, profile);
+    const { radius } = this.capMetrics(1, beta, profile.lambda, fresnel);
+    return remember(transitionCache, TRANSITION_CACHE_SIZE, key, {
+      profile,
+      fresnel,
+      radiusRatio: radius,
+    });
   }
 
   /**
