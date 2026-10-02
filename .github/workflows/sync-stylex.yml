@@ -2,7 +2,7 @@ name: Sync generated stylex.ts
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, beta, alpha]
     paths:
       - package/src/stylex.template.ts
       - package/src/stylex.ts
