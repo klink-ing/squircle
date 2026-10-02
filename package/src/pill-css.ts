@@ -9,6 +9,7 @@ import {
   DEFAULT_PILL_EASE,
   FULL_RADIUS,
   PILL_AMT_VAR_NAME,
+  PILL_BACKGROUND_INSET_VAR_NAME,
   PILL_ATTRIBUTE,
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_STYLE_FALLBACK,
@@ -78,6 +79,7 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
     PILL_INSET_RING_WIDTH_VAR_NAME,
     PILL_SHADOW_REACH_VAR_NAME,
     PILL_REACH_VAR_NAME,
+    PILL_BACKGROUND_INSET_VAR_NAME,
   ];
   const colors = [
     PILL_BORDER_COLOR_VAR_NAME,
@@ -232,6 +234,11 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
       // How far the outline, the ring and the shadows reach past the box,
       // which the decoration's box grows by.
       [PILL_REACH_VAR_NAME]: `max(0px, var(${PILL_OUTLINE_OFFSET_VAR_NAME}) + var(${PILL_OUTLINE_WIDTH_VAR_NAME}), var(${PILL_RING_OFFSET_WIDTH_VAR_NAME}) + var(${PILL_RING_WIDTH_VAR_NAME}), var(${PILL_SHADOW_REACH_VAR_NAME}))`,
+      // Half a pixel in under a border or an inset ring touching the outline:
+      // the background and the band over it, anti-aliased along the same
+      // outer edge, would both leave the pixels there partly uncovered, and
+      // the background would show past the band as a hairline.
+      [PILL_BACKGROUND_INSET_VAR_NAME]: `min(0.5px, var(${PILL_BORDER_WIDTH_VAR_NAME}) + var(${PILL_INSET_RING_WIDTH_VAR_NAME}))`,
       ...(flavor === "tailwind"
         ? {
             // `border-dashed` and friends set `--tw-border-style`, so the
@@ -285,13 +292,15 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
         "clip-path": `var(${PILL_DECORATION_CLIP_VAR_NAME}, none)`,
       },
     ),
-    // Hiding the element's own background and shadows, on a doubled selector
-    // so it outranks a background or shadow utility, or a `background`
-    // shorthand, on the same element whichever order they are emitted in.
-    [`:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) &&`]: {
-      "-webkit-background-clip": "text",
-      "background-clip": "text",
-      "box-shadow": "none",
+    // Hiding the element's own background and shadows, so nothing of the
+    // stadium shows past the pill. Important, so neither a background or
+    // shadow utility nor an inline `background` shorthand — which resets
+    // `background-clip` — brings them back; either would put back the very
+    // hairline this is here to prevent.
+    [`:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) &`]: {
+      "-webkit-background-clip": "text !important",
+      "background-clip": "text !important",
+      "box-shadow": "none !important",
     },
   };
 }

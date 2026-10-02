@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  pillBackgroundInset,
   pillClipPath,
   pillDecoration,
   pillDecorationImage,
@@ -133,6 +134,19 @@ describe("pill polyfill", () => {
   });
 
   describe("background clip", () => {
+    it("pulls back half a pixel under a border or inset ring, as the worklet's mask does", () => {
+      expect(pillBackgroundInset({})).toBe(0);
+      expect(pillBackgroundInset({ [PILL_BORDER_WIDTH_VAR_NAME]: "3px" })).toBe(0.5);
+      expect(pillBackgroundInset({ [PILL_INSET_RING_WIDTH_VAR_NAME]: "0.25px" })).toBe(0.25);
+      const clip = pillClipPath(240, 60, {}, 0.5) as string;
+      const outline = pillOutlinePoints(240, 60);
+      for (const p of parse(/"([^"]*)"/.exec(clip)?.[1] ?? "")[0] as Point[]) {
+        expect(distanceTo(p, outline)).toBeCloseTo(0.5, 1);
+      }
+      // Even a square, whose stadium would otherwise do.
+      expect(pillClipPath(48, 48, {}, 0.5)).not.toBeNull();
+    });
+
     it("is the pill's outline, in the coordinates of its box", () => {
       expect(pillClipPath(240, 60)).toBe(`path("${pillOutlinePath(240, 60)}")`);
       const shape = { amt: "3" };
@@ -274,7 +288,8 @@ describe("pill polyfill", () => {
       ];
       expect(distanceTo(border, outline)).toBeCloseTo(0.5, 1);
       expect(distanceTo(inner, outline)).toBeCloseTo(2, 1);
-      expect(distanceTo(offset, outline)).toBeCloseTo(1.5, 1);
+      // The offset band runs half a pixel on under the ring.
+      expect(distanceTo(offset, outline)).toBeCloseTo(1.75, 1);
       expect(distanceTo(ring, outline)).toBeCloseTo(4, 1);
     });
 
@@ -374,6 +389,15 @@ describe("pill polyfill", () => {
       // Width 2: dashes are 6 on, 4 off; dots 2 on, 4 off.
       expect(dashes("dashed")).toBe(Math.ceil(centre / 10));
       expect(dashes("dotted")).toBe(Math.ceil(centre / 6));
+    });
+
+    it("draws currentColor in the element's colour", () => {
+      const drawing = pillDecoration(240, 60, {
+        color: "rgb(1, 2, 3)",
+        [PILL_BORDER_WIDTH_VAR_NAME]: "2px",
+        [PILL_BORDER_COLOR_VAR_NAME]: "currentcolor",
+      });
+      expect(drawing?.image).toBe("linear-gradient(rgb(1, 2, 3), rgb(1, 2, 3))");
     });
 
     it("leaves more than one band, or any shadow, to the image", () => {

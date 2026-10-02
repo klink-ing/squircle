@@ -33,6 +33,7 @@ const INSET_RING_WIDTH_VAR = `${NS}-inset-ring-width`;
 const INSET_RING_COLOR_VAR = `${NS}-inset-ring-color`;
 const BOX_SHADOW_VAR = `${NS}-box-shadow`;
 const REACH_VAR = `${NS}-reach`;
+const BACKGROUND_INSET_VAR = `${NS}-background-inset`;
 /** What decides the decoration; see `decorationBands` and `decorationShadows`. */
 const DECORATION_INPUTS = [
   REACH_VAR,
@@ -50,7 +51,13 @@ const DECORATION_INPUTS = [
   INSET_RING_WIDTH_VAR,
   INSET_RING_COLOR_VAR,
   BOX_SHADOW_VAR,
+  // What `currentColor` stands for: a registered colour keeps the keyword as
+  // its computed value, which a canvas has no element to resolve against.
+  "color",
 ];
+
+/** How far a band runs on to close a seam; see `closeSeams`. */
+const SEAM = 0.5;
 
 /** One band of a decoration; see `decorationBands`. */
 interface Band {
@@ -99,6 +106,13 @@ function lengthInPx(token: string): number | null {
   const value = Number(m[1]);
   if (!m[2]) return value === 0 ? 0 : null;
   return m[2] === "px" ? value : value * 16;
+}
+
+/** `color` with any `currentColor` in it replaced by the element's own colour. */
+function resolveCurrentColor(color: string, props?: PaintProperties): string {
+  if (!/currentcolor/i.test(color)) return color;
+  const current = props?.get("color")?.toString().trim() || "#000";
+  return color.replace(/currentcolor/gi, current);
 }
 
 /** Whether a colour as written could show at all. */
@@ -314,7 +328,7 @@ export const paintDef = class PillShape implements PaintWorklet {
    * resize, which adds up over hundreds of them.
    */
   static get inputProperties() {
-    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR];
+    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR, BACKGROUND_INSET_VAR];
   }
 
   /**
@@ -752,7 +766,12 @@ export const paintDef = class PillShape implements PaintWorklet {
     if (width <= 0 || height <= 0) return;
     ctx.fillStyle = "#000";
     ctx.beginPath();
-    const outline = this.boxOutline(width, height, props);
+    // Pulled in under a border; see the stylesheet's background inset.
+    const inset = Math.max(this.resolveLength(props, BACKGROUND_INSET_VAR), 0);
+    const outline =
+      inset > 0
+        ? this.offsetOutline(this.boxOutline(width, height, props), -inset)
+        : this.boxOutline(width, height, props);
     for (let i = 0; i < outline.length; i++) {
       const p = outline[i];
       if (i === 0) ctx.moveTo(p.x, p.y);
@@ -912,7 +931,7 @@ export const paintDef = class PillShape implements PaintWorklet {
         else lengths.push(length);
       }
       const [x = 0, y = 0, blur = 0, spread = 0] = lengths;
-      const paint = color.join(" ") || "currentColor";
+      const paint = resolveCurrentColor(color.join(" ") || "currentColor", props);
       if (lengths.length < 2 || !isVisible(paint)) continue;
       shadows.push({ x, y, blur: Math.max(blur, 0), spread, color: paint });
     }
@@ -928,7 +947,8 @@ export const paintDef = class PillShape implements PaintWorklet {
    * on top beyond its offset.
    */
   decorationBands(props?: PaintProperties): Band[] {
-    const color = (name: string) => props?.get(name)?.toString().trim() ?? "";
+    const color = (name: string) =>
+      resolveCurrentColor(props?.get(name)?.toString().trim() ?? "", props);
     const visible = (c: string) => c !== "" && isVisible(c);
     const bands: Band[] = [];
     const border = this.resolveLength(props, BORDER_WIDTH_VAR);
@@ -964,7 +984,32 @@ export const paintDef = class PillShape implements PaintWorklet {
       const offset = this.resolveLength(props, OUTLINE_OFFSET_VAR);
       bands.push({ from: offset, to: offset + outline, color: outlineColor, dash: outlineDash });
     }
-    return bands;
+    return this.closeSeams(bands);
+  }
+
+  /**
+   * Two shapes anti-aliased along the same edge each leave the pixels there
+   * partly uncovered, so whatever is behind shows through as a hairline. So
+   * where two bands meet, the lower one runs `SEAM` on under the upper one,
+   * where it is hidden; not under a dashed one, whose gaps would show it. A
+   * band meeting the background's edge from outside runs on over the
+   * background instead, unless a band already covers that edge from inside —
+   * in which case the background is what pulls back; see the stylesheet's
+   * background inset and the polyfill's background clip.
+   */
+  closeSeams(bands: Band[]): Band[] {
+    const meets = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+    const edgeCovered = bands.some((b) => b.from < 0 && meets(b.to, 0));
+    return bands.map((band, i) => {
+      let { from, to } = band;
+      for (const upper of bands.slice(i + 1)) {
+        if (upper.dash.length > 0) continue;
+        if (meets(upper.from, band.to)) to = band.to + SEAM;
+        if (meets(upper.to, band.from)) from = band.from - SEAM;
+      }
+      if (!edgeCovered && meets(band.from, 0)) from = -SEAM;
+      return { ...band, from, to };
+    });
   }
 
   /** Mirror one quadrant into the full outline, walking clockwise. */

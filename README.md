@@ -517,7 +517,7 @@ The two pseudo-elements are the pill's own. Variants work as anywhere else, so `
 
 **Everything else is left to the browser**, and follows the pill by itself: a `drop-shadow-*` or any other `filter` sees the pill-shaped background, and Tailwind's `mask-*` utilities and any `clip-path` apply to the whole pill as they would to any element — `squircle-pill mask-b-from-20%` is a pill that fades out towards the bottom, its border and shadow with it. The browser's own focus ring, set by no utility, follows the stadium.
 
-One thing to know: the pill hides its own background by clipping it to its text, so `bg-clip-text` on the pill itself has no effect of its own — the copy still fills the pill. For gradient text inside a pill, put the text in a child.
+One thing to know: the pill hides its own background by clipping it to its text, and its own box shadow, both with `!important` so that nothing — a utility, an inline `background` — can put the stadium back. So `bg-clip-text` on the pill itself has no effect of its own: the copy still fills the pill. For gradient text inside a pill, put the text in a child.
 
 ### Fallback
 
@@ -572,7 +572,7 @@ A circular arc has constant curvature `1/R`; a straight edge has none. The workl
 
 That profile leaves the arc already shedding curvature at a finite rate, so it is only G2 where it leaves the arc. The default, G3, uses `k(t) = (1/R) · (1 − t²)^(q − 1)` instead, whose curvature starts falling with zero slope — G3 at the arc — and, for `q > 2` (any ease above `0`), also arrives with zero slope at the edge. Everything else, including the fit to the box, is the same for both.
 
-That's a different construction from the curvature-continuous fillet in CAD tools (SolidWorks and Onshape's "curvature continuous", Fusion's G2, Rhino's `BlendCrv`), which blend arc into edge with a quintic Hermite polynomial that has position, tangent and curvature prescribed at both ends, controlled by a setback per face and a bulge per end. The spiral's advantage is that its curvature profile is monotone by construction and its length is a closed-form function of the cap, which is what lets it fit itself to the box; the Hermite blend keeps the cap at its full radius and lets the blend bow outward, which is right for a model and wrong for a button. The package's local dev page (`vp dev` in `package/`) renders the two side by side, with each one's controls and a curvature comb, so you can judge for yourself.
+That's a different construction from the curvature-continuous fillet in CAD tools (SolidWorks and Onshape's "curvature continuous", Fusion's G2, Rhino's `BlendCrv`), which blend arc into edge with a quintic Hermite polynomial that has position, tangent and curvature prescribed at both ends, controlled by a setback per face and a bulge per end. The spiral's advantage is that its curvature profile is monotone by construction and its length is a closed-form function of the cap, which is what lets it fit itself to the box; the Hermite blend keeps the cap at its full radius and lets the blend bow outward, which is right for a model and wrong for a button. The site's [pill algorithms demo](https://squircle.klink.ing/demos/pill-algorithms) renders the two side by side, with each one's controls and a curvature comb, so you can judge for yourself.
 
 **Browser support:** the Paint API is in Chromium (Chrome, Edge, Opera, Samsung Internet). Safari and Firefox get the stadium fallback. Both `--squircle-pill-*` properties are registered with `@property`, which those browsers support, so nothing else changes.
 

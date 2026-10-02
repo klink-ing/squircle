@@ -86,6 +86,12 @@ export const PILL_SHADOW_REACH_VAR_NAME: string = pillVar("shadow-reach");
  */
 export const PILL_REACH_VAR_NAME: string = pillVar("reach");
 /**
+ * Internal: how far the copy of the background pulls back from the outline,
+ * worked out by the stylesheet: half a pixel under a border or inset ring
+ * touching the outline, so the two never share an anti-aliased edge.
+ */
+export const PILL_BACKGROUND_INSET_VAR_NAME: string = pillVar("background-inset");
+/**
  * Internal: `""` on a pill `tailwind-pill-border` has seen a border, outline,
  * ring or shadow utility on, which is what gives it the `::after` those are
  * drawn on; `none` otherwise.

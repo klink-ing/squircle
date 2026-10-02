@@ -50,19 +50,19 @@ describe("tailwind-pill.ts utilities", () => {
     expect(css).not.toContain("@supports");
   });
 
-  it("hides the element's own background and box shadows, on a doubled selector", async () => {
+  it("hides the element's own background and box shadows, whatever else sets them", async () => {
     // Painted into the stadium `border-radius`, they would show as a hairline
-    // just outside the pill. Doubled, so a `bg-*` or `shadow-*` utility,
-    // emitted after the pill, cannot bring them back.
+    // just outside the pill. Important, so a `bg-*` or `shadow-*` utility, or
+    // an inline `background` shorthand, cannot bring them back.
     const css = await compilePill(["squircle-pill"]);
     const own = css.slice(
       css.indexOf(
-        `:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) && {`,
+        `:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) & {`,
       ),
     );
     const block = own.slice(0, own.indexOf("}"));
-    expect(block).toContain("background-clip: text");
-    expect(block).toContain("box-shadow: none");
+    expect(block).toContain("background-clip: text !important");
+    expect(block).toContain("box-shadow: none !important");
   });
 
   it("leaves masks and clip-paths on the element to Tailwind", async () => {

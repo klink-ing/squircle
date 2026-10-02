@@ -1,8 +1,6 @@
 // Pins the namespace before src/ modules are evaluated; keep it first.
 import { CSS_NAMESPACE } from "./scripts/load-namespace";
-import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite-plus";
-import { renderPillCss } from "./src/pill-css";
 
 /**
  * Prefix for every custom property this package owns, resolved once in
@@ -21,43 +19,8 @@ import { renderPillCss } from "./src/pill-css";
  */
 const NAMESPACE_ENV = ["SQUIRCLE_CSS_NAMESPACE"];
 
-/**
- * Fills the dev page in from the same sources everything else is built from:
- * `%SQUIRCLE_NS%` becomes the namespace, and `%SQUIRCLE_PILL_CSS%` the
- * standalone stylesheet, so the page never carries a third copy of the rules.
- */
-const pillDevPage = () => ({
-  name: "pill-dev-page",
-  transformIndexHtml: {
-    // Before Vite lifts the inline module scripts out of the page, so the
-    // placeholders inside them are replaced too.
-    order: "pre" as const,
-    handler(html: string) {
-      return html
-        .replaceAll("%SQUIRCLE_NS%", CSS_NAMESPACE)
-        .replace("%SQUIRCLE_PILL_CSS%", () => renderPillCss());
-    },
-  },
-});
-
-/**
- * A registered paint worklet cannot be replaced or unregistered, so a worklet
- * cannot be hot-swapped in place. Editing one therefore triggers a full page
- * reload, which re-runs CSS.paintWorklet.addModule() against the fresh source.
- */
-const pillWorkletHmr = () => ({
-  name: "pill-worklet-hmr",
-  handleHotUpdate({ file, server }: { file: string; server: { ws: { send(p: unknown): void } } }) {
-    if (file.endsWith(".worklet.ts")) {
-      server.ws.send({ type: "full-reload", path: "*" });
-      return [];
-    }
-  },
-});
-
 export default defineConfig({
-  plugins: [tailwindcss(), pillWorkletHmr(), pillDevPage()],
-  // Covers the dev server and the test run; `pack.define` covers the library
+  // Covers the test run; `pack.define` covers the library
   // build, which does not inherit this one.
   define: {
     __SQUIRCLE_CSS_NAMESPACE__: JSON.stringify(CSS_NAMESPACE),
@@ -132,13 +95,6 @@ export default defineConfig({
         // One script, so the pack and the generators are one cache entry;
         // see scripts/build.ts.
         command: "tsx scripts/build.ts",
-      },
-      "pill-dev": {
-        cache: { env: NAMESPACE_ENV },
-        // The dev page loads the worklet straight from src/, which Vite
-        // compiles on the fly, so no build step is needed (and a stale dist/
-        // can no longer mask source edits).
-        command: "vp dev",
       },
     },
   },

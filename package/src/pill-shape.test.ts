@@ -13,6 +13,7 @@ import {
   DEFAULT_PILL_EASE,
   PILL_AMT_VAR_NAME,
   PILL_ATTRIBUTE,
+  PILL_BACKGROUND_INSET_VAR_NAME,
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
@@ -175,6 +176,7 @@ describe("pill-shape worklet contract", () => {
       PILL_AMT_VAR_NAME,
       PILL_EASE_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
+      PILL_BACKGROUND_INSET_VAR_NAME,
     ]);
     expect(decorationInputs).toEqual([
       PILL_AMT_VAR_NAME,
@@ -195,6 +197,8 @@ describe("pill-shape worklet contract", () => {
       PILL_INSET_RING_WIDTH_VAR_NAME,
       PILL_INSET_RING_COLOR_VAR_NAME,
       PILL_BOX_SHADOW_VAR_NAME,
+      // What `currentColor` stands for.
+      "color",
     ]);
   });
 
@@ -245,15 +249,15 @@ describe("pill-shape worklet contract", () => {
     it("hides the element's own background and shadows, so no stadium shows past the pill", () => {
       // The stadium `border-radius` sits a few pixels outside the pill near
       // the caps: a background painted into it is the hairline between the
-      // pill and its shadow. Doubled, so it outranks a background or shadow
-      // utility on the same element whatever order they come in.
+      // pill and its shadow. Important, so neither a utility nor an inline
+      // `background` shorthand, which resets the clip, can bring it back.
       const body = ruleBody(
         stylesheet,
-        `:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) ${SHAPE}${SHAPE}`,
+        `:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}]) ${SHAPE}`,
       );
-      expect(body).toContain("background-clip: text;");
-      expect(body).toContain("-webkit-background-clip: text;");
-      expect(body).toContain("box-shadow: none;");
+      expect(body).toContain("background-clip: text !important;");
+      expect(body).toContain("-webkit-background-clip: text !important;");
+      expect(body).toContain("box-shadow: none !important;");
     });
 
     it("paints a copy of the background under the content, shaped to the pill", () => {
@@ -267,6 +271,7 @@ describe("pill-shape worklet contract", () => {
       expect(before).toContain("z-index: -1;");
       expect(before).toContain(`box-shadow: var(${PILL_BOX_SHADOW_VAR_NAME}, none);`);
       expect(before).toContain("mask-image: paint(pill-shape);");
+      expect(before).toContain("mask-size: 100% 100%;");
       // Covering the border box, which the background is positioned against.
       expect(before).toContain(`inset: calc(-1 * var(${PILL_BORDER_WIDTH_VAR_NAME}));`);
       // `isolation` keeps it above the element's own stacking context's
@@ -408,6 +413,24 @@ describe("pill-shape worklet contract", () => {
       expect(b.bottom).toBeCloseTo(60, 9);
     });
 
+    it("pulls in by the background inset, to clear a border's anti-aliased edge", () => {
+      const drawn = record(paintDef, { [PILL_BACKGROUND_INSET_VAR_NAME]: "0.5px" });
+      const b = bounds(drawn.paths[0].points);
+      expect(b.left).toBeCloseTo(0.5, 5);
+      expect(b.top).toBeCloseTo(0.5, 5);
+      expect(b.right).toBeCloseTo(239.5, 5);
+      expect(b.bottom).toBeCloseTo(59.5, 5);
+    });
+
+    it("works the background inset out from the border and inset ring", () => {
+      expect(ruleBody(stylesheet, `:where(${SHAPE})`)).toContain(
+        `${PILL_BACKGROUND_INSET_VAR_NAME}: min(0.5px, var(${PILL_BORDER_WIDTH_VAR_NAME}) + var(${PILL_INSET_RING_WIDTH_VAR_NAME}));`,
+      );
+      expect(registration(stylesheet, PILL_BACKGROUND_INSET_VAR_NAME)).toContain(
+        'syntax: "<length>"',
+      );
+    });
+
     it("draws nothing on an empty box", () => {
       expect(record(paintDef, undefined, 0, 60).paths).toEqual([]);
     });
@@ -457,6 +480,25 @@ describe("pill-shape worklet contract", () => {
       expect(b.bottom).toBeCloseTo(58, 5);
     });
 
+    it("draws currentColor in the element's colour", () => {
+      // A registered colour keeps `currentcolor` as its computed value, which
+      // a canvas would otherwise draw black, or not at all.
+      const drawn = record(decorationDef, {
+        color: "rgb(1, 2, 3)",
+        [PILL_REACH_VAR_NAME]: "20px",
+        [PILL_BORDER_WIDTH_VAR_NAME]: "2px",
+        [PILL_BORDER_COLOR_VAR_NAME]: "currentcolor",
+        [PILL_RING_WIDTH_VAR_NAME]: "2px",
+        [PILL_RING_COLOR_VAR_NAME]: "color-mix(in srgb, currentColor 50%, transparent)",
+        [PILL_BOX_SHADOW_VAR_NAME]: "0 4px 8px",
+      });
+      expect(drawn.strokes.map((s) => s.color)).toEqual([
+        "rgb(1, 2, 3)",
+        "color-mix(in srgb, rgb(1, 2, 3) 50%, transparent)",
+      ]);
+      expect(drawn.shadows.map((s) => s.color)).toEqual(["rgb(1, 2, 3)"]);
+    });
+
     it("dashes and dots the border the way a real border does", () => {
       const dash = (style: string) =>
         record(decorationDef, {
@@ -489,18 +531,59 @@ describe("pill-shape worklet contract", () => {
         240 + 2 * reach,
         60 + 2 * reach,
       );
+      // Each lower band runs half a pixel on under any band meeting it; see
+      // "closes seams".
       expect(drawn.strokes.map((s) => [s.color, s.width])).toEqual([
-        ["red", 1],
+        ["red", 2],
         ["green", 2],
-        ["white", 2],
-        ["blue", 3],
+        ["white", 2.5],
+        ["blue", 3.5],
         ["black", 1],
       ]);
       // Each centred on its band, measured out from the outline, which sits
       // `reach` in from the edge of the grown box.
       const tops = drawn.strokes.map((s) => bounds(s.points).top);
-      const expected = [-0.5, -2, 1, 3.5, 1.5].map((d) => reach - d);
+      const expected = [-0.5, -2, 1.25, 3.25, 1.5].map((d) => reach - d);
       tops.forEach((top, i) => expect(top).toBeCloseTo(expected[i], 5));
+    });
+
+    it("closes seams: a lower band runs on under the band that meets it", () => {
+      const bands = (props: Record<string, string>) =>
+        new (decorationDef as unknown as new () => {
+          decorationBands(p: unknown): { from: number; to: number; color: string }[];
+        })()
+          .decorationBands({
+            get: (n: string) => (props[n] !== undefined ? { toString: () => props[n] } : undefined),
+          })
+          .map(({ from, to, color }) => [color, from, to]);
+      const ring = { [PILL_RING_WIDTH_VAR_NAME]: "2px", [PILL_RING_COLOR_VAR_NAME]: "blue" };
+      // Alone, a ring runs on over the background it meets.
+      expect(bands(ring)).toEqual([["blue", -0.5, 2]]);
+      // Over a border, the border runs on under it instead, and the
+      // background pulls back under the border.
+      expect(
+        bands({
+          ...ring,
+          [PILL_BORDER_WIDTH_VAR_NAME]: "1px",
+          [PILL_BORDER_COLOR_VAR_NAME]: "red",
+        }),
+      ).toEqual([
+        ["red", -1, 0.5],
+        ["blue", 0, 2],
+      ]);
+      // Never under a dashed band, whose gaps would show it.
+      expect(
+        bands({
+          [PILL_BORDER_WIDTH_VAR_NAME]: "1px",
+          [PILL_BORDER_COLOR_VAR_NAME]: "red",
+          [PILL_OUTLINE_WIDTH_VAR_NAME]: "2px",
+          [PILL_OUTLINE_COLOR_VAR_NAME]: "blue",
+          [PILL_OUTLINE_STYLE_VAR_NAME]: "dashed",
+        }),
+      ).toEqual([
+        ["red", -1, 0],
+        ["blue", 0, 2],
+      ]);
     });
 
     it("rings a tall pill on the same side, though its outline runs the other way", () => {

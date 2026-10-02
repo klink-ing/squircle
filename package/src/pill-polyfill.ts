@@ -57,6 +57,7 @@ interface PillGeometry {
   ): Point[];
   outline(long: number, short: number, quadrant: Point[]): Point[];
   offsetOutline(points: Point[], distance: number): Point[];
+  resolveLength(props: Lookup, name: string): number;
   decorationOutset(props: Lookup): number;
   decorationBands(props: Lookup): { from: number; to: number; color: string; dash: number[] }[];
   decorationShadows(
@@ -152,12 +153,33 @@ export function pillOutlinePath(width: number, height: number, shape: PillShapeI
 
 /**
  * The `clip-path` for the copy of the element's background the pill shows:
- * the pill's outline. `null` for a square, whose stadium `border-radius` is
- * already the circle a square pill has to be.
+ * the pill's outline, pulled in by `inset`. `null` for a square that needs no
+ * pulling in, whose stadium `border-radius` is already the circle a square
+ * pill has to be.
  */
-export function pillClipPath(width: number, height: number, shape?: PillShapeInput): string | null {
-  if (width === height || width <= 0 || height <= 0) return null;
-  return `path("${pillOutlinePath(width, height, shape)}")`;
+export function pillClipPath(
+  width: number,
+  height: number,
+  shape?: PillShapeInput,
+  inset = 0,
+): string | null {
+  if (width <= 0 || height <= 0 || (width === height && inset <= 0)) return null;
+  if (inset <= 0) return `path("${pillOutlinePath(width, height, shape)}")`;
+  return `path("${subpath(geometry.offsetOutline(pillOutlinePoints(width, height, shape), -inset))}")`;
+}
+
+/**
+ * How far the copy of the background pulls back from the outline: half a
+ * pixel under a border or an inset ring touching it, so the two never share
+ * an anti-aliased edge; the stylesheet works out the same for the
+ * worklet.
+ */
+export function pillBackgroundInset(decoration: PillDecorationInput): number {
+  const props = lookup(decoration);
+  const covered =
+    geometry.resolveLength(props, PILL_BORDER_WIDTH_VAR_NAME) +
+    geometry.resolveLength(props, PILL_INSET_RING_WIDTH_VAR_NAME);
+  return Math.min(Math.max(covered, 0), 0.5);
 }
 
 /** What the pill draws around itself, as computed property values. */
@@ -180,6 +202,8 @@ export const PILL_DECORATION_PROPERTIES: readonly string[] = [
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_BOX_SHADOW_VAR_NAME,
+  // What `currentColor` in any of them stands for.
+  "color",
 ];
 
 /**
@@ -428,6 +452,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     shape: PillShapeInput;
     decoration: PillDecorationInput;
     decorationKey: string;
+    inset: number;
   }
   const settings = new WeakMap<Element, Settings>();
   const read = (el: Element): Settings => {
@@ -448,6 +473,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       },
       decoration: decorated ? values : {},
       decorationKey: decorated ? Object.values(values).join("|") : "",
+      inset: pillBackgroundInset(values),
     };
     settings.set(el, fresh);
     return fresh;
@@ -482,14 +508,14 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       const size = sizes.get(el);
       if (!size) continue;
       const { width, height } = size;
-      const { shape, decoration, decorationKey } = read(el);
+      const { shape, decoration, decorationKey, inset } = read(el);
       const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity}`;
-      const key = `${shapeKey},${decorationKey}`;
+      const key = `${shapeKey},${inset},${decorationKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);
       updates.push([
         el as HTMLElement,
-        cached(`m:${shapeKey}`, () => pillClipPath(width, height, shape)),
+        cached(`m:${shapeKey},${inset}`, () => pillClipPath(width, height, shape, inset)),
         decorationKey
           ? cachedDrawing(`d:${key}`, () => pillDecoration(width, height, decoration, shape))
           : null,

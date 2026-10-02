@@ -3,14 +3,25 @@
 // for. Deliberately not built on the site layout: that registers the worklet,
 // which can never be unregistered, and each mode has to choose for itself.
 import "../../styles/global.css";
+// The plain-CSS stylesheet too, for the section that uses it without Tailwind.
+import "@klinking/squircle/squircle-pill.css";
 
 interface Example {
-  /** The classes under test, shown as the label. */
+  /**
+   * The classes under test, shown as the label; for a `standalone` pill, the
+   * inline style instead.
+   */
   classes: string;
   /** What to expect. */
   note: string;
-  /** A plain pill, or a focusable button for focus states. */
-  build?: "pill" | "button";
+  /**
+   * A plain pill; a focusable button for focus states; a pill holding a
+   * smaller one; or a `data-squircle-pill` element styled with the plain-CSS
+   * stylesheet's own properties, no Tailwind involved.
+   */
+  build?: "pill" | "button" | "nested" | "standalone";
+  /** Shown on a light tile, whatever its section uses. */
+  light?: boolean;
 }
 
 interface Section {
@@ -23,6 +34,24 @@ interface Section {
 
 // Every class is spelled out in full so Tailwind finds and generates it.
 const sections: Section[] = [
+  {
+    title: "Backgrounds",
+    intro:
+      "The pill hides the element's own background and paints a copy of it shaped to the pill, so any background works: colours, gradients, images, translucency.",
+    examples: [
+      { classes: "bg-linear-to-r from-indigo-500 to-pink-500", note: "A linear gradient." },
+      {
+        classes: "bg-conic-210 from-amber-400 via-violet-500 to-amber-400",
+        note: "A conic gradient.",
+      },
+      {
+        classes:
+          "bg-[repeating-conic-gradient(#0ea5e9_0_25%,#f59e0b_0_50%)] bg-size-[28px_28px]",
+        note: "A repeating image, positioned against the box as usual.",
+      },
+      { classes: "bg-indigo-500/40", note: "Translucent, so the page shows through." },
+    ],
+  },
   {
     title: "Clip paths of its own",
     intro:
@@ -61,6 +90,15 @@ const sections: Section[] = [
       { classes: "border-2 border-white", note: "A solid ring along the outline." },
       { classes: "border-4 border-dashed border-amber-300", note: "Dashes along the outline." },
       { classes: "border-2 border-dotted border-white", note: "Dots along the outline." },
+      {
+        classes: "border-2",
+        note: "Width only: the colour defaults to currentColor, as a real border's does.",
+      },
+      {
+        classes: "border-2 border-violet-300",
+        note: "A pill inside a bordered pill draws no border of its own.",
+        build: "nested",
+      },
     ],
   },
   {
@@ -131,6 +169,48 @@ const sections: Section[] = [
         classes: "shadow-lg shadow-black/50 ring-2 ring-white",
         note: "A shadow under a ring.",
       },
+      {
+        classes:
+          "bg-linear-to-r from-blue-700 to-violet-600 border-4 border-zinc-900 outline-2 -outline-offset-8 outline-white/60 drop-shadow-xl drop-shadow-black/60",
+        note: "A gradient, a border, an inset outline and a drop shadow, all at once.",
+      },
+    ],
+  },
+  {
+    title: "Without Tailwind",
+    intro:
+      "The plain-CSS stylesheet, squircle-pill.css, on data-squircle-pill elements, driven by the pill's own custom properties. Each label is the element's inline style.",
+    examples: [
+      {
+        classes:
+          "--squircle-pill-border-width: 3px; --squircle-pill-border-color: #fbbf24; --squircle-pill-border-style: dashed",
+        note: "A dashed border.",
+        build: "standalone",
+      },
+      {
+        classes: "--squircle-pill-border-width: 0.2rem",
+        note: "Width only: currentColor, and any length unit.",
+        build: "standalone",
+      },
+      {
+        classes:
+          "--squircle-pill-ring-width: 2px; --squircle-pill-ring-color: #fff; --squircle-pill-ring-offset-width: 2px; --squircle-pill-ring-offset-color: #09090b",
+        note: "A ring beyond an offset band.",
+        build: "standalone",
+      },
+      {
+        classes:
+          "--squircle-pill-outline-width: 2px; --squircle-pill-outline-offset: -6px; --squircle-pill-outline-color: #fff",
+        note: "An inset outline.",
+        build: "standalone",
+      },
+      {
+        classes:
+          "--squircle-pill-box-shadow: 0 8px 16px rgb(0 0 0 / 0.6); --squircle-pill-shadow-reach: 24px",
+        note: "A box shadow, with how far it reaches past the pill.",
+        build: "standalone",
+        light: true,
+      },
     ],
   },
 ];
@@ -143,6 +223,8 @@ const modes = [
 ] as const;
 
 const PILL = "squircle-pill h-12 w-40 bg-indigo-500";
+/** The same pill for the plain-CSS stylesheet: the attribute, and its own background. */
+const STANDALONE_BACKGROUND = "background: #6366f1";
 ---
 
 <html lang="en">
@@ -156,7 +238,8 @@ const PILL = "squircle-pill h-12 w-40 bg-indigo-500";
       <p class="mb-2 text-sm"><a href="/demos" class="text-indigo-400 hover:underline">← Demos</a></p>
       <h1 class="mb-2 text-3xl font-bold">Pill gallery</h1>
       <p class="mb-4 max-w-3xl text-sm text-zinc-400">
-        Every pill below is <code class="text-zinc-300">{PILL}</code> plus the classes in its label.
+        Every pill below is <code class="text-zinc-300">{PILL}</code> plus the classes in its label,
+        unless its section says otherwise.
         Switch modes to compare how each is drawn; each loads the page afresh. The notes describe a
         shaped pill: with no shaping each is a plain stadium, so what the shape would erase still
         shows.
@@ -184,15 +267,30 @@ const PILL = "squircle-pill h-12 w-40 bg-indigo-500";
             <h2 class="mb-1 text-xl font-semibold">{section.title}</h2>
             <p class="mb-5 max-w-3xl text-sm text-zinc-400">{section.intro}</p>
             <ul class="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-x-6 gap-y-8">
-              {section.examples.map(({ classes, note, build = "pill" }) => (
+              {section.examples.map(({ classes, note, build = "pill", light }) => (
                 <li class="flex flex-col items-start gap-3">
                   <div
                     class:list={[
                       "flex items-center",
-                      section.light ? "h-28 self-stretch rounded-lg bg-zinc-100 px-6" : "h-20 px-3",
+                      (section.light || light)
+                        ? "h-28 self-stretch rounded-lg bg-zinc-100 px-6"
+                        : "h-20 px-3",
                     ]}
                   >
                     {build === "pill" && <div class={`${PILL} ${classes}`} />}
+                    {build === "nested" && (
+                      <div class={`${PILL} flex items-center gap-3 px-3 ${classes}`}>
+                        <div class="squircle-pill size-6 bg-violet-300" />
+                        <span class="text-sm">Label</span>
+                      </div>
+                    )}
+                    {build === "standalone" && (
+                      <div
+                        data-squircle-pill
+                        class="h-12 w-40 text-zinc-100"
+                        style={`${STANDALONE_BACKGROUND}; ${classes}`}
+                      />
+                    )}
                     {build === "button" && (
                       <button type="button" class={`${PILL} text-sm font-medium ${classes}`}>
                         Tab to me
