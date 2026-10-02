@@ -1,10 +1,14 @@
 # Deploy previews for pull requests. Production stays on GitHub Pages
-# (.github/workflows/deploy-site.yml); once this repository is linked to a
-# Netlify site, every PR gets a deploy-preview URL of the same build.
+# (.github/workflows/deploy-site.yml).
 #
 # Node comes from .node-version and pnpm from the packageManager field, both
 # of which Netlify reads on its own.
+#
+# The steps are called directly rather than through `vp run website#build`:
+# the vite-plus task runner builds fine locally and in GitHub Actions but
+# hangs on Netlify's build image until the build times out. The package has
+# to be built first because the website imports it from dist/.
 
 [build]
-command = "pnpm exec vp run website#build"
+command = "pnpm --filter @klinking/squircle exec tsx scripts/build.ts && pnpm --filter website exec astro build"
 publish = "website/dist"
