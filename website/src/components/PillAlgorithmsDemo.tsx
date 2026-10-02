@@ -412,7 +412,7 @@ export default function PillAlgorithmsDemo() {
             id="s-ease"
             label="squircle-pill-ease"
             value={ease}
-            min={-2}
+            min={0}
             max={8}
             step={0.05}
             format={(v) => v.toFixed(2)}
