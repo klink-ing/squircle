@@ -86,19 +86,19 @@ export default defineConfig({
   run: {
     tasks: {
       "test:tailwind": {
-        env: NAMESPACE_ENV,
+        cache: { env: NAMESPACE_ENV },
         // Matches tailwind.test.ts and tailwind-merge.test.ts; the latter
         // compiles the generated utils.css, so the build has to run first.
         command: "vp test run tailwind",
         dependsOn: ["build"],
       },
       "test:css": {
-        env: NAMESPACE_ENV,
+        cache: { env: NAMESPACE_ENV },
         command: "vp test run squircle-css",
         dependsOn: ["build"],
       },
       "test:radius": {
-        env: NAMESPACE_ENV,
+        cache: { env: NAMESPACE_ENV },
         command: "vp test run squircle-radius",
         dependsOn: ["build"],
       },
@@ -109,7 +109,7 @@ export default defineConfig({
         command: "vp test run stylex",
       },
       "test:pill": {
-        env: NAMESPACE_ENV,
+        cache: { env: NAMESPACE_ENV },
         command: "vp test run pill-",
       },
       test: {
@@ -127,13 +127,13 @@ export default defineConfig({
         command: "tsx scripts/generate-stylex.ts",
       },
       build: {
-        env: NAMESPACE_ENV,
+        cache: { env: NAMESPACE_ENV },
         // One script, so the pack and the generators are one cache entry;
         // see scripts/build.ts.
         command: "tsx scripts/build.ts",
       },
       "pill-dev": {
-        env: NAMESPACE_ENV,
+        cache: { env: NAMESPACE_ENV },
         // The dev page loads the worklet straight from src/, which Vite
         // compiles on the fly, so no build step is needed (and a stale dist/
         // can no longer mask source edits).

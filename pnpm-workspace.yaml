@@ -12,9 +12,9 @@ catalog:
   semantic-release: ^25.0.3
   tailwindcss: ^4.2.2
   typescript: ^5
-  vite: npm:@voidzero-dev/vite-plus-core@latest
-  vite-plus: latest
-  vitest: npm:@voidzero-dev/vite-plus-test@latest
+  vite: npm:@voidzero-dev/vite-plus-core@^1.0.0
+  vite-plus: ^1.0.0
+  vitest: 5.0.1
 
 catalogMode: prefer
 
