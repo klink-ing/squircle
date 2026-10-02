@@ -124,15 +124,28 @@ describe("pill-shape worklet contract", () => {
       }
     });
 
-    it("registers the border properties as non-inheriting lengths and colours", () => {
+    it("registers what the ring reads as inheriting, the border as lengths and colours", () => {
       // A `<length>` registration is what hands the worklet a px value however
-      // the width was written; non-inheriting is what keeps a pill nested in a
-      // bordered pill from drawing its parent's ring.
-      for (const name of [PILL_BORDER_WIDTH_VAR_NAME, PILL_BORDER_COLOR_VAR_NAME]) {
+      // the width was written. Inheriting is what reaches the ring: WebKit
+      // never restyles `::after` when a non-inheriting property it pulls down
+      // with `inherit` changes, so a ring fed that way goes stale in Safari.
+      for (const name of [
+        PILL_AMT_VAR_NAME,
+        PILL_EASE_SPREAD_VAR_NAME,
+        PILL_CONTINUITY_VAR_NAME,
+        PILL_BORDER_WIDTH_VAR_NAME,
+        PILL_BORDER_COLOR_VAR_NAME,
+        PILL_RING_CLIP_VAR_NAME,
+      ]) {
         const block = new RegExp(`@property\\s+${name}\\s*\\{([^}]*)\\}`).exec(stylesheet)?.[1];
         expect(block, `${name} must be registered`).toBeDefined();
-        expect(block).toContain("inherits: false");
+        expect(block, name).toContain("inherits: true");
       }
+      // The element's own clip is read by the element alone, and must never
+      // reach a nested pill.
+      expect(
+        new RegExp(`@property\\s+${PILL_CLIP_VAR_NAME}\\s*\\{([^}]*)\\}`).exec(stylesheet)?.[1],
+      ).toContain("inherits: false");
       expect(stylesheet).toMatch(
         new RegExp(`@property\\s+${PILL_BORDER_WIDTH_VAR_NAME}\\s*\\{[^}]*syntax: "<length>"`),
       );
@@ -181,7 +194,6 @@ describe("pill-shape worklet contract", () => {
       );
       expect(branch).toContain(`clip-path: var(${PILL_CLIP_VAR_NAME}, none)`);
       expect(branch).toContain(`clip-path: var(${PILL_RING_CLIP_VAR_NAME}, inset(50%))`);
-      expect(branch).toContain(`${PILL_RING_CLIP_VAR_NAME}: inherit`);
       // Clips, not masks: a mask image is decoded and rasterised per resize.
       expect(branch).not.toContain(`mask-image: var(`);
     });
@@ -214,29 +226,22 @@ describe("pill-shape worklet contract", () => {
       expect(loaded).toContain(`inset: calc(-1 * var(${PILL_BORDER_WIDTH_VAR_NAME}))`);
     });
 
-    it("hands the ring the element's own values", () => {
-      // The registrations are non-inheriting, so without this the ring would
-      // be drawn to the default shape while the element is masked to a custom
-      // one.
+    it("hands the ring the element's values by inheritance alone", () => {
+      // An explicit `inherit` on `::after` is what goes stale in WebKit.
       const ring = stylesheet.slice(stylesheet.indexOf("::after"));
-      for (const name of [
-        PILL_AMT_VAR_NAME,
-        PILL_EASE_SPREAD_VAR_NAME,
-        PILL_CONTINUITY_VAR_NAME,
-        PILL_BORDER_WIDTH_VAR_NAME,
-        PILL_BORDER_COLOR_VAR_NAME,
-      ]) {
-        expect(ring).toContain(`${name}: inherit`);
-      }
+      expect(ring.slice(0, ring.indexOf("}"))).not.toContain(": inherit");
     });
 
-    it("defaults the border colour to currentColor at zero specificity", () => {
-      // Same default a real border has, and a colour set any other way wins.
-      expect(stylesheet).toMatch(
-        new RegExp(
-          `:where\\(\\[${PILL_ATTRIBUTE}\\]\\) \\{\\s*${PILL_BORDER_COLOR_VAR_NAME}: currentColor;`,
-        ),
-      );
+    it("starts each pill with no border or ring of its own, at zero specificity", () => {
+      // Same default colour a real border has, and a value set any other way
+      // wins; the reset keeps a pill nested in a bordered one from inheriting
+      // its parent's ring.
+      const block = new RegExp(`:where\\(\\[${PILL_ATTRIBUTE}\\]\\) \\{([^}]*)\\}`).exec(
+        stylesheet,
+      )?.[1];
+      expect(block).toContain(`${PILL_BORDER_WIDTH_VAR_NAME}: 0px;`);
+      expect(block).toContain(`${PILL_BORDER_COLOR_VAR_NAME}: currentColor;`);
+      expect(block).toContain(`${PILL_RING_CLIP_VAR_NAME}: initial;`);
     });
 
     it("starts the properties where the worklet's own fallbacks do", () => {

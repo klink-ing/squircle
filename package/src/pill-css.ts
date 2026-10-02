@@ -43,41 +43,50 @@ export type PillCssFlavor = "tailwind" | "standalone";
 /**
  * `@property` registrations for everything the pill reads, with initial
  * values matching the worklet's own fallbacks. Registering makes the values
- * typed and animatable, resolves lengths to px before the worklet sees them,
- * and — `inherits: false` — keeps a pill nested in a bordered pill from
- * drawing its parent's ring.
+ * typed and animatable, and resolves lengths to px before the worklet sees
+ * them.
+ *
+ * Everything the ring on `::after` reads inherits, so the ring gets it the
+ * ordinary way. Pulling a non-inheriting property down with `inherit` works
+ * once, but WebKit never restyles the pseudo when it changes: a hover colour,
+ * a new width, or the clip the polyfill computes after the first paint would
+ * never reach the ring in Safari. A pill nested in a bordered pill is kept
+ * from drawing its parent's ring by resetting the border on every pill
+ * instead; see `pillCssObj`.
  */
 export function pillPropertyRegistrations(): Record<string, Record<string, string>> {
   return {
     [`@property ${PILL_AMT_VAR_NAME}`]: {
       syntax: '"<number>"',
       "initial-value": String(DEFAULT_PILL_AMT),
-      inherits: "false",
+      inherits: "true",
     },
     [`@property ${PILL_EASE_SPREAD_VAR_NAME}`]: {
       syntax: '"<number>"',
       "initial-value": String(DEFAULT_PILL_EASE_SPREAD),
-      inherits: "false",
+      inherits: "true",
     },
     [`@property ${PILL_CONTINUITY_VAR_NAME}`]: {
       syntax: '"<integer>"',
       "initial-value": String(DEFAULT_PILL_CONTINUITY),
-      inherits: "false",
+      inherits: "true",
     },
     [`@property ${PILL_BORDER_WIDTH_VAR_NAME}`]: {
       syntax: '"<length>"',
       "initial-value": "0px",
-      inherits: "false",
+      inherits: "true",
     },
     [`@property ${PILL_BORDER_COLOR_VAR_NAME}`]: {
       syntax: '"<color>"',
       "initial-value": "transparent",
-      inherits: "false",
+      inherits: "true",
     },
-    // The polyfill's per-element clips. Non-inheriting, so a pill nested in
-    // another never wears its parent's shape before its own is computed.
+    // The polyfill's per-element clips. The element's own is read only by the
+    // element, so it doesn't inherit: a pill nested in another never wears
+    // its parent's shape. The ring's does, for `::after`, and is reset on
+    // every pill instead.
     [`@property ${PILL_CLIP_VAR_NAME}`]: { syntax: '"*"', inherits: "false" },
-    [`@property ${PILL_RING_CLIP_VAR_NAME}`]: { syntax: '"*"', inherits: "false" },
+    [`@property ${PILL_RING_CLIP_VAR_NAME}`]: { syntax: '"*"', inherits: "true" },
   };
 }
 
@@ -136,14 +145,8 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     content: '""',
     position: "absolute",
     "pointer-events": "none",
-    // The registrations are non-inheriting, so the pseudo has to be handed
-    // the element's values explicitly, or the ring would be drawn to the
-    // default shape while the element is masked to a custom one.
-    [PILL_AMT_VAR_NAME]: "inherit",
-    [PILL_EASE_SPREAD_VAR_NAME]: "inherit",
-    [PILL_CONTINUITY_VAR_NAME]: "inherit",
-    [PILL_BORDER_WIDTH_VAR_NAME]: "inherit",
-    [PILL_BORDER_COLOR_VAR_NAME]: "inherit",
+    // The shape, border and ring clip all arrive by inheritance; see
+    // `pillPropertyRegistrations`.
     // The pseudo is positioned against the padding box, but the real border
     // still reserves its width for layout, so the ring has to grow back out
     // by that much to hug the border box the mask covers.
@@ -153,15 +156,6 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // filling the shape to stroking it. Fed from the registered width so the
     // worklet sees a px value whatever unit the width was written in.
     [PILL_STROKE_WIDTH_VAR_NAME]: `var(${PILL_BORDER_WIDTH_VAR_NAME})`,
-    ...(flavor === "tailwind"
-      ? {
-          // `border-dashed` and friends set `--tw-border-style`, so the ring
-          // reads it rather than asking for a second source of truth. Tailwind
-          // registers it as non-inheriting, hence the explicit `inherit`.
-          "--tw-border-style": "inherit",
-          [PILL_BORDER_STYLE_VAR_NAME]: `var(--tw-border-style, ${PILL_BORDER_STYLE_FALLBACK})`,
-        }
-      : {}),
     ...ringShape,
   });
 
@@ -190,8 +184,22 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // Same default a real border has. Zero specificity, so a colour set any
     // other way — a utility, a rule, an inline style — wins whatever the
     // order.
+    //
+    // The border and the ring clip inherit, so each pill also starts from
+    // none of either, rather than drawing a bordered parent's ring.
     ":where(&)": {
+      [PILL_BORDER_WIDTH_VAR_NAME]: "0px",
       [PILL_BORDER_COLOR_VAR_NAME]: "currentColor",
+      [PILL_RING_CLIP_VAR_NAME]: "initial",
+      ...(flavor === "tailwind"
+        ? {
+            // `border-dashed` and friends set `--tw-border-style`, so the ring
+            // reads it rather than asking for a second source of truth. It is
+            // mapped here, on the element, because Tailwind registers it as
+            // non-inheriting; the ring inherits the result.
+            [PILL_BORDER_STYLE_VAR_NAME]: `var(--tw-border-style, ${PILL_BORDER_STYLE_FALLBACK})`,
+          }
+        : {}),
     },
     // Only once the worklet has actually loaded; see PILL_WORKLET_ATTRIBUTE.
     // `:where()` keeps the specificity that of the bare utility.
@@ -206,7 +214,6 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // every resize. Until they are computed the element shows its stadium, and
     // the ring nothing at all.
     [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &`]: shaped({
-      [PILL_RING_CLIP_VAR_NAME]: "inherit",
       "clip-path": `var(${PILL_RING_CLIP_VAR_NAME}, ${CLIP_ALL})`,
     }),
     // The shape itself, on a doubled selector so it outranks a mask or clip

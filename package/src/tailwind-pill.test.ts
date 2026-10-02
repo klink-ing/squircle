@@ -15,6 +15,7 @@ import {
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_CLIPPED_ATTRIBUTE,
   PILL_POLYFILL_ATTRIBUTE,
+  PILL_RING_CLIP_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
@@ -63,39 +64,34 @@ describe("tailwind-pill.ts utilities", () => {
     expect(css).toContain("border-color: transparent");
   });
 
-  it("hands the ring the element's own values", async () => {
-    // The registrations are non-inheriting, so without this the ring would
-    // be drawn to the default shape while the element is masked to a custom
-    // one.
+  it("hands the ring the element's values by inheritance alone", async () => {
+    // WebKit never restyles `::after` when a non-inheriting property it pulls
+    // down with `inherit` changes, so nothing reaches the ring that way.
     const css = await compilePill(["squircle-pill"]);
     const ring = css.slice(css.indexOf("&::after"));
-    for (const name of [
-      PILL_AMT_VAR_NAME,
-      PILL_EASE_SPREAD_VAR_NAME,
-      PILL_CONTINUITY_VAR_NAME,
-      PILL_BORDER_WIDTH_VAR_NAME,
-      PILL_BORDER_COLOR_VAR_NAME,
-    ]) {
-      expect(ring).toContain(`${name}: inherit`);
-    }
+    expect(ring.slice(0, ring.indexOf("}"))).not.toContain(": inherit");
   });
 
-  it("bridges Tailwind's border style variable into the pill's own", async () => {
+  it("bridges Tailwind's border style variable into the pill's own, on the element", async () => {
     // Where a utility exposes a variable, read it rather than asking for a
     // second source of truth. Tailwind registers --tw-border-style as
-    // non-inheriting, so the explicit `inherit` is load-bearing.
+    // non-inheriting, so it is mapped where it is set and the ring inherits
+    // the result.
     const css = await compilePill(["squircle-pill"]);
-    expect(css).toContain("--tw-border-style: inherit");
-    expect(css).toContain(`${PILL_BORDER_STYLE_VAR_NAME}: var(--tw-border-style, solid)`);
+    const own = /:where\(&\) \{([^}]*)\}/.exec(css)?.[1];
+    expect(own).toContain(`${PILL_BORDER_STYLE_VAR_NAME}: var(--tw-border-style, solid)`);
   });
 
-  it("defaults the border colour to currentColor at zero specificity", async () => {
-    // Same default a real border has, so `border-2` alone draws a visible
-    // ring; and a colour set any other way wins whatever the order.
+  it("starts each pill with no border or ring of its own, at zero specificity", async () => {
+    // Same default colour a real border has, so `border-2` alone draws a
+    // visible ring, and a value set any other way wins whatever the order;
+    // the reset keeps a pill nested in a bordered one from inheriting its
+    // parent's ring.
     const css = await compilePill(["squircle-pill"]);
-    expect(css).toMatch(
-      new RegExp(`:where\\(&\\) \\{\\s*${PILL_BORDER_COLOR_VAR_NAME}: currentColor;`),
-    );
+    const own = /:where\(&\) \{([^}]*)\}/.exec(css)?.[1];
+    expect(own).toContain(`${PILL_BORDER_WIDTH_VAR_NAME}: 0px;`);
+    expect(own).toContain(`${PILL_BORDER_COLOR_VAR_NAME}: currentColor;`);
+    expect(own).toContain(`${PILL_RING_CLIP_VAR_NAME}: initial;`);
   });
 
   describe("combined with Tailwind's mask utilities", () => {

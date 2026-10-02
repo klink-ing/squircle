@@ -375,10 +375,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         continuity: style.getPropertyValue(PILL_CONTINUITY_VAR_NAME),
       },
       stroke,
-      borderStyle:
-        stroke > 0
-          ? getComputedStyle(el, "::after").getPropertyValue(PILL_BORDER_STYLE_VAR_NAME)
-          : "",
+      borderStyle: stroke > 0 ? style.getPropertyValue(PILL_BORDER_STYLE_VAR_NAME) : "",
       own: {
         value,
         edges: needsBoxEdges(value)
