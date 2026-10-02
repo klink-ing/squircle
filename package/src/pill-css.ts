@@ -90,6 +90,25 @@ const maskWith = (image: string): PillCss => ({
   "mask-mode": "alpha",
 });
 
+/**
+ * Tailwind's mask utilities — `mask-b-from-50%`, `mask-radial-*` and the rest
+ * — build `mask-image` from these three layers, intersected, each opaque
+ * until a utility sets it. Listing them after the pill's own shape keeps the
+ * shape when one is used, instead of the two fighting over `mask-image`. The
+ * fallbacks cover pages where Tailwind never registered them.
+ */
+const OPAQUE = "linear-gradient(#fff, #fff)";
+const TAILWIND_MASK_LAYERS = ["--tw-mask-linear", "--tw-mask-radial", "--tw-mask-conic"]
+  .map((name) => `var(${name}, ${OPAQUE})`)
+  .join(", ");
+
+/** Several mask layers, each kept only where all of them are opaque. */
+const maskLayers = (images: string): PillCss => ({
+  ...maskWith(images),
+  "-webkit-mask-composite": "source-in",
+  "mask-composite": "intersect",
+});
+
 /** Clips everything away: a ring with nothing computed for it draws nothing. */
 const CLIP_ALL = "inset(50%)";
 
@@ -145,8 +164,7 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     ...ringShape,
   });
 
-  const shaped = (elementShape: PillCss, ringShape: PillCss): PillCss => ({
-    ...elementShape,
+  const shaped = (ringShape: PillCss): PillCss => ({
     // The worklet only runs where there is an area to paint.
     "min-width": "1px",
     "min-height": "1px",
@@ -177,7 +195,8 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // Only once the worklet has actually loaded; see PILL_WORKLET_ATTRIBUTE.
     // `:where()` keeps the specificity that of the bare utility.
     [`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`]: shaped(
-      maskWith("paint(pill-shape)"),
+      // The ring sits inside the element, so the element's mask — the shape
+      // and any Tailwind mask with it — already fades it too.
       maskWith("paint(pill-shape)"),
     ),
     // Without a worklet, `polyfillPills()` computes the same shapes per
@@ -185,13 +204,24 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // directly, where a mask image would have to be decoded and rasterised on
     // every resize. Until they are computed the element shows its stadium, and
     // the ring nothing at all.
-    [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &`]: shaped(
-      { "clip-path": `var(${PILL_CLIP_VAR_NAME}, none)` },
-      {
-        [PILL_RING_CLIP_VAR_NAME]: "inherit",
-        "clip-path": `var(${PILL_RING_CLIP_VAR_NAME}, ${CLIP_ALL})`,
-      },
-    ),
+    [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &`]: shaped({
+      [PILL_RING_CLIP_VAR_NAME]: "inherit",
+      "clip-path": `var(${PILL_RING_CLIP_VAR_NAME}, ${CLIP_ALL})`,
+    }),
+    // The shape itself, on a doubled selector so it outranks a mask or clip
+    // utility on the same element whichever order they are emitted in.
+    // Tailwind emits its mask utilities after this one, at the same
+    // single-class specificity, which would otherwise replace the shape
+    // rather than combine with it.
+    [`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &&`]:
+      flavor === "tailwind"
+        ? maskLayers(`paint(pill-shape), ${TAILWIND_MASK_LAYERS}`)
+        : maskWith("paint(pill-shape)"),
+    [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &&`]: {
+      // A clip, not a mask, so Tailwind's mask utilities apply on top as
+      // they would on any element.
+      "clip-path": `var(${PILL_CLIP_VAR_NAME}, none)`,
+    },
   };
 }
 

@@ -13,6 +13,7 @@ import {
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
+  PILL_POLYFILL_ATTRIBUTE,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
@@ -94,6 +95,38 @@ describe("tailwind-pill.ts utilities", () => {
     expect(css).toMatch(
       new RegExp(`:where\\(&\\) \\{\\s*${PILL_BORDER_COLOR_VAR_NAME}: currentColor;`),
     );
+  });
+
+  describe("combined with Tailwind's mask utilities", () => {
+    it("lists Tailwind's mask layers after its own shape, intersected", async () => {
+      // `mask-b-from-50%` and friends fill these three layers; listing them
+      // keeps the pill shape when one is used, and the fallbacks keep the
+      // mask valid where Tailwind never registered them.
+      const css = await compilePill(["squircle-pill"]);
+      expect(css).toContain(
+        "mask-image: paint(pill-shape), var(--tw-mask-linear, linear-gradient(#fff, #fff)), var(--tw-mask-radial, linear-gradient(#fff, #fff)), var(--tw-mask-conic, linear-gradient(#fff, #fff))",
+      );
+      expect(css).toContain("mask-composite: intersect");
+      expect(css).toContain("-webkit-mask-composite: source-in");
+    });
+
+    it("sets the shape on a doubled selector, so a mask utility cannot replace it", async () => {
+      // Tailwind emits its mask utilities after the pill, at single-class
+      // specificity; equal specificity would let the later one win outright.
+      const css = await compilePill(["squircle-pill", "mask-b-from-50%"]);
+      const shape = css.indexOf("mask-image: paint(pill-shape), var(--tw-mask-linear");
+      expect(
+        css.lastIndexOf(`:where(:root[${PILL_WORKLET_ATTRIBUTE}]) && {`, shape),
+      ).toBeGreaterThan(-1);
+      expect(css.indexOf(".mask-b-from-50\\%")).toBeGreaterThan(shape);
+    });
+
+    it("shapes with a clip under the polyfill, leaving mask-image to Tailwind", async () => {
+      const css = await compilePill(["squircle-pill"]);
+      const branch = css.slice(css.indexOf(`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) && {`));
+      expect(branch).toContain("clip-path: var(");
+      expect(branch.slice(0, branch.indexOf("}"))).not.toContain("mask-image");
+    });
   });
 
   describe("the stadium underneath", () => {

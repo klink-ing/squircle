@@ -12,6 +12,9 @@ const count = Number(params.get("count") ?? 100);
 const mode = (params.get("mode") ?? "worklet") as Mode;
 const frames = Number(params.get("frames") ?? 120);
 const seed = Number(params.get("seed") ?? 1);
+// `masked` puts a Tailwind mask utility on every other pill, to see the pill
+// shape and Tailwind's masks combine, and what that costs.
+const masked = params.has("masked");
 
 const stage = document.getElementById("stage") as HTMLElement;
 const status = document.getElementById("status") as HTMLElement;
@@ -43,6 +46,7 @@ function build() {
     // expensive profile are both exercised.
     if (random() < 0.25) classes.push("border-2", "border-zinc-100");
     if (random() < 0.25) classes.push("squircle-pill-g3");
+    if (masked && i % 2 === 0) classes.push("mask-b-from-20%");
     pill.className = classes.join(" ");
     // Widths are a share of the stage, so every pill resizes, and its
     // aspect ratio changes, as the stage does.

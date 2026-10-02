@@ -509,6 +509,10 @@ With `tailwind-pill-border` loaded, **Tailwind's own `border-*` utilities drive 
 
 The stadium `border-radius` is kept even under the mask, so native decorations that stay inside the box follow a shape close enough that the mask only trims them: `shadow-inner`, an `outline` with a negative `outline-offset`, the browser's focus ring with `focus-visible:-outline-offset-2`. The one thing that needs help is what's painted _outside_ the box: `filter` runs before the mask, so a drop shadow goes on a wrapper (`<div class="drop-shadow-lg"><button class="squircle-pill …">`), and an outer ring is a masked wrapper with padding.
 
+### Combining with Tailwind's mask utilities
+
+The pill's mask is layered with Tailwind's own, so `mask-*` utilities on a pill add to its shape rather than replacing it: `squircle-pill mask-b-from-20%` is a pill that fades out towards the bottom, in the polyfill too. That covers the gradient families — `mask-linear-*`, `mask-radial-*`, `mask-conic-*` and the edge shorthands like `mask-t-*` and `mask-x-*`. A raw `mask-image` from anywhere else, such as `mask-[url(…)]`, isn't composed; put it on a wrapper.
+
 ### Fallback
 
 Without the worklet — Safari, Firefox, or before `registerPillWorklet()` resolves — a pill is a plain `rounded-full` stadium with a real border, and nothing else. Not a superellipse: on a pill the cap is the whole shape, so a superellipse would change the silhouette rather than soften a corner. No layout shift when the worklet lands.
