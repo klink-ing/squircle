@@ -7,6 +7,7 @@ import { definePreset, type PropertyConfig } from "@pandacss/dev";
 import {
   CAMEL_VARIANTS,
   DEFAULT_AMOUNT_VAR_NAME,
+  DEFAULT_R_VAR_NAME,
   SUPPORTS_RULE,
   squircleCssObj,
   variantEntries,
@@ -14,8 +15,17 @@ import {
 
 export interface SquirclePandaPresetOptions {
   /** CSS custom property name for the superellipse amount (default: "--squircle-amt"). */
+  /**
+   * @deprecated Set the namespace instead, with `SQUIRCLE_CSS_NAMESPACE` at
+   * build time, which renames every property this package owns together. This
+   * option still works and still wins.
+   */
   amtVar?: string;
   /** CSS custom property name for the intermediate corrected radius (default: "--squircle-r"). */
+  /**
+   * @deprecated Set the namespace instead, with `SQUIRCLE_CSS_NAMESPACE` at
+   * build time. This option still works and still wins.
+   */
   rVar?: string;
 }
 
@@ -38,7 +48,7 @@ export interface SquirclePandaPresetOptions {
  */
 export function squirclePandaPreset(options: SquirclePandaPresetOptions = {}) {
   const amtVar = options.amtVar ?? DEFAULT_AMOUNT_VAR_NAME;
-  const rVar = options.rVar ?? "--squircle-r";
+  const rVar = options.rVar ?? DEFAULT_R_VAR_NAME;
 
   const utilities: Record<string, PropertyConfig> = {};
 

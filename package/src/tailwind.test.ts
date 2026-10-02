@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCompiler, VARIANTS } from "./test-utils";
+import { DEFAULT_AMOUNT_VAR_NAME } from "./variants";
 
 const { compilePlugin } = createCompiler(import.meta.dirname);
 
@@ -149,6 +150,19 @@ describe("plugin.ts custom options", () => {
     const css = await compilePlugin(["se-amt-[3]"], "prefix: se;");
     expect(css).toContain(".se-amt-\\[3\\]");
     expect(css).toContain("--squircle-amt: 3");
+  });
+
+  it("deprecated amt-var still wins over the namespace default", async () => {
+    // The option predates the namespace and is deprecated, but overriding it
+    // must keep working — and must beat whatever the namespace resolves to.
+    const css = await compilePlugin(["squircle-md"], "amt-var: --se-amt;");
+    expect(css).toContain("--se-amt");
+    expect(css).not.toContain(DEFAULT_AMOUNT_VAR_NAME);
+  });
+
+  it("falls back to the namespaced name when the option is absent", async () => {
+    const css = await compilePlugin(["squircle-md"]);
+    expect(css).toContain(DEFAULT_AMOUNT_VAR_NAME);
   });
 
   it("custom amt-var changes the CSS variable name", async () => {
