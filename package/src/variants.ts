@@ -69,6 +69,13 @@ export const PILL_WORKLET_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-workle
  */
 export const PILL_POLYFILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-polyfill`;
 export const PILL_CLIP_VAR_NAME: string = pillVar("clip");
+/**
+ * Set by `polyfillPills()` on a pill whose `clip-path` it has computed. Only
+ * then does the pill's clip replace the element's own, which it already has
+ * folded in; without it — before the polyfill gets to a pill, or where a
+ * square needs no clip — the element's own `clip-path` applies untouched.
+ */
+export const PILL_CLIPPED_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-clipped`;
 export const PILL_RING_CLIP_VAR_NAME: string = pillVar("ring-clip");
 /** What the standalone stylesheet hangs its rules off, so it works without Tailwind. */
 export const PILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill`;

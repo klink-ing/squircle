@@ -13,6 +13,7 @@ import {
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
+  PILL_CLIPPED_ATTRIBUTE,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
@@ -123,7 +124,13 @@ describe("tailwind-pill.ts utilities", () => {
 
     it("shapes with a clip under the polyfill, leaving mask-image to Tailwind", async () => {
       const css = await compilePill(["squircle-pill"]);
-      const branch = css.slice(css.indexOf(`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) && {`));
+      // Only on pills the polyfill has given a clip, so until then, or where
+      // it needs none, the element's own clip-path stands.
+      const branch = css.slice(
+        css.indexOf(
+          `:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &&:where([${PILL_CLIPPED_ATTRIBUTE}]) {`,
+        ),
+      );
       expect(branch).toContain("clip-path: var(");
       expect(branch.slice(0, branch.indexOf("}"))).not.toContain("mask-image");
     });

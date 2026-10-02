@@ -17,6 +17,7 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_CLIP_VAR_NAME,
+  PILL_CLIPPED_ATTRIBUTE,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_RING_CLIP_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
@@ -217,9 +218,12 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
       flavor === "tailwind"
         ? maskLayers(`paint(pill-shape), ${TAILWIND_MASK_LAYERS}`)
         : maskWith("paint(pill-shape)"),
-    [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &&`]: {
-      // A clip, not a mask, so Tailwind's mask utilities apply on top as
-      // they would on any element.
+    // A clip, not a mask, so Tailwind's mask utilities apply on top as they
+    // would on any element. An element has only one clip, though, so the
+    // polyfill folds the element's own — `sr-only`, a `[clip-path:…]` — into
+    // this one, and marks the pills it has done that for; the rest keep their
+    // own clip.
+    [`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) &&:where([${PILL_CLIPPED_ATTRIBUTE}])`]: {
       "clip-path": `var(${PILL_CLIP_VAR_NAME}, none)`,
     },
   };

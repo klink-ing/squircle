@@ -123,6 +123,46 @@ describe("pill polyfill", () => {
       expect(pillClipPath(48, 48)).toBeNull();
       expect(pillClipPath(48, 47)).not.toBeNull();
     });
+
+    it("is the pill as it is where the element clips nothing of its own", () => {
+      expect(pillClipPath(240, 60, {}, { value: "none" })).toBe(pillClipPath(240, 60));
+    });
+
+    it("keeps the element's own clip, cut to the outline", () => {
+      const outline = pillOutlinePoints(240, 60);
+      // A clip over the left half: what's left is the outline's left half.
+      const [half] = parse(
+        pathData(pillClipPath(240, 60, {}, { value: "inset(0px 50% 0px 0px)" }) as string),
+      ) as [Point[]];
+      for (const p of half) {
+        expect(p.x).toBeLessThanOrEqual(120 + 1e-6);
+        expect(distanceTo(p, outline) < 0.01 || Math.abs(p.x - 120) < 0.01).toBe(true);
+      }
+      // And a square keeps it too, cut to its circle.
+      const [corner] = parse(
+        pathData(
+          pillClipPath(48, 48, {}, { value: "polygon(0px 0px, 48px 0px, 0px 48px)" }) as string,
+        ),
+      ) as [Point[]];
+      for (const p of corner) expect(Math.hypot(p.x - 24, p.y - 24)).toBeLessThanOrEqual(24 + 0.01);
+    });
+
+    it("cuts a tall pill's own clip to its outline too", () => {
+      const clip = pillClipPath(60, 240, {}, { value: "polygon(0px 0px, 100% 0px, 0px 100%)" });
+      const [cut] = parse(pathData(clip as string)) as [Point[]];
+      expect(cut.length).toBeGreaterThan(3);
+    });
+
+    it("clips everything for sr-only, and keeps the fill rule", () => {
+      expect(pillClipPath(240, 60, {}, { value: "inset(50%)" })).toBe("inset(50%)");
+      expect(
+        pillClipPath(240, 60, {}, { value: "polygon(evenodd, 0px 0px, 240px 0px, 0px 60px)" }),
+      ).toMatch(/^path\(evenodd, "/);
+    });
+
+    it("leaves a clip it can't flatten to stand on its own", () => {
+      expect(pillClipPath(240, 60, {}, { value: 'url("#shape")' })).toBeNull();
+    });
   });
 
   describe("ring clip", () => {
@@ -138,6 +178,16 @@ describe("pill polyfill", () => {
         expect(p.x).toBeLessThan(240 - 2.9);
         expect(p.y).toBeGreaterThan(2.9);
         expect(p.y).toBeLessThan(60 - 2.9);
+      }
+    });
+
+    it("insets a tall pill's band inwards too, though its outline runs the other way", () => {
+      const clip = pillRingClipPath(60, 240, 3, "solid") as string;
+      const [outer, inner] = parse(pathData(clip)) as [Point[], Point[]];
+      for (const p of inner) {
+        expect(distanceTo(p, outer)).toBeCloseTo(3, 1);
+        expect(p.x).toBeGreaterThan(2.9);
+        expect(p.y).toBeGreaterThan(2.9);
       }
     });
 

@@ -3,6 +3,7 @@
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 
+import { type BoxEdges, clipShape, clipToConvex, needsBoxEdges } from "./clip-shape";
 import { paintDef } from "./pill-shape.worklet";
 import {
   PILL_AMT_VAR_NAME,
@@ -12,6 +13,7 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_CLIP_VAR_NAME,
+  PILL_CLIPPED_ATTRIBUTE,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_RING_CLIP_VAR_NAME,
 } from "./variants";
@@ -59,7 +61,11 @@ const lookup = (values: Record<string, string | undefined>): Lookup => ({
   },
 });
 
-/** The pill's outline, clockwise from its leftmost point, in box coordinates. */
+/**
+ * The pill's outline in box coordinates, in the order the worklet draws it:
+ * clockwise from the leftmost point for a wide pill, and that mirrored —
+ * anticlockwise from the topmost — for a tall one.
+ */
 export function pillOutlinePoints(
   width: number,
   height: number,
@@ -127,24 +133,66 @@ export function pillOutlinePath(width: number, height: number, shape: PillShapeI
   return points.length > 0 ? subpath(points) : "";
 }
 
+/** The `clip-path` the element had of its own, which the pill's has to keep. */
+export interface OwnClip {
+  /** Its computed value. */
+  value: string;
+  /** Border, padding and margin widths, for a clip against one of those boxes. */
+  edges?: BoxEdges;
+}
+
+/** Clips everything: what an empty intersection leaves. */
+const CLIP_ALL = "inset(50%)";
+
 /**
- * The element's `clip-path`, or `null` for a square: its stadium
- * `border-radius` is already the circle a square pill has to be, so it
- * needs no clip at all.
+ * The element's `clip-path`: the pill's outline, cut to the element's own
+ * clip if it has one. `null` where the element's own clip should stand as it
+ * is — a square without one, whose stadium `border-radius` is already the
+ * circle a square pill has to be, or a clip that can't be expressed as
+ * polygons, such as a `url()` reference.
  */
-export function pillClipPath(width: number, height: number, shape?: PillShapeInput): string | null {
-  if (width === height || width <= 0 || height <= 0) return null;
-  return `path("${pillOutlinePath(width, height, shape)}")`;
+export function pillClipPath(
+  width: number,
+  height: number,
+  shape?: PillShapeInput,
+  own?: OwnClip,
+): string | null {
+  if (width <= 0 || height <= 0) return null;
+  const theirs = own ? clipShape(own.value, width, height, own.edges) : null;
+  if (theirs === undefined) return null;
+  if (theirs === null) {
+    return width === height ? null : `path("${pillOutlinePath(width, height, shape)}")`;
+  }
+  const drawn = pillOutlinePoints(width, height, shape);
+  const outline = isClockwise(drawn) ? drawn : [...drawn].reverse();
+  let d = "";
+  for (const ring of theirs.rings) {
+    const cut = clipToConvex(ring, outline);
+    if (cut.length > 2) d += subpath(cut);
+  }
+  if (!d) return CLIP_ALL;
+  return theirs.rule === "evenodd" ? `path(evenodd, "${d}")` : `path("${d}")`;
+}
+
+/** Whether the outline runs clockwise in screen coordinates, as a wide pill's does. */
+function isClockwise(points: Point[]): boolean {
+  let twiceArea = 0;
+  points.forEach((p, i) => {
+    const q = points[(i + 1) % points.length] as Point;
+    twiceArea += p.x * q.y - q.x * p.y;
+  });
+  return twiceArea > 0;
 }
 
 /**
  * Each outline point moved `distance` towards the inside, along the average
- * of its two edges' inward normals. The outline is convex and runs clockwise
- * in screen coordinates, so the inward normal of an edge (dx, dy) is
- * (-dy, dx).
+ * of its two edges' inward normals. The outline is convex; running clockwise
+ * in screen coordinates, the inward normal of an edge (dx, dy) is (-dy, dx),
+ * and a tall pill's, which runs the other way, is its opposite.
  */
 function inset(points: Point[], distance: number): Point[] {
   const n = points.length;
+  if (!isClockwise(points)) distance = -distance;
   return points.map((p, i) => {
     const prev = points[(i - 1 + n) % n] as Point;
     const next = points[(i + 1) % n] as Point;
@@ -275,9 +323,13 @@ const cached = (key: string, make: () => string | null): string | null => {
  * polyfill attribute. Until a pill's clip is computed it shows its stadium
  * fallback.
  *
- * Shape properties are read when the pill resizes or its `class` changes;
- * call `refresh()` after anything else that reshapes it, such as an inline
- * style or a stylesheet change.
+ * The element's own `clip-path` — `sr-only`, an arbitrary `[clip-path:…]` —
+ * is kept: it is cut to the pill's outline and the two set as one clip.
+ *
+ * Shape properties and the element's own clip are read when the polyfill
+ * first sees a pill and whenever its `class` changes; call `refresh()` after
+ * anything else that changes them, such as an inline style, a stylesheet
+ * change or a media query.
  *
  * Returns `null` without doing anything where paint worklets are supported,
  * unless `force` is set.
@@ -303,6 +355,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     shape: PillShapeInput;
     stroke: number;
     borderStyle: string;
+    own: OwnClip;
   }
   const settings = new WeakMap<Element, Settings>();
   const read = (el: Element): Settings => {
@@ -310,6 +363,11 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     if (known) return known;
     const style = getComputedStyle(el);
     const stroke = Number.parseFloat(style.getPropertyValue(PILL_BORDER_WIDTH_VAR_NAME)) || 0;
+    // Read without the pill's own clip in force; see `flush`.
+    const value = style.clipPath;
+    const px = (side: string) => Number.parseFloat(style.getPropertyValue(side)) || 0;
+    const sides = (name: (side: string) => string) =>
+      ["top", "right", "bottom", "left"].map((side) => px(name(side))) as BoxEdges["border"];
     const fresh: Settings = {
       shape: {
         amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
@@ -321,6 +379,16 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         stroke > 0
           ? getComputedStyle(el, "::after").getPropertyValue(PILL_BORDER_STYLE_VAR_NAME)
           : "",
+      own: {
+        value,
+        edges: needsBoxEdges(value)
+          ? {
+              border: sides((side) => `border-${side}-width`),
+              padding: sides((side) => `padding-${side}`),
+              margin: sides((side) => `margin-${side}`),
+            }
+          : undefined,
+      },
     };
     settings.set(el, fresh);
     return fresh;
@@ -346,6 +414,16 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
 
   const flush = () => {
     const deadline = performance.now() + FRAME_BUDGET_MS;
+    // A pill's own clip is read with the one it was given lifted, all of them
+    // at once so the reads share one style recalc. Those that end up with no
+    // new clip get theirs back below.
+    const lifted: Element[] = [];
+    for (const el of pending) {
+      if (!settings.has(el) && el.hasAttribute(PILL_CLIPPED_ATTRIBUTE)) {
+        el.removeAttribute(PILL_CLIPPED_ATTRIBUTE);
+        lifted.push(el);
+      }
+    }
     // All reads first, then all writes, so no read forces a style recalc
     // that an earlier write invalidated.
     const updates: [HTMLElement, string | null, string | null][] = [];
@@ -355,20 +433,30 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       const size = sizes.get(el);
       if (!size) continue;
       const { width, height } = size;
-      const { shape, stroke, borderStyle } = read(el);
+      const { shape, stroke, borderStyle, own } = read(el);
       const shapeKey = `${width},${height},${shape.amt},${shape.spread},${shape.continuity}`;
-      const key = `${shapeKey},${stroke},${borderStyle}`;
+      const ownKey = `${own.value}|${own.edges ? Object.values(own.edges).join() : ""}`;
+      const key = `${shapeKey},${stroke},${borderStyle},${ownKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);
       updates.push([
         el as HTMLElement,
-        cached(`m:${shapeKey}`, () => pillClipPath(width, height, shape)),
-        cached(`r:${key}`, () => pillRingClipPath(width, height, stroke, borderStyle, shape)),
+        cached(`m:${shapeKey},${ownKey}`, () => pillClipPath(width, height, shape, own)),
+        cached(`r:${shapeKey},${stroke},${borderStyle}`, () =>
+          pillRingClipPath(width, height, stroke, borderStyle, shape),
+        ),
       ]);
     }
+    const updated = new Set(updates.map(([el]) => el as Element));
+    for (const el of lifted) if (!updated.has(el)) el.setAttribute(PILL_CLIPPED_ATTRIBUTE, "");
     for (const [el, clip, ring] of updates) {
-      if (clip) el.style.setProperty(PILL_CLIP_VAR_NAME, clip);
-      else el.style.removeProperty(PILL_CLIP_VAR_NAME);
+      if (clip) {
+        el.style.setProperty(PILL_CLIP_VAR_NAME, clip);
+        el.setAttribute(PILL_CLIPPED_ATTRIBUTE, "");
+      } else {
+        el.style.removeProperty(PILL_CLIP_VAR_NAME);
+        el.removeAttribute(PILL_CLIPPED_ATTRIBUTE);
+      }
       if (ring) el.style.setProperty(PILL_RING_CLIP_VAR_NAME, ring);
       else el.style.removeProperty(PILL_RING_CLIP_VAR_NAME);
     }
@@ -455,6 +543,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       for (const el of watched) {
         (el as HTMLElement).style.removeProperty(PILL_CLIP_VAR_NAME);
         (el as HTMLElement).style.removeProperty(PILL_RING_CLIP_VAR_NAME);
+        el.removeAttribute(PILL_CLIPPED_ATTRIBUTE);
       }
       watched.clear();
       doc.documentElement.removeAttribute(PILL_POLYFILL_ATTRIBUTE);

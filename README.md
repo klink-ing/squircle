@@ -532,7 +532,9 @@ if (!(await registerPillWorklet())) {
 
 It runs the worklet's own geometry on the main thread: a `ResizeObserver` watches every pill, and on each new size the outline (and the ring, if the pill has a border) is set as a `clip-path: path()` on two custom properties the pill styles read. Clips rather than mask images, because a mask image is decoded and rasterised again on every resize, which was over five times slower. The shapes are identical to the worklet's, borders and dashes included; a square needs no clip at all, its stadium already being the circle it has to be. Each pill shows its stadium until its clip is computed, so there is no flash of anything worse, and a resize too large for one frame spreads over the next few rather than dropping them.
 
-It picks up pills added or removed later, and re-reads a pill when its `class` changes. Changes it can't see — an inline `style` setting a pill property, a stylesheet swap — need a `refresh()`:
+A clip-path the element already has is kept. An element can only have one, so the polyfill reads the element's own, cuts it to the pill's outline, and sets the two as one clip. That covers `sr-only` and arbitrary `[clip-path:…]` values, which is everything Tailwind emits: it has no clip-path utilities of its own. `inset()`, `rect()`, `xywh()`, `circle()`, `ellipse()`, `polygon()` and `path()` without arcs are folded in, against any reference box. A clip it can't flatten, such as a `url()` reference, is left to stand on its own, without the pill shape. With the worklet none of this is needed, because the shape is a mask and a clip applies on top of it.
+
+It picks up pills added or removed later, and re-reads a pill when its `class` changes. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a media query — need a `refresh()`:
 
 ```js
 const pills = polyfillPills();
