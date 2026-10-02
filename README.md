@@ -636,7 +636,7 @@ Partially, at time of writing — recent Chrome ships `corner-shape`, Safari and
 
 The **CSS utilities** (`tailwind/utils.css`) are v4-only — they use `@utility` and `--value()`, which don't exist in v3.
 
-The **JS plugin** uses only APIs that exist in both v3 and v4 (`plugin.withOptions`, `matchUtilities`, `type: "length" | "number"`, `theme()`), so it's likely to work in v3 via a `tailwind.config.js`-style registration — but it's not currently tested or declared against v3. Tracked in [#26](https://github.com/dogmar/squircle/pull/26).
+The **JS plugin** uses only APIs that exist in both v3 and v4 (`plugin.withOptions`, `matchUtilities`, `type: "length" | "number"`, `theme()`), so it's likely to work in v3 via a `tailwind.config.js`-style registration — but it's not currently tested or declared against v3. Tracked in [#26](https://github.com/klink-ing/squircle/pull/26).
 
 </details>
 

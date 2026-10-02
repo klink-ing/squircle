@@ -11,7 +11,7 @@ export default function DemoEmbed({
   file = "src/App.tsx",
   height = 500,
 }: DemoEmbedProps) {
-  const repo = "dogmar/squircle";
+  const repo = "klink-ing/squircle";
   const branch = "main";
   const src = `https://stackblitz.com/github/${repo}/tree/${branch}/${projectPath}?embed=1&theme=dark&file=${file}&hideExplorer=0&terminalHeight=0`;
 
