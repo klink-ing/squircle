@@ -5,6 +5,7 @@
 
 import {
   DEFAULT_PILL_AMT,
+  DEFAULT_PILL_CONTINUITY,
   DEFAULT_PILL_EASE_SPREAD,
   FULL_RADIUS,
   PILL_AMT_VAR_NAME,
@@ -13,6 +14,7 @@ import {
   PILL_BORDER_STYLE_FALLBACK,
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
@@ -51,6 +53,11 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
     [`@property ${PILL_EASE_SPREAD_VAR_NAME}`]: {
       syntax: '"<number>"',
       "initial-value": String(DEFAULT_PILL_EASE_SPREAD),
+      inherits: "false",
+    },
+    [`@property ${PILL_CONTINUITY_VAR_NAME}`]: {
+      syntax: '"<integer>"',
+      "initial-value": String(DEFAULT_PILL_CONTINUITY),
       inherits: "false",
     },
     [`@property ${PILL_BORDER_WIDTH_VAR_NAME}`]: {
@@ -104,6 +111,7 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // default shape while the element is masked to a custom one.
     [PILL_AMT_VAR_NAME]: "inherit",
     [PILL_EASE_SPREAD_VAR_NAME]: "inherit",
+    [PILL_CONTINUITY_VAR_NAME]: "inherit",
     [PILL_BORDER_WIDTH_VAR_NAME]: "inherit",
     [PILL_BORDER_COLOR_VAR_NAME]: "inherit",
     // The pseudo is positioned against the padding box, but the real border

@@ -19,6 +19,7 @@ const AMT_VAR = `${NS}-amt`;
 const EASE_SPREAD_VAR = `${NS}-ease-spread`;
 const STROKE_WIDTH_VAR = `${NS}-stroke-width`;
 const BORDER_STYLE_VAR = `${NS}-border-style`;
+const CONTINUITY_VAR = `${NS}-continuity`;
 
 interface PaintSize {
   width: number;
@@ -43,6 +44,34 @@ interface Fresnel extends FresnelTotals {
   cos: number[];
   sin: number[];
 }
+
+/**
+ * How curvature falls across the transition, sampled at `EASE_STEPS + 1`
+ * evenly spaced points of its length.
+ *
+ * `remaining[i]` is the share of the transition's turn still to come at that
+ * point, from 1 where it leaves the arc to 0 where it meets the flat edge.
+ * `lambda` sets the transition's length, `lambda * beta * R`: curvature
+ * starts at `1 / R`, so a profile that sheds it sooner needs longer to turn
+ * the same `beta`.
+ */
+interface Profile {
+  remaining: number[];
+  lambda: number;
+}
+
+/**
+ * The geometric continuity the transition keeps at both of its ends.
+ *
+ * `2` matches curvature: `k(t) = (1 / R) * (1 - t)^(q - 1)`, which leaves the
+ * arc already shedding curvature at a finite rate. `3` also matches the rate
+ * curvature changes, `dk/ds`, with `k(t) = (1 / R) * (1 - t^2)^(q - 1)`: flat
+ * where it leaves the arc, and, for any exponent above 2, flat where it meets
+ * the edge. The spread keeps its meaning — it is the same exponent — but G3
+ * floors it at 0, the lowest spread that still arrives at the edge at all.
+ */
+type Continuity = 2 | 3;
+const DEFAULT_CONTINUITY: Continuity = 2;
 
 const QUADRANT_CACHE_SIZE = 64;
 const quadrantCache = new Map<string, Point[]>();
@@ -109,7 +138,7 @@ const MAX_SEGMENTS = 256;
 
 export const paintDef = class PillShape implements PaintWorklet {
   static get inputProperties() {
-    return [AMT_VAR, EASE_SPREAD_VAR, STROKE_WIDTH_VAR, BORDER_STYLE_VAR];
+    return [AMT_VAR, EASE_SPREAD_VAR, CONTINUITY_VAR, STROKE_WIDTH_VAR, BORDER_STYLE_VAR];
   }
 
   /**
@@ -163,6 +192,32 @@ export const paintDef = class PillShape implements PaintWorklet {
     return Math.max(spread, MIN_SPREAD) + CLOTHOID_EXPONENT;
   }
 
+  /** `3` for G3, anything else the G2 default; see `Continuity`. */
+  resolveContinuity(props?: PaintProperties): Continuity {
+    const raw = Number.parseFloat(props?.get(CONTINUITY_VAR)?.toString() ?? "");
+    return Number.isFinite(raw) && raw >= 2.5 ? 3 : DEFAULT_CONTINUITY;
+  }
+
+  /** The transition's curvature profile for exponent `q`; see `Profile`. */
+  profile(q: number, continuity: Continuity): Profile {
+    const h = 1 / EASE_STEPS;
+    if (continuity === 2) {
+      const remaining: number[] = [];
+      for (let i = 0; i <= EASE_STEPS; i++) remaining.push((1 - i * h) ** q);
+      return { remaining, lambda: q };
+    }
+
+    // Curvature (1 - t^2)^e, integrated for the turn taken so far.
+    const e = Math.max(q - 1, 1);
+    const k = (t: number) => (1 - t * t) ** e;
+    const taken = [0];
+    for (let i = 1; i <= EASE_STEPS; i++) {
+      taken.push(taken[i - 1] + ((k((i - 1) * h) + k(i * h)) / 2) * h);
+    }
+    const total = taken[EASE_STEPS];
+    return { remaining: taken.map((v) => 1 - v / total), lambda: 1 / total };
+  }
+
   /**
    * Running integrals of `cos(b * u^q)` and `sin(b * u^q)` over `[0, t]`.
    *
@@ -177,7 +232,7 @@ export const paintDef = class PillShape implements PaintWorklet {
    * quadrature without keeping the running values; the fit probes it many
    * times over and would otherwise allocate two arrays per probe.
    */
-  fresnel(beta: number, q: number): Fresnel {
+  fresnel(beta: number, { remaining }: Profile): Fresnel {
     const cos = [0];
     const sin = [0];
     const h = 1 / EASE_STEPS;
@@ -185,9 +240,8 @@ export const paintDef = class PillShape implements PaintWorklet {
     let s = 0;
 
     for (let i = 1; i <= EASE_STEPS; i++) {
-      // Integrating in tau, where u = 1 - tau.
-      const u0 = (1 - (i - 1) * h) ** q;
-      const u1 = (1 - i * h) ** q;
+      const u0 = remaining[i - 1];
+      const u1 = remaining[i];
       c += ((Math.cos(beta * u0) + Math.cos(beta * u1)) / 2) * h;
       s += ((Math.sin(beta * u0) + Math.sin(beta * u1)) / 2) * h;
       cos.push(c);
@@ -197,13 +251,13 @@ export const paintDef = class PillShape implements PaintWorklet {
     return { cos, sin, totalCos: c, totalSin: s };
   }
 
-  fresnelTotals(beta: number, q: number): FresnelTotals {
+  fresnelTotals(beta: number, { remaining }: Profile): FresnelTotals {
     const h = 1 / EASE_STEPS;
     let totalCos = 0;
     let totalSin = 0;
     for (let i = 1; i <= EASE_STEPS; i++) {
-      const u0 = (1 - (i - 1) * h) ** q;
-      const u1 = (1 - i * h) ** q;
+      const u0 = remaining[i - 1];
+      const u1 = remaining[i];
       totalCos += ((Math.cos(beta * u0) + Math.cos(beta * u1)) / 2) * h;
       totalSin += ((Math.sin(beta * u0) + Math.sin(beta * u1)) / 2) * h;
     }
@@ -215,16 +269,17 @@ export const paintDef = class PillShape implements PaintWorklet {
    * cap of half-height `r` easing through `beta`.
    *
    * The cap still has to span the full height, so the arc's rise
-   * (`R cos beta`) plus the transition's rise (`q R beta * S`) must equal `r`.
+   * (`R cos beta`) plus the transition's rise (`lambda R beta * S`) must equal
+   * `r`.
    */
   capMetrics(
     r: number,
     beta: number,
-    q: number,
+    lambda: number,
     { totalCos, totalSin }: FresnelTotals,
   ): { radius: number; junction: number } {
-    const radius = r / (Math.cos(beta) + q * beta * totalSin);
-    const junction = radius * (1 - Math.sin(beta) + q * beta * totalCos);
+    const radius = r / (Math.cos(beta) + lambda * beta * totalSin);
+    const junction = radius * (1 - Math.sin(beta) + lambda * beta * totalCos);
     return { radius, junction };
   }
 
@@ -250,6 +305,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     half: number,
     wantedBeta: number,
     wantedExponent: number,
+    continuity: Continuity = DEFAULT_CONTINUITY,
   ): { beta: number; exponent: number } {
     if (wantedBeta <= 0) return { beta: 0, exponent: wantedExponent };
 
@@ -266,9 +322,9 @@ export const paintDef = class PillShape implements PaintWorklet {
         : wantedExponent;
 
     const fits = (beta: number): boolean => {
-      const exponent = exponentFor(beta);
+      const profile = this.profile(exponentFor(beta), continuity);
       return (
-        this.capMetrics(r, beta, exponent, this.fresnelTotals(beta, exponent)).junction <= half
+        this.capMetrics(r, beta, profile.lambda, this.fresnelTotals(beta, profile)).junction <= half
       );
     };
 
@@ -288,9 +344,15 @@ export const paintDef = class PillShape implements PaintWorklet {
    * One quadrant of the outline: from the leftmost point of the cap, round the
    * arc, and through the easing to where it becomes the flat top edge.
    */
-  quadrant(r: number, beta: number, q: number): Point[] {
-    const fresnel = this.fresnel(beta, q);
-    const { radius } = this.capMetrics(r, beta, q, fresnel);
+  quadrant(
+    r: number,
+    beta: number,
+    q: number,
+    continuity: Continuity = DEFAULT_CONTINUITY,
+  ): Point[] {
+    const profile = this.profile(q, continuity);
+    const fresnel = this.fresnel(beta, profile);
+    const { radius } = this.capMetrics(r, beta, profile.lambda, fresnel);
     const points: Point[] = [];
 
     // Circular cap, from the leftmost point to where the easing takes over.
@@ -309,23 +371,23 @@ export const paintDef = class PillShape implements PaintWorklet {
 
     // The lowest spread gives the transition no length at all: the arc alone
     // spans the height and meets the flat edge at a corner.
-    if (q <= 0) return points;
+    if (profile.lambda <= 0) return points;
 
     // Curvature ramps from 1 / radius down to 0 across the transition, which
-    // the exponent makes q * beta * radius long. Vertices land where the chord
-    // would otherwise drift off the curve.
-    const length = q * radius * beta;
+    // the profile makes lambda * beta * radius long. Vertices land where the
+    // chord would otherwise drift off the curve.
+    const length = profile.lambda * radius * beta;
     const start = points[points.length - 1];
     const at = (k: number): Point => ({
       x: start.x + length * fresnel.cos[k],
       y: start.y - length * fresnel.sin[k],
     });
-    const turnTo = (t: number): number => beta * (1 - (1 - t) ** q);
+    const turnTo = (k: number): number => beta * (1 - profile.remaining[k]);
 
     let anchor = 0;
     for (let k = 1; k < EASE_STEPS; k++) {
       const span = length * ((k - anchor) / EASE_STEPS);
-      const turn = turnTo(k / EASE_STEPS) - turnTo(anchor / EASE_STEPS);
+      const turn = turnTo(k) - turnTo(anchor);
       if (span * turn >= 8 * MAX_SAGITTA) {
         points.push(at(k));
         anchor = k;
@@ -369,7 +431,13 @@ export const paintDef = class PillShape implements PaintWorklet {
     const outline = this.outline(
       long,
       short,
-      this.fittedQuadrant(long, short, this.resolveEase(props), this.resolveExponent(props)),
+      this.fittedQuadrant(
+        long,
+        short,
+        this.resolveEase(props),
+        this.resolveExponent(props),
+        this.resolveContinuity(props),
+      ),
     );
     for (let i = 0; i < outline.length; i++) {
       const p = outline[i];
@@ -403,16 +471,22 @@ export const paintDef = class PillShape implements PaintWorklet {
    * Memoised, because the same shape is painted at least twice — once as the
    * element's mask and once as its ring — and again on every repaint that
    * changes nothing about it, such as a hover. The quadrant is the expensive
-   * part, and it depends only on these four numbers.
+   * part, and it depends only on these five values.
    */
-  fittedQuadrant(long: number, short: number, ease: number, exponent: number): Point[] {
-    const key = `${long},${short},${ease},${exponent}`;
+  fittedQuadrant(
+    long: number,
+    short: number,
+    ease: number,
+    exponent: number,
+    continuity: Continuity = DEFAULT_CONTINUITY,
+  ): Point[] {
+    const key = `${long},${short},${ease},${exponent},${continuity}`;
     const cached = quadrantCache.get(key);
     if (cached) return cached;
 
     const r = short / 2;
-    const fitted = this.fitEasing(r, long / 2, ease, exponent);
-    const points = this.quadrant(r, fitted.beta, fitted.exponent);
+    const fitted = this.fitEasing(r, long / 2, ease, exponent, continuity);
+    const points = this.quadrant(r, fitted.beta, fitted.exponent, continuity);
 
     if (quadrantCache.size >= QUADRANT_CACHE_SIZE) {
       quadrantCache.delete(quadrantCache.keys().next().value as string);

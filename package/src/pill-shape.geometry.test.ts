@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { paintDef } from "./pill-shape.worklet";
-import { PILL_AMT_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME } from "./variants";
+import { PILL_AMT_VAR_NAME, PILL_CONTINUITY_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME } from "./variants";
 
 interface Point {
   x: number;
@@ -34,8 +34,11 @@ class RecordingContext {
   }
 }
 
-const props = (amt?: number, spread?: number) => ({
+const props = (amt?: number, spread?: number, continuity?: number) => ({
   get(name: string) {
+    if (name === PILL_CONTINUITY_VAR_NAME && continuity !== undefined) {
+      return { toString: () => String(continuity) };
+    }
     if (name === PILL_AMT_VAR_NAME && amt !== undefined) {
       return { toString: () => String(amt) };
     }
@@ -46,12 +49,18 @@ const props = (amt?: number, spread?: number) => ({
   },
 });
 
-const paint = (width: number, height: number, amt?: number, spread?: number): RecordingContext => {
+const paint = (
+  width: number,
+  height: number,
+  amt?: number,
+  spread?: number,
+  continuity?: number,
+): RecordingContext => {
   const ctx = new RecordingContext();
   const instance = new (paintDef as new () => {
     paint(c: unknown, s: { width: number; height: number }, p: unknown): void;
   })();
-  instance.paint(ctx, { width, height }, props(amt, spread));
+  instance.paint(ctx, { width, height }, props(amt, spread, continuity));
   return ctx;
 };
 
@@ -509,6 +518,84 @@ describe("pill-shape worklet geometry", () => {
 
       const j = junctionIndex(ctx);
       expect(Math.abs(ctx.vertices[j].x - ctx.vertices[j + 1].x)).toBeLessThan(1e-6);
+    });
+  });
+
+  describe("G3 continuity", () => {
+    /**
+     * The rate curvature changes at each end of the transition, relative to
+     * the curvature it leaves the arc with, from the worklet's own profile.
+     * `remaining` is the share of the turn still to come, so its first
+     * differences are proportional to curvature, and their change to dk/ds.
+     */
+    const endRates = (spread: number, continuity: 2 | 3) => {
+      const worklet = new (paintDef as unknown as new () => {
+        profile(q: number, c: 2 | 3): { remaining: number[] };
+      })();
+      const { remaining } = worklet.profile(spread + 2, continuity);
+      const n = remaining.length - 1;
+      const d = (i: number) => remaining[i] - remaining[i + 1];
+      return {
+        leaving: (Math.abs(d(0) - d(1)) / d(0)) * n,
+        arriving: (Math.abs(d(n - 2) - d(n - 1)) / d(0)) * n,
+      };
+    };
+
+    it("defaults to G2", () => {
+      expect(paint(WIDTH, HEIGHT).vertices).toEqual(paint(WIDTH, HEIGHT, 2, 1, 2).vertices);
+      expect(paint(WIDTH, HEIGHT).vertices).not.toEqual(paint(WIDTH, HEIGHT, 2, 1, 3).vertices);
+    });
+
+    it("leaves the arc with curvature still flat, where G2 is already falling", () => {
+      for (const spread of [0, 1, 4]) {
+        // G2 sheds curvature at (q - 1) / R from the very first step.
+        expect(endRates(spread, 2).leaving, `G2 spread ${spread}`).toBeGreaterThan(0.9);
+        expect(endRates(spread, 3).leaving, `G3 spread ${spread}`).toBeLessThan(0.05);
+      }
+    });
+
+    it("arrives at the edge flat too, once the spread is above the clothoid", () => {
+      for (const spread of [1, 4]) {
+        expect(endRates(spread, 3).arriving, `G3 spread ${spread}`).toBeLessThan(0.05);
+      }
+    });
+
+    it("still ramps curvature to zero and arrives flat", () => {
+      const ctx = paint(WIDTH, HEIGHT, 2, 1, 3);
+      expect(arrivalAngle(ctx)).toBeLessThan(3);
+      expect(curvatureGradient(ctx, R)).toBeLessThan(3);
+      const eased = capCurvature(ctx);
+      const peak = eased.indexOf(Math.max(...eased));
+      for (let i = peak + 2; i < eased.length; i++) {
+        expect(eased[i]).toBeLessThanOrEqual(eased[i - 1] + 1e-9);
+      }
+    });
+
+    it("fits the box and collapses a square to a circle", () => {
+      for (const [amt, spread] of [
+        [2, 1],
+        [4, 4],
+        [3, -2],
+      ]) {
+        for (const [w, h] of [
+          [600, 60],
+          [140, 60],
+          [70, 60],
+          [60, 600],
+        ]) {
+          for (const p of paint(w, h, amt, spread, 3).vertices) {
+            const tag = `G3 amt ${amt} spread ${spread} @ ${w}x${h}`;
+            expect(Number.isFinite(p.x) && Number.isFinite(p.y), tag).toBe(true);
+            expect(p.x, tag).toBeGreaterThanOrEqual(-1e-6);
+            expect(p.x, tag).toBeLessThanOrEqual(w + 1e-6);
+            expect(p.y, tag).toBeGreaterThanOrEqual(-1e-6);
+            expect(p.y, tag).toBeLessThanOrEqual(h + 1e-6);
+          }
+        }
+      }
+      for (const p of paint(100, 100, 3, 1, 3).vertices) {
+        expect(Math.hypot(p.x - 50, p.y - 50)).toBeCloseTo(50, 4);
+      }
     });
   });
 });

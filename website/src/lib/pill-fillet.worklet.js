@@ -29,11 +29,11 @@
  *                          role as SolidWorks' and Onshape's rho (ρ), which
  *                          also sets how full the blend is.
  *
- * Unlike the shipped worklet this makes no attempt to fit itself to the box:
- * the cap keeps its full radius, the blend bows outward from it, and an
- * extreme bulge may leave the element altogether. That is what a CAD fillet
- * does too — it is fitted to a model, not to a bounding box — and the
- * difference is part of what the comparison is for.
+ *   --fillet-fit           1 (default) shrinks the cap radius until the blend
+ *                          stays inside the box, the way the shipped worklet
+ *                          fits its easing. 0 keeps the cap at full radius,
+ *                          as a CAD fillet would keep a dimensioned radius,
+ *                          and the blend bows out past the box to ease off it.
  *
  * Plain JS rather than TS so the same file can be imported for its geometry
  * and handed to `CSS.paintWorklet.addModule()` by URL, in dev and in the
@@ -45,6 +45,7 @@ const ARC_SETBACK_VAR = "--fillet-arc-setback";
 const EDGE_SETBACK_VAR = "--fillet-edge-setback";
 const BULGE_START_VAR = "--fillet-bulge-start";
 const BULGE_END_VAR = "--fillet-bulge-end";
+const FIT_VAR = "--fillet-fit";
 
 const BLEND_SAMPLES = 96;
 /** Arc step, in radians: a constant radius needs no adaptive sampling. */
@@ -59,8 +60,15 @@ const ARC_STEP = Math.PI / 90;
  *   edgeSetback: number,
  *   bulgeStart: number,
  *   bulgeEnd: number,
+ *   fit: boolean,
  * }} FilletParams
- * @typedef {{ arc: Point[], blend: Point[], controls: Point[], edgeStart: number }} FilletQuadrant
+ * @typedef {{
+ *   arc: Point[],
+ *   blend: Point[],
+ *   controls: Point[],
+ *   edgeStart: number,
+ *   capRadius: number,
+ * }} FilletQuadrant
  */
 
 /** @type {FilletParams} */
@@ -70,6 +78,7 @@ export const DEFAULT_FILLET = {
   edgeSetback: 1,
   bulgeStart: 1,
   bulgeEnd: 1,
+  fit: true,
 };
 
 /**
@@ -97,6 +106,7 @@ export function readParams(props) {
     edgeSetback: Math.max(number(props, EDGE_SETBACK_VAR, 1), 0),
     bulgeStart: Math.max(number(props, BULGE_START_VAR, 1), 0.05),
     bulgeEnd: Math.max(number(props, BULGE_END_VAR, 1), 0.05),
+    fit: number(props, FIT_VAR, 1) >= 0.5,
   };
 }
 
@@ -184,24 +194,30 @@ export function bezierPoint(controls, t) {
   return pts[0];
 }
 
+/** How far below the box the cap radius may be shrunk, as a share of `r`. */
+const MIN_FIT_RADIUS = 0.3;
+/** How far past the box edge a fitted blend may stray, as a share of `r`. */
+const FIT_TOLERANCE = 1e-4;
+
 /**
- * One quadrant of the outline, for a cap of half-height `r` in a box whose
- * half-length is `half`. The cap is a true semicircle of radius `r`; the
- * blend leaves it `arcSetback` before the top and lands on the flat edge
- * `edgeSetback · r` past the top's x, or at the box's centre if that is
- * sooner.
+ * One quadrant of the outline for a cap of radius `rho` in a box of
+ * half-height `r` and half-length `half`. The cap is a circular arc centred
+ * on the pill's axis and touching the box's end; the blend leaves it
+ * `arcSetback` before the arc's top and lands on the flat edge
+ * `edgeSetback · r` past the arc's top, or at the box's centre if sooner.
  *
  * @param {number} r
+ * @param {number} rho
  * @param {number} half
  * @param {FilletParams} params
  * @returns {FilletQuadrant}
  */
-export function filletQuadrant(r, half, params) {
+function quadrantFor(r, rho, half, params) {
   const beta = params.arcSetback;
-  const P0 = { x: r - r * Math.sin(beta), y: r - r * Math.cos(beta) };
+  const P0 = { x: rho - rho * Math.sin(beta), y: r - rho * Math.cos(beta) };
   const T0 = { x: Math.cos(beta), y: -Math.sin(beta) };
-  const reach = Math.max(Math.min(params.edgeSetback * r, half - r), 0);
-  const P1 = { x: r + reach, y: 0 };
+  const reach = Math.max(Math.min(params.edgeSetback * r, half - rho), 0);
+  const P1 = { x: rho + reach, y: 0 };
   const T1 = { x: 1, y: 0 };
 
   /** @type {Point[]} */
@@ -210,18 +226,18 @@ export function filletQuadrant(r, half, params) {
   const steps = Math.max(Math.ceil(sweep / ARC_STEP), 1);
   for (let i = 0; i <= steps; i++) {
     const theta = Math.PI + (sweep * i) / steps;
-    arc.push({ x: r + r * Math.cos(theta), y: r + r * Math.sin(theta) });
+    arc.push({ x: rho + rho * Math.cos(theta), y: r + rho * Math.sin(theta) });
   }
 
-  if (beta <= 0 && reach <= 0) {
-    return { arc, blend: [], controls: [], edgeStart: r };
+  if (beta <= 0 && reach <= 0 && rho >= r) {
+    return { arc, blend: [], controls: [], edgeStart: rho, capRadius: rho };
   }
 
   const chord = Math.hypot(P1.x - P0.x, P1.y - P0.y);
   const controls = blendControlPoints(
     P0,
     T0,
-    1 / r,
+    1 / rho,
     params.bulgeStart * chord,
     P1,
     T1,
@@ -233,12 +249,66 @@ export function filletQuadrant(r, half, params) {
   const blend = [];
   for (let i = 1; i <= BLEND_SAMPLES; i++) blend.push(bezierPoint(controls, i / BLEND_SAMPLES));
 
-  return { arc, blend, controls, edgeStart: P1.x };
+  return { arc, blend, controls, edgeStart: P1.x, capRadius: rho };
+}
+
+/**
+ * How far the blend strays past the box: above the flat edge, before the
+ * box's end, or past its centre line.
+ *
+ * @param {FilletQuadrant} q
+ * @param {number} half
+ */
+const overshoot = (q, half) => Math.max(0, ...q.blend.map((p) => Math.max(-p.y, -p.x, p.x - half)));
+
+/**
+ * One quadrant of the outline, for a box of half-height `r` and half-length
+ * `half`.
+ *
+ * Unfitted, the cap keeps the full radius `r`. A blend that eases curvature
+ * off an arc already touching the box edge turns more slowly than the arc
+ * would have, so it has to climb past that edge to finish turning: the
+ * bulge is geometry, not a setting.
+ *
+ * Fitted, the largest cap radius whose blend stays inside the box is found
+ * by bisection — the same constraint the shipped spiral satisfies by solving
+ * for its radius — so the two differ only in the shape of the transition.
+ *
+ * @param {number} r
+ * @param {number} half
+ * @param {FilletParams} params
+ * @returns {FilletQuadrant}
+ */
+export function filletQuadrant(r, half, params) {
+  const full = quadrantFor(r, r, half, params);
+  if (!params.fit || overshoot(full, half) <= FIT_TOLERANCE * r) return full;
+
+  let low = MIN_FIT_RADIUS * r;
+  let high = r;
+  let best = quadrantFor(r, low, half, params);
+  for (let i = 0; i < 30; i++) {
+    const mid = (low + high) / 2;
+    const candidate = quadrantFor(r, mid, half, params);
+    if (overshoot(candidate, half) <= FIT_TOLERANCE * r) {
+      low = mid;
+      best = candidate;
+    } else {
+      high = mid;
+    }
+  }
+  return best;
 }
 
 export const paintDef = class PillFillet {
   static get inputProperties() {
-    return [CONTINUITY_VAR, ARC_SETBACK_VAR, EDGE_SETBACK_VAR, BULGE_START_VAR, BULGE_END_VAR];
+    return [
+      CONTINUITY_VAR,
+      ARC_SETBACK_VAR,
+      EDGE_SETBACK_VAR,
+      BULGE_START_VAR,
+      BULGE_END_VAR,
+      FIT_VAR,
+    ];
   }
 
   /**

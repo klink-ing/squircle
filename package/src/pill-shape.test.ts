@@ -15,6 +15,7 @@ import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
@@ -96,6 +97,7 @@ describe("pill-shape worklet contract", () => {
     expect(inputProperties).toEqual([
       PILL_AMT_VAR_NAME,
       PILL_EASE_SPREAD_VAR_NAME,
+      PILL_CONTINUITY_VAR_NAME,
       PILL_STROKE_WIDTH_VAR_NAME,
       PILL_BORDER_STYLE_VAR_NAME,
     ]);
@@ -104,7 +106,7 @@ describe("pill-shape worklet contract", () => {
   describe("against squircle-pill.css", () => {
     it("registers every shaping property the worklet reads", () => {
       const registered = registeredProperties(stylesheet);
-      for (const name of [PILL_AMT_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME]) {
+      for (const name of [PILL_AMT_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME, PILL_CONTINUITY_VAR_NAME]) {
         expect(registered, `${name} must be registered`).toContain(name);
       }
     });
@@ -204,6 +206,7 @@ describe("pill-shape worklet contract", () => {
       for (const name of [
         PILL_AMT_VAR_NAME,
         PILL_EASE_SPREAD_VAR_NAME,
+        PILL_CONTINUITY_VAR_NAME,
         PILL_BORDER_WIDTH_VAR_NAME,
         PILL_BORDER_COLOR_VAR_NAME,
       ]) {

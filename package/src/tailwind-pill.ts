@@ -5,7 +5,7 @@
 
 import plugin from "tailwindcss/plugin";
 import { pillCssObj, pillPropertyRegistrations } from "./pill-css";
-import { PILL_AMT_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME } from "./variants";
+import { PILL_AMT_VAR_NAME, PILL_CONTINUITY_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME } from "./variants";
 
 export interface SquirclePillPluginOptions {
   /** Class name prefix for utilities (default: "squircle-pill") */
@@ -15,9 +15,10 @@ export interface SquirclePillPluginOptions {
 /**
  * One utility, `squircle-pill`, because a pill is one shape: its caps are
  * derived from the element's own size, so there is nothing for a size or a
- * side variant to set. The two knobs the shape does have, the easing amount
- * and its spread, get `-amt-*` and `-spread-*` utilities, which only set the
- * custom property — the same thing writing it yourself does.
+ * side variant to set. The knobs the shape does have — the easing amount, its
+ * spread, and its continuity — get `-amt-*`, `-spread-*` and `-g2`/`-g3`
+ * utilities, which only set the custom property, the same thing writing it
+ * yourself does.
  *
  * The rules themselves live in pill-css.ts, shared with the standalone
  * stylesheet.
@@ -34,6 +35,8 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
 
         addUtilities({
           [`.${prefix}`]: pillCssObj("tailwind") as Record<string, string | Record<string, string>>,
+          [`.${prefix}-g2`]: { [PILL_CONTINUITY_VAR_NAME]: "2" },
+          [`.${prefix}-g3`]: { [PILL_CONTINUITY_VAR_NAME]: "3" },
         });
 
         // `type: "number"` alone only admits arbitrary values; the bare-value

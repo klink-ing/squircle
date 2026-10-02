@@ -49,6 +49,12 @@ export const PILL_BORDER_STYLE_FALLBACK = "solid" as const;
 export const PILL_STROKE_WIDTH_VAR_NAME: string = pillVar("stroke-width");
 export const DEFAULT_PILL_EASE_SPREAD = 1 as const;
 /**
+ * Geometric continuity of the pill's easing: `2` matches curvature where the
+ * cap meets the edge, `3` also matches its rate of change. See the worklet.
+ */
+export const PILL_CONTINUITY_VAR_NAME: string = pillVar("continuity");
+export const DEFAULT_PILL_CONTINUITY = 2 as const;
+/**
  * Attribute `registerPillWorklet()` sets on `<html>` once the worklet has
  * loaded. `@supports (mask-image: paint(pill-shape))` is true for any paint
  * name, loaded or not, so the mask is gated on this instead; until it appears

@@ -11,6 +11,7 @@ import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
   PILL_STROKE_WIDTH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
@@ -69,6 +70,7 @@ describe("tailwind-pill.ts utilities", () => {
     for (const name of [
       PILL_AMT_VAR_NAME,
       PILL_EASE_SPREAD_VAR_NAME,
+      PILL_CONTINUITY_VAR_NAME,
       PILL_BORDER_WIDTH_VAR_NAME,
       PILL_BORDER_COLOR_VAR_NAME,
     ]) {
@@ -139,6 +141,7 @@ describe("tailwind-pill.ts utilities", () => {
       for (const name of [
         PILL_AMT_VAR_NAME,
         PILL_EASE_SPREAD_VAR_NAME,
+        PILL_CONTINUITY_VAR_NAME,
         PILL_BORDER_WIDTH_VAR_NAME,
         PILL_BORDER_COLOR_VAR_NAME,
       ]) {
@@ -183,6 +186,13 @@ describe("tailwind-pill.ts utilities", () => {
       const css = await compilePill(["squircle-pill-spread-4", "squircle-pill-spread-[0.5]"]);
       expect(css).toContain(`${PILL_EASE_SPREAD_VAR_NAME}: 4`);
       expect(css).toContain(`${PILL_EASE_SPREAD_VAR_NAME}: 0.5`);
+      expect(css).not.toContain("mask-image");
+    });
+
+    it("switches continuity with -g2 and -g3, and nothing else", async () => {
+      const css = await compilePill(["squircle-pill-g2", "squircle-pill-g3"]);
+      expect(css).toContain(`${PILL_CONTINUITY_VAR_NAME}: 2`);
+      expect(css).toContain(`${PILL_CONTINUITY_VAR_NAME}: 3`);
       expect(css).not.toContain("mask-image");
     });
 

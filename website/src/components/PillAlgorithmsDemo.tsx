@@ -74,14 +74,19 @@ function stats(q: Quadrant): Record<string, string> {
 
 // ── Geometry, from the worklets themselves ──────────────────────
 
-function spiralQuadrant(amt: number, spread: number): Quadrant {
+function spiralQuadrant(amt: number, spread: number, continuity: number): Quadrant {
   const worklet = new PillShape();
-  const props = propsFrom({ [`${NS}-amt`]: amt, [`${NS}-ease-spread`]: spread });
+  const props = propsFrom({
+    [`${NS}-amt`]: amt,
+    [`${NS}-ease-spread`]: spread,
+    [`${NS}-continuity`]: continuity,
+  });
   const points = worklet.fittedQuadrant(
     W,
     H,
     worklet.resolveEase(props),
     worklet.resolveExponent(props),
+    worklet.resolveContinuity(props),
   );
   // The arc is the run of vertices on one circle from the start.
   const k0 = menger(points[0], points[1], points[2]);
@@ -96,8 +101,12 @@ function spiralQuadrant(amt: number, spread: number): Quadrant {
 }
 
 function hermiteQuadrant(values: Record<string, string | number>): Quadrant {
-  const { arc, blend, edgeStart } = filletQuadrant(R, W / 2, readParams(propsFrom(values)));
-  return { points: [...arc, ...blend], join: arc.length - 1, capRadius: R, edgeStart };
+  const { arc, blend, edgeStart, capRadius } = filletQuadrant(
+    R,
+    W / 2,
+    readParams(propsFrom(values)),
+  );
+  return { points: [...arc, ...blend], join: arc.length - 1, capRadius, edgeStart };
 }
 
 // ── Drawing ─────────────────────────────────────────────────────
@@ -242,7 +251,9 @@ function Slider({
 export default function PillAlgorithmsDemo() {
   const [amt, setAmt] = useState(2);
   const [spread, setSpread] = useState(1);
+  const [spiralContinuity, setSpiralContinuity] = useState(2);
   const [continuity, setContinuity] = useState(2);
+  const [fit, setFit] = useState(true);
   const [arcSetback, setArcSetback] = useState(30);
   const [edgeSetback, setEdgeSetback] = useState(1);
   const [bulgeStart, setBulgeStart] = useState(1);
@@ -267,16 +278,21 @@ export default function PillAlgorithmsDemo() {
       "--fillet-edge-setback": edgeSetback,
       "--fillet-bulge-start": bulgeStart,
       "--fillet-bulge-end": bulgeEnd,
+      "--fillet-fit": fit ? 1 : 0,
     }),
-    [continuity, arcSetback, edgeSetback, bulgeStart, bulgeEnd],
+    [continuity, arcSetback, edgeSetback, bulgeStart, bulgeEnd, fit],
   );
 
-  const spiral = useMemo(() => spiralQuadrant(amt, spread), [amt, spread]);
+  const spiral = useMemo(
+    () => spiralQuadrant(amt, spread, spiralContinuity),
+    [amt, spread, spiralContinuity],
+  );
   const hermite = useMemo(() => hermiteQuadrant(filletValues), [filletValues]);
 
   const spiralStyle = {
     [`${NS}-amt`]: amt,
     [`${NS}-ease-spread`]: spread,
+    [`${NS}-continuity`]: spiralContinuity,
   } as React.CSSProperties;
   const filletStyle = filletValues as unknown as React.CSSProperties;
 
@@ -292,10 +308,26 @@ export default function PillAlgorithmsDemo() {
             u<sup>q−1</sup>
           </code>{" "}
           along the arc length — a clothoid at <code>q = 2</code> — and the cap radius is solved so
-          the outline fits the box exactly. G2 at the arc join at every spread; at the edge, G2 for
-          spread 0 and G3 above it.
+          the outline fits the box exactly. The G3 profile,{" "}
+          <code>
+            (1 − t²)<sup>q−1</sup>
+          </code>
+          , also leaves the arc with curvature flat, and arrives flat at the edge for any spread
+          above 0.
         </p>
         <div className="grid grid-cols-[auto_1fr_3.5rem] items-center gap-x-3 gap-y-1 text-xs">
+          <label htmlFor="s-continuity" className="text-zinc-400">
+            continuity
+          </label>
+          <select
+            id="s-continuity"
+            value={spiralContinuity}
+            onChange={(e) => setSpiralContinuity(+e.target.value)}
+            className="col-span-2 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-zinc-200"
+          >
+            <option value={2}>G2 — squircle-pill-g2 (default)</option>
+            <option value={3}>G3 — squircle-pill-g3</option>
+          </select>
           <Slider
             id="s-amt"
             label="squircle-pill-amt"
@@ -326,8 +358,10 @@ export default function PillAlgorithmsDemo() {
         <p className="mb-3 text-xs text-zinc-500">
           The construction behind SolidWorks and Onshape's "curvature continuous", Fusion's G2 and
           Rhino's <code>BlendCrv</code>: a polynomial with position, tangent and curvature
-          prescribed at both ends. It keeps the cap at its full radius and lets the blend bow
-          outward — right for a model, which is what it fits, and visibly wrong for a button.
+          prescribed at both ends. Fitted, the cap radius is shrunk until the blend stays inside the
+          box, as the spiral's is, so the two differ only in the transition. Unfitted, the cap keeps
+          its full radius, as a dimensioned CAD fillet would — and since an easing turns more slowly
+          than the arc it leaves, it has to bow out past the box to finish turning.
         </p>
         <div className="grid grid-cols-[auto_1fr_3.5rem] items-center gap-x-3 gap-y-1 text-xs">
           <label htmlFor="f-continuity" className="text-zinc-400">
@@ -343,6 +377,16 @@ export default function PillAlgorithmsDemo() {
             <option value={2}>G2 — quintic (curvature; "curvature continuous")</option>
             <option value={3}>G3 — septic (curvature rate; Rhino BlendCrv G3)</option>
           </select>
+          <label htmlFor="f-fit" className="text-zinc-400">
+            fit to box
+          </label>
+          <input
+            id="f-fit"
+            type="checkbox"
+            checked={fit}
+            onChange={(e) => setFit(e.target.checked)}
+            className="col-span-2 h-4 w-4 justify-self-start accent-indigo-500"
+          />
           <Slider
             id="f-arc"
             label="arc setback°"
