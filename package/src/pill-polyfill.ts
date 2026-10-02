@@ -11,9 +11,9 @@ import {
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_SPREAD_VAR_NAME,
-  PILL_MASK_VAR_NAME,
+  PILL_CLIP_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
-  PILL_RING_MASK_VAR_NAME,
+  PILL_RING_CLIP_VAR_NAME,
 } from "./variants";
 
 export { PILL_POLYFILL_ATTRIBUTE };
@@ -59,13 +59,13 @@ const lookup = (values: Record<string, string | undefined>): Lookup => ({
   },
 });
 
-/**
- * The pill's outline as an SVG path, in the coordinates of a `width` ×
- * `height` box. Two decimals is a hundredth of a pixel, well under what any
- * mask can resolve.
- */
-export function pillOutlinePath(width: number, height: number, shape: PillShapeInput = {}): string {
-  if (width <= 0 || height <= 0) return "";
+/** The pill's outline, clockwise from its leftmost point, in box coordinates. */
+export function pillOutlinePoints(
+  width: number,
+  height: number,
+  shape: PillShapeInput = {},
+): Point[] {
+  if (width <= 0 || height <= 0) return [];
   const props = lookup({
     [PILL_AMT_VAR_NAME]: shape.amt,
     [PILL_EASE_SPREAD_VAR_NAME]: shape.spread,
@@ -81,50 +81,110 @@ export function pillOutlinePath(width: number, height: number, shape: PillShapeI
     geometry.resolveExponent(props),
     geometry.resolveContinuity(props),
   );
-  const points = geometry.outline(long, short, quadrant);
-  let d = "";
-  for (let i = 0; i < points.length; i++) {
+  const out: Point[] = [];
+  for (const p of geometry.outline(long, short, quadrant)) {
+    const q = vertical ? { x: p.y, y: p.x } : p;
+    // The mirrored quadrants meet at shared points; drop the repeats, which
+    // have no direction to offset along.
+    const last = out[out.length - 1];
+    if (!last || Math.abs(last.x - q.x) > 1e-6 || Math.abs(last.y - q.y) > 1e-6) out.push(q);
+  }
+  // The outline returns to where it began; `Z` closes it instead.
+  const first = out[0];
+  const last = out[out.length - 1];
+  if (
+    first &&
+    last &&
+    out.length > 1 &&
+    Math.abs(first.x - last.x) < 1e-6 &&
+    Math.abs(first.y - last.y) < 1e-6
+  ) {
+    out.pop();
+  }
+  return out;
+}
+
+/**
+ * Two decimals is a hundredth of a pixel, well under anything a clip can
+ * resolve.
+ */
+const round = (v: number) => Math.round(v * 100) / 100;
+const subpath = (points: Point[]): string => {
+  // Rounding by hand is several times cheaper than `toFixed`, and this runs
+  // for every point of every pill on every resize.
+  const first = points[0] as Point;
+  let d = `M${round(first.x)} ${round(first.y)}`;
+  for (let i = 1; i < points.length; i++) {
     const p = points[i] as Point;
-    const x = vertical ? p.y : p.x;
-    const y = vertical ? p.x : p.y;
-    d += `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    d += `L${round(p.x)} ${round(p.y)}`;
   }
   return `${d}Z`;
-}
+};
 
-const svgUrl = (width: number, height: number, body: string): string =>
-  `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${body}</svg>`,
-  )}")`;
-
-/**
- * The outline as an SVG shape element: a `<circle>` for a square, which is
- * all a square pill can be, and a traced `<path>` for anything else.
- */
-function outlineElement(
-  width: number,
-  height: number,
-  shape: PillShapeInput | undefined,
-  attrs = "",
-) {
-  if (width === height) {
-    const r = width / 2;
-    return `<circle cx="${r}" cy="${r}" r="${r}"${attrs}/>`;
-  }
-  return `<path d="${pillOutlinePath(width, height, shape)}"${attrs}/>`;
-}
-
-/** The element's mask: the outline, filled. */
-export function pillMaskImage(width: number, height: number, shape?: PillShapeInput): string {
-  return svgUrl(width, height, outlineElement(width, height, shape));
+/** The pill's outline as SVG path data, in the coordinates of its box. */
+export function pillOutlinePath(width: number, height: number, shape: PillShapeInput = {}): string {
+  const points = pillOutlinePoints(width, height, shape);
+  return points.length > 0 ? subpath(points) : "";
 }
 
 /**
- * The ring's mask: a band `strokeWidth` wide along the inside of the
- * outline, dashed the way the worklet dashes it for `borderStyle`. `null`
- * where there is nothing to draw — no width, or `none`/`hidden`.
+ * The element's `clip-path`, or `null` for a square: its stadium
+ * `border-radius` is already the circle a square pill has to be, so it
+ * needs no clip at all.
  */
-export function pillRingMaskImage(
+export function pillClipPath(width: number, height: number, shape?: PillShapeInput): string | null {
+  if (width === height || width <= 0 || height <= 0) return null;
+  return `path("${pillOutlinePath(width, height, shape)}")`;
+}
+
+/**
+ * Each outline point moved `distance` towards the inside, along the average
+ * of its two edges' inward normals. The outline is convex and runs clockwise
+ * in screen coordinates, so the inward normal of an edge (dx, dy) is
+ * (-dy, dx).
+ */
+function inset(points: Point[], distance: number): Point[] {
+  const n = points.length;
+  return points.map((p, i) => {
+    const prev = points[(i - 1 + n) % n] as Point;
+    const next = points[(i + 1) % n] as Point;
+    const normal = (a: Point, b: Point) => {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const length = Math.hypot(dx, dy) || 1;
+      return { x: -dy / length, y: dx / length };
+    };
+    const a = normal(prev, p);
+    const b = normal(p, next);
+    const mx = a.x + b.x;
+    const my = a.y + b.y;
+    const length = Math.hypot(mx, my) || 1;
+    return { x: p.x + (mx / length) * distance, y: p.y + (my / length) * distance };
+  });
+}
+
+/** The point `along` the closed outline, by arc length, and the segment it is on. */
+function pointAt(
+  points: Point[],
+  lengths: number[],
+  along: number,
+): { point: Point; index: number } {
+  let i = 1;
+  while (i < lengths.length - 1 && (lengths[i] as number) < along) i++;
+  const a = points[(i - 1) % points.length] as Point;
+  const b = points[i % points.length] as Point;
+  const span = (lengths[i] as number) - (lengths[i - 1] as number) || 1;
+  const t = (along - (lengths[i - 1] as number)) / span;
+  return { point: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, index: i };
+}
+
+/**
+ * The ring's `clip-path`: the band `strokeWidth` wide along the inside of
+ * the outline, cut into dashes the way the worklet dashes it for
+ * `borderStyle`. `null` where there is nothing to draw — no width, or
+ * `none`/`hidden`.
+ */
+export function pillRingClipPath(
   width: number,
   height: number,
   strokeWidth: number,
@@ -137,14 +197,47 @@ export function pillRingMaskImage(
     strokeWidth,
   );
   if (dash === null) return null;
-  // Doubled and clipped to the outline, so the band sits wholly inside it.
-  const dashAttr = dash.length > 0 ? ` stroke-dasharray="${dash.join(" ")}"` : "";
-  const stroked = ` fill="none" stroke="#000" stroke-width="${strokeWidth * 2}"${dashAttr} clip-path="url(#c)"`;
-  return svgUrl(
-    width,
-    height,
-    `<clipPath id="c">${outlineElement(width, height, shape)}</clipPath>${outlineElement(width, height, shape, stroked)}`,
-  );
+  const outer = pillOutlinePoints(width, height, shape);
+  if (outer.length < 3) return null;
+  // A band wider than the half-height would cross itself; it is all ring.
+  const band = Math.min(strokeWidth, Math.min(width, height) / 2 - 0.01);
+  const inner = inset(outer, band);
+
+  if (dash.length === 0) {
+    // Outline, then the inset copy the other way round: with even-odd fill
+    // the inset area is a hole, leaving the band.
+    return `path(evenodd, "${subpath(outer)}${subpath([...inner].reverse())}")`;
+  }
+
+  // Dashes are measured along the outline from its first point, as the
+  // canvas measures them along the path it strokes.
+  const n = outer.length;
+  const lengths = [0];
+  for (let i = 1; i <= n; i++) {
+    const a = outer[i - 1] as Point;
+    const b = outer[i % n] as Point;
+    lengths.push((lengths[i - 1] as number) + Math.hypot(b.x - a.x, b.y - a.y));
+  }
+  const total = lengths[n] as number;
+  const [on, off] = dash as [number, number];
+  let d = "";
+  for (let start = 0; start < total; start += on + off) {
+    const end = Math.min(start + on, total);
+    const from = pointAt(outer, lengths, start);
+    const to = pointAt(outer, lengths, end);
+    const fromInner = pointAt(inner, lengths, start);
+    const toInner = pointAt(inner, lengths, end);
+    const outerRun: Point[] = [from.point];
+    const innerRun: Point[] = [fromInner.point];
+    for (let i = from.index; i < to.index; i++) {
+      outerRun.push(outer[i % n] as Point);
+      innerRun.push(inner[i % n] as Point);
+    }
+    outerRun.push(to.point);
+    innerRun.push(toInner.point);
+    d += subpath([...outerRun, ...innerRun.reverse()]);
+  }
+  return `path("${d}")`;
 }
 
 export interface PillPolyfillOptions {
@@ -159,17 +252,17 @@ export interface PillPolyfillOptions {
 export interface PillPolyfill {
   /** Recompute one pill, or all of them, after a change no resize reveals. */
   refresh(element?: Element): void;
-  /** Stop watching, and drop the masks it set. */
+  /** Stop watching, and drop the clips it set. */
   disconnect(): void;
 }
 
-const MASK_CACHE_SIZE = 512;
-const maskCache = new Map<string, string | null>();
+const CLIP_CACHE_SIZE = 512;
+const clipCache = new Map<string, string | null>();
 const cached = (key: string, make: () => string | null): string | null => {
-  if (maskCache.has(key)) return maskCache.get(key) as string | null;
+  if (clipCache.has(key)) return clipCache.get(key) as string | null;
   const value = make();
-  if (maskCache.size >= MASK_CACHE_SIZE) maskCache.delete(maskCache.keys().next().value as string);
-  maskCache.set(key, value);
+  if (clipCache.size >= CLIP_CACHE_SIZE) clipCache.delete(clipCache.keys().next().value as string);
+  clipCache.set(key, value);
   return value;
 };
 
@@ -177,9 +270,10 @@ const cached = (key: string, make: () => string | null): string | null => {
  * Draws pills without the paint worklet, for browsers that lack one.
  *
  * Every pill is watched with a `ResizeObserver`; on each size it computes the
- * outline with the worklet's own geometry and sets it, as an SVG mask, on the
- * custom properties the pill styles read where `<html>` carries the polyfill
- * attribute. Until a pill's mask is computed it shows its stadium fallback.
+ * outline with the worklet's own geometry and sets it, as a `clip-path`, on
+ * the custom properties the pill styles read where `<html>` carries the
+ * polyfill attribute. Until a pill's clip is computed it shows its stadium
+ * fallback.
  *
  * Shape properties are read when the pill resizes or its `class` changes;
  * call `refresh()` after anything else that reshapes it, such as an inline
@@ -199,41 +293,91 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
   const watched = new Set<Element>();
   const sizes = new WeakMap<Element, { width: number; height: number }>();
 
-  const apply = (elements: Iterable<Element>) => {
-    // All reads first, then all writes, so no read forces a layout that an
-    // earlier write invalidated.
-    const updates: [HTMLElement, string | null, string | null][] = [];
-    for (const element of elements) {
-      const el = element as HTMLElement;
-      const size = sizes.get(el);
-      if (!size) continue;
-      const { width, height } = size;
-      const style = getComputedStyle(el);
-      const shape: PillShapeInput = {
+  /**
+   * Each pill's shape settings, read once and kept until its class changes or
+   * `refresh()` is called. A resize never changes them, and re-reading
+   * computed style for every pill on every frame of one costs more than the
+   * geometry does.
+   */
+  interface Settings {
+    shape: PillShapeInput;
+    stroke: number;
+    borderStyle: string;
+  }
+  const settings = new WeakMap<Element, Settings>();
+  const read = (el: Element): Settings => {
+    const known = settings.get(el);
+    if (known) return known;
+    const style = getComputedStyle(el);
+    const stroke = Number.parseFloat(style.getPropertyValue(PILL_BORDER_WIDTH_VAR_NAME)) || 0;
+    const fresh: Settings = {
+      shape: {
         amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
         spread: style.getPropertyValue(PILL_EASE_SPREAD_VAR_NAME),
         continuity: style.getPropertyValue(PILL_CONTINUITY_VAR_NAME),
-      };
-      const stroke = Number.parseFloat(style.getPropertyValue(PILL_BORDER_WIDTH_VAR_NAME)) || 0;
-      const borderStyle =
+      },
+      stroke,
+      borderStyle:
         stroke > 0
           ? getComputedStyle(el, "::after").getPropertyValue(PILL_BORDER_STYLE_VAR_NAME)
-          : "";
+          : "",
+    };
+    settings.set(el, fresh);
+    return fresh;
+  };
+
+  /**
+   * Pills waiting for their shape. A large resize can change more pills than
+   * fit in one frame; those over the budget keep their previous clip for a
+   * frame and are picked up on the next, rather than the whole page dropping
+   * frames while every one is recomputed.
+   */
+  const pending = new Set<Element>();
+  const FRAME_BUDGET_MS = 6;
+  let scheduled = false;
+  const schedule = () => {
+    if (scheduled || pending.size === 0) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      flush();
+    });
+  };
+
+  const flush = () => {
+    const deadline = performance.now() + FRAME_BUDGET_MS;
+    // All reads first, then all writes, so no read forces a style recalc
+    // that an earlier write invalidated.
+    const updates: [HTMLElement, string | null, string | null][] = [];
+    for (const el of pending) {
+      if (performance.now() > deadline && updates.length > 0) break;
+      pending.delete(el);
+      const size = sizes.get(el);
+      if (!size) continue;
+      const { width, height } = size;
+      const { shape, stroke, borderStyle } = read(el);
       const shapeKey = `${width},${height},${shape.amt},${shape.spread},${shape.continuity}`;
       const key = `${shapeKey},${stroke},${borderStyle}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);
       updates.push([
-        el,
-        cached(`m:${shapeKey}`, () => pillMaskImage(width, height, shape)),
-        cached(`r:${key}`, () => pillRingMaskImage(width, height, stroke, borderStyle, shape)),
+        el as HTMLElement,
+        cached(`m:${shapeKey}`, () => pillClipPath(width, height, shape)),
+        cached(`r:${key}`, () => pillRingClipPath(width, height, stroke, borderStyle, shape)),
       ]);
     }
-    for (const [el, mask, ring] of updates) {
-      if (mask) el.style.setProperty(PILL_MASK_VAR_NAME, mask);
-      if (ring) el.style.setProperty(PILL_RING_MASK_VAR_NAME, ring);
-      else el.style.removeProperty(PILL_RING_MASK_VAR_NAME);
+    for (const [el, clip, ring] of updates) {
+      if (clip) el.style.setProperty(PILL_CLIP_VAR_NAME, clip);
+      else el.style.removeProperty(PILL_CLIP_VAR_NAME);
+      if (ring) el.style.setProperty(PILL_RING_CLIP_VAR_NAME, ring);
+      else el.style.removeProperty(PILL_RING_CLIP_VAR_NAME);
     }
+    schedule();
+  };
+
+  const apply = (elements: Iterable<Element>) => {
+    for (const el of elements) pending.add(el);
+    flush();
   };
 
   const resizes = new ResizeObserver((entries) => {
@@ -280,6 +424,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         for (const el of node.querySelectorAll(selector)) unwatch(el);
       }
     }
+    for (const el of changed) settings.delete(el);
     if (changed.size > 0) apply(changed);
   });
 
@@ -297,15 +442,19 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
   return {
     refresh(element) {
       const targets = element ? [element] : [...watched];
-      for (const el of targets) lastKey.delete(el);
+      for (const el of targets) {
+        lastKey.delete(el);
+        settings.delete(el);
+      }
       apply(targets);
     },
     disconnect() {
+      pending.clear();
       mutations.disconnect();
       resizes.disconnect();
       for (const el of watched) {
-        (el as HTMLElement).style.removeProperty(PILL_MASK_VAR_NAME);
-        (el as HTMLElement).style.removeProperty(PILL_RING_MASK_VAR_NAME);
+        (el as HTMLElement).style.removeProperty(PILL_CLIP_VAR_NAME);
+        (el as HTMLElement).style.removeProperty(PILL_RING_CLIP_VAR_NAME);
       }
       watched.clear();
       doc.documentElement.removeAttribute(PILL_POLYFILL_ATTRIBUTE);

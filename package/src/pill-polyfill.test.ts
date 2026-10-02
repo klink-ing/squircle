@@ -4,23 +4,45 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { pillMaskImage, pillOutlinePath, pillRingMaskImage } from "./pill-polyfill";
+import {
+  pillClipPath,
+  pillOutlinePath,
+  pillOutlinePoints,
+  pillRingClipPath,
+} from "./pill-polyfill";
 import { paintDef } from "./pill-shape.worklet";
 import { PILL_AMT_VAR_NAME, PILL_CONTINUITY_VAR_NAME, PILL_EASE_SPREAD_VAR_NAME } from "./variants";
 
-const points = (d: string) =>
-  [...d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+type Point = { x: number; y: number };
 
-/** The vertices the worklet itself would draw for the same box and settings. */
+const parse = (d: string): Point[][] =>
+  d
+    .split("Z")
+    .filter((sub) => sub.includes("M"))
+    .map((sub) =>
+      [...sub.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({
+        x: Number(m[1]),
+        y: Number(m[2]),
+      })),
+    );
+
+const pathData = (clip: string) => /"([^"]*)"/.exec(clip)?.[1] ?? "";
+
+/** The vertices the worklet itself draws, without the repeats where quadrants meet. */
 const workletVertices = (width: number, height: number, values: Record<string, string> = {}) => {
-  const vertices: { x: number; y: number }[] = [];
+  const vertices: Point[] = [];
+  const push = (x: number, y: number) => {
+    const last = vertices.at(-1);
+    if (!last || Math.abs(last.x - x) > 1e-6 || Math.abs(last.y - y) > 1e-6)
+      vertices.push({ x, y });
+  };
   const ctx = {
     fillStyle: "",
     beginPath() {},
     fill() {},
     closePath() {},
-    moveTo: (x: number, y: number) => vertices.push({ x, y }),
-    lineTo: (x: number, y: number) => vertices.push({ x, y }),
+    moveTo: push,
+    lineTo: push,
   };
   new (paintDef as unknown as new () => {
     paint(c: unknown, s: { width: number; height: number }, p: unknown): void;
@@ -34,8 +56,22 @@ const workletVertices = (width: number, height: number, values: Record<string, s
   return vertices;
 };
 
-const decode = (url: string) =>
-  decodeURIComponent(url.slice('url("data:image/svg+xml,'.length, -2));
+/** Distance from `p` to the nearest segment of the closed polyline `ring`. */
+const distanceTo = (p: Point, ring: Point[]) => {
+  let best = Infinity;
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i] as Point;
+    const b = ring[(i + 1) % ring.length] as Point;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const t = Math.max(
+      0,
+      Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)),
+    );
+    best = Math.min(best, Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)));
+  }
+  return best;
+};
 
 describe("pill polyfill", () => {
   describe("outline", () => {
@@ -45,76 +81,87 @@ describe("pill polyfill", () => {
         [70, 60],
         [60, 240],
         [60, 60],
-      ]) {
-        const fromPath = points(pillOutlinePath(w, h));
-        const fromWorklet = workletVertices(w, h);
-        expect(fromPath.length, `${w}x${h}`).toBe(fromWorklet.length);
-        for (let i = 0; i < fromPath.length; i++) {
-          expect(fromPath[i].x).toBeCloseTo(fromWorklet[i].x, 2);
-          expect(fromPath[i].y).toBeCloseTo(fromWorklet[i].y, 2);
-        }
+      ] as const) {
+        const ours = pillOutlinePoints(w, h);
+        const theirs = workletVertices(w, h);
+        // The worklet closes its path by returning to the first point; ours
+        // leaves the close to the path's `Z`.
+        if (theirs.length === ours.length + 1) theirs.pop();
+        expect(ours.length, `${w}x${h}`).toBe(theirs.length);
+        ours.forEach((p, i) => {
+          expect(p.x).toBeCloseTo((theirs[i] as Point).x, 6);
+          expect(p.y).toBeCloseTo((theirs[i] as Point).y, 6);
+        });
       }
     });
 
     it("honours the shape properties the worklet reads", () => {
-      const values = {
+      const shape = { amt: "3", spread: "4", continuity: "3" };
+      const ours = pillOutlinePoints(240, 60, shape);
+      const theirs = workletVertices(240, 60, {
         [PILL_AMT_VAR_NAME]: "3",
         [PILL_EASE_SPREAD_VAR_NAME]: "4",
         [PILL_CONTINUITY_VAR_NAME]: "3",
-      };
-      const fromPath = points(pillOutlinePath(240, 60, { amt: "3", spread: "4", continuity: "3" }));
-      const fromWorklet = workletVertices(240, 60, values);
-      expect(fromPath.length).toBe(fromWorklet.length);
-      expect(fromPath.at(10)?.x).toBeCloseTo(fromWorklet[10].x, 2);
-      // ...and differs from the default shape.
-      expect(pillOutlinePath(240, 60, { amt: "3", spread: "4", continuity: "3" })).not.toBe(
-        pillOutlinePath(240, 60),
-      );
+      });
+      expect(ours[10]?.x).toBeCloseTo((theirs[10] as Point).x, 6);
+      expect(ours[10]?.y).toBeCloseTo((theirs[10] as Point).y, 6);
+      expect(pillOutlinePath(240, 60, shape)).not.toBe(pillOutlinePath(240, 60));
     });
 
-    it("is closed, and empty for a box with no area", () => {
-      expect(pillOutlinePath(240, 60)).toMatch(/^M.*Z$/);
+    it("is one closed path, and empty for a box with no area", () => {
+      expect(pillOutlinePath(240, 60)).toMatch(/^M[^Z]*Z$/);
       expect(pillOutlinePath(0, 60)).toBe("");
     });
   });
 
-  describe("masks", () => {
-    it("fills the outline in a box of the element's own size", () => {
-      const svg = decode(pillMaskImage(240, 60));
-      expect(svg).toContain('viewBox="0 0 240 60"');
-      expect(svg).toContain('preserveAspectRatio="none"');
-      expect(svg).toContain(`<path d="${pillOutlinePath(240, 60)}"/>`);
+  describe("element clip", () => {
+    it("is the outline, as a path() clip", () => {
+      expect(pillClipPath(240, 60)).toBe(`path("${pillOutlinePath(240, 60)}")`);
     });
 
-    it("masks a square with a plain circle", () => {
-      expect(decode(pillMaskImage(48, 48))).toContain('<circle cx="24" cy="24" r="24"/>');
-      const ring = decode(pillRingMaskImage(48, 48, 2, "dashed") as string);
-      expect(ring).toContain('<clipPath id="c"><circle cx="24" cy="24" r="24"/></clipPath>');
-      expect(ring).toContain('<circle cx="24" cy="24" r="24" fill="none"');
-      expect(decode(pillMaskImage(48, 47))).toContain("<path");
+    it("is not needed for a square, whose stadium is already its circle", () => {
+      expect(pillClipPath(48, 48)).toBeNull();
+      expect(pillClipPath(48, 47)).not.toBeNull();
+    });
+  });
+
+  describe("ring clip", () => {
+    it("is a band exactly the border width wide, inside the outline", () => {
+      const clip = pillRingClipPath(240, 60, 3, "solid") as string;
+      expect(clip.startsWith('path(evenodd, "')).toBe(true);
+      const [outer, inner] = parse(pathData(clip)) as [Point[], Point[]];
+      expect(outer.length).toBe(inner.length);
+      for (const p of inner) expect(distanceTo(p, outer)).toBeCloseTo(3, 1);
+      // Inside the box, so inside the outline it was inset from.
+      for (const p of inner) {
+        expect(p.x).toBeGreaterThan(2.9);
+        expect(p.x).toBeLessThan(240 - 2.9);
+        expect(p.y).toBeGreaterThan(2.9);
+        expect(p.y).toBeLessThan(60 - 2.9);
+      }
     });
 
-    it("strokes a band of the border width inside the outline", () => {
-      const svg = decode(pillRingMaskImage(240, 60, 3, "solid") as string);
-      // Doubled and clipped, as the worklet does it.
-      expect(svg).toContain('stroke-width="6"');
-      expect(svg).toContain('clip-path="url(#c)"');
-      expect(svg).not.toContain("stroke-dasharray");
+    it("rings a square too, though it needs no element clip", () => {
+      expect(pillRingClipPath(48, 48, 2, "solid")).not.toBeNull();
     });
 
-    it("dashes the band the way the worklet does", () => {
-      expect(decode(pillRingMaskImage(240, 60, 2, "dashed") as string)).toContain(
-        'stroke-dasharray="6 4"',
-      );
-      expect(decode(pillRingMaskImage(240, 60, 2, "dotted") as string)).toContain(
-        'stroke-dasharray="2 4"',
-      );
+    it("cuts dashes and dots along the outline the way the worklet dashes", () => {
+      const outline = pillOutlinePoints(240, 60);
+      const length = outline.reduce((sum, p, i) => {
+        const q = outline[(i + 1) % outline.length] as Point;
+        return sum + Math.hypot(q.x - p.x, q.y - p.y);
+      }, 0);
+      // Width 2: dashes are 6 on, 4 off; dots 2 on, 4 off.
+      const dashes = parse(pathData(pillRingClipPath(240, 60, 2, "dashed") as string));
+      expect(dashes.length).toBe(Math.ceil(length / 10));
+      const dots = parse(pathData(pillRingClipPath(240, 60, 2, "dotted") as string));
+      expect(dots.length).toBe(Math.ceil(length / 6));
     });
 
-    it("draws no ring without a width, or for none and hidden", () => {
-      expect(pillRingMaskImage(240, 60, 0, "solid")).toBeNull();
-      expect(pillRingMaskImage(240, 60, 3, "none")).toBeNull();
-      expect(pillRingMaskImage(240, 60, 3, " hidden ")).toBeNull();
+    it("draws nothing without a width, or for none and hidden", () => {
+      expect(pillRingClipPath(240, 60, 0, "solid")).toBeNull();
+      expect(pillRingClipPath(240, 60, 3, "none")).toBeNull();
+      expect(pillRingClipPath(240, 60, 3, " hidden ")).toBeNull();
     });
   });
 });

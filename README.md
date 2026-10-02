@@ -526,7 +526,7 @@ if (!(await registerPillWorklet())) {
 }
 ```
 
-It runs the worklet's own geometry on the main thread: a `ResizeObserver` watches every pill, and on each new size the outline (and the ring, if the pill has a border) is set as an SVG mask on two custom properties the pill styles read. The shapes are identical to the worklet's, borders and dashes included. Each pill shows its stadium until its mask is computed, so there is no flash of anything worse.
+It runs the worklet's own geometry on the main thread: a `ResizeObserver` watches every pill, and on each new size the outline (and the ring, if the pill has a border) is set as a `clip-path: path()` on two custom properties the pill styles read. Clips rather than mask images, because a mask image is decoded and rasterised again on every resize, which was over five times slower. The shapes are identical to the worklet's, borders and dashes included; a square needs no clip at all, its stadium already being the circle it has to be. Each pill shows its stadium until its clip is computed, so there is no flash of anything worse, and a resize too large for one frame spreads over the next few rather than dropping them.
 
 It picks up pills added or removed later, and re-reads a pill when its `class` changes. Changes it can't see — an inline `style` setting a pill property, a stylesheet swap — need a `refresh()`:
 
