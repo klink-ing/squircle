@@ -274,6 +274,38 @@ describe("pill-shape worklet geometry", () => {
       expect(probes).toBe(0);
     });
 
+    it("settles narrow pills in a couple of exact evaluations, from a table built once", () => {
+      const worklet = new (paintDef as unknown as new () => {
+        junctionRatio(...args: unknown[]): number;
+        fitEasing(r: number, half: number, beta: number, q: number, c: 2 | 3): { beta: number };
+      })();
+      let probes = 0;
+      const junctionRatio = worklet.junctionRatio.bind(worklet);
+      worklet.junctionRatio = (...args) => (probes++, junctionRatio(...args));
+      // A request no other test makes, so its table is built here.
+      const wanted = Math.PI / 3 - 0.0123;
+      for (const [q, c] of [
+        [4.5, 2],
+        [3.5, 3],
+      ] as const) {
+        // The table: the request's own reach, then its samples.
+        worklet.fitEasing(1, 1.0001, wanted, q, c);
+        probes = 0;
+        const fits = 200;
+        for (let i = 1; i <= fits; i++) {
+          const ratio = 1 + (i / fits) * 0.6;
+          const { beta } = worklet.fitEasing(1, ratio, wanted, q, c);
+          // Fits, and gives up no more than the tolerance to do it.
+          const exponent = (b: number) =>
+            Math.min(Math.max(1 / (1 - ((q - 1) / (q * wanted)) * b), 2), q);
+          expect(junctionRatio(beta, exponent(beta), c)).toBeLessThanOrEqual(ratio + 1e-12);
+          const past = beta + 1e-4 * wanted;
+          expect(junctionRatio(past, exponent(past), c)).toBeGreaterThan(ratio);
+        }
+        expect(probes / fits, `G${c}`).toBeLessThan(2);
+      }
+    });
+
     it("renders a perfect square as a plain circle", () => {
       const ctx = paint(100, 100);
       const centre = { x: 50, y: 50 };

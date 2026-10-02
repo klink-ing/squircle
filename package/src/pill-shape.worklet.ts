@@ -94,6 +94,27 @@ const FIT_TOLERANCE = 1e-4;
 const fitCache = new Map<string, { beta: number; exponent: number }>();
 
 /**
+ * How far the easing reaches, sampled across the angles a request can be
+ * fitted down to, keyed by the request. The reach grows smoothly and steadily
+ * with the angle and depends on nothing but the request, so one table, built
+ * the first time a pill is too narrow for its request, gives every narrower
+ * pill a starting angle within a few tolerances of its fit; one or two exact
+ * evaluations then settle it, where searching from scratch takes four to ten.
+ * Pages usually share one request across all their pills, so the table is
+ * paid for once.
+ */
+interface FitTable {
+  betas: number[];
+  ratios: number[];
+  /** `dbeta/dratio` at each node, for each of the two segments it bounds. */
+  slopesIn: number[];
+  slopesOut: number[];
+}
+const FIT_TABLE_STEPS = 24;
+const FIT_TABLE_CACHE_SIZE = 16;
+const fitTableCache = new Map<string, FitTable>();
+
+/**
  * The transition for one easing — its profile, the running integrals that
  * place its points, and the cap radius over the half-height — keyed by the
  * easing. It depends on no size at all, so every pill wide enough for its
@@ -448,33 +469,134 @@ export const paintDef = class PillShape implements PaintWorklet {
 
     // How far past the box's centre the easing lands, in half-heights. No
     // easing at all is a bare semicircle, which lands at 1 and fits any pill.
-    const overrun = (beta: number): number =>
-      this.junctionRatio(beta, exponentFor(beta), continuity) - ratio;
+    const reach = (beta: number): number => this.junctionRatio(beta, exponentFor(beta), continuity);
+    // Where the exponent stops being held at the clothoid, the reach has a
+    // kink that the table has to sample exactly.
+    const kink = tradeable ? 1 / (2 * rate) : 0;
+    const table =
+      fitTableCache.get(request) ??
+      remember(
+        fitTableCache,
+        FIT_TABLE_CACHE_SIZE,
+        request,
+        this.fitTable(wantedBeta, fitsAsAsked, kink, reach),
+      );
 
-    // Regula falsi with the Illinois modification: the overrun is smooth and
-    // monotone in beta, so it converges in a handful of steps where bisection
-    // takes two dozen. `low` always fits, so it is what is returned.
-    let low = 0;
-    let high = wantedBeta;
-    let fLow = 1 - ratio;
-    let fHigh = fitsAsAsked - ratio;
-    let side = 0;
-    for (let i = 0; i < 40 && high - low > FIT_TOLERANCE * wantedBeta; i++) {
-      const mid = high - (fHigh * (high - low)) / (fHigh - fLow);
-      const fMid = overrun(mid);
-      if (fMid <= 0) {
-        low = mid;
-        fLow = fMid;
-        if (side === -1) fHigh /= 2;
-        side = -1;
+    // Start from the table: its segment brackets the answer, and its guess
+    // lands within a few tolerances of it. `low` always fits, so it is what is
+    // returned; each step aims a little short so it is usually the next `low`,
+    // and the search stops once the root is estimated within the tolerance.
+    const tolerance = FIT_TOLERANCE * wantedBeta;
+    const { segment, beta: guess } = this.fitGuess(table, ratio);
+    let low = table.betas[segment] as number;
+    let high = table.betas[segment + 1] as number;
+    let fLow = (table.ratios[segment] as number) - ratio;
+    let fHigh = (table.ratios[segment + 1] as number) - ratio;
+    let next = guess - tolerance / 2;
+    for (let i = 0; i < 40; i++) {
+      // Out of the bracket, or still searching after a few steps: bisect.
+      if (!(next > low && next < high) || i > 3) next = (low + high) / 2;
+      const f = reach(next) - ratio;
+      if (f <= 0) {
+        low = next;
+        fLow = f;
       } else {
-        high = mid;
-        fHigh = fMid;
-        if (side === 1) fLow /= 2;
-        side = 1;
+        high = next;
+        fHigh = f;
       }
+      const gap = (-fLow * (high - low)) / (fHigh - fLow);
+      if (gap <= tolerance || high - low <= tolerance) break;
+      next = low + gap - tolerance / 2;
     }
     return remember(fitCache, FIT_CACHE_SIZE, key, { beta: low, exponent: exponentFor(low) });
+  }
+
+  /**
+   * Samples the reach at evenly spaced angles up to the request, plus the
+   * kink, with the slopes `fitGuess` interpolates along: harmonic means of the
+   * neighbouring secants (Fritsch–Carlson, which keeps the interpolant
+   * monotone), one-sided at the ends and either side of the kink.
+   */
+  fitTable(
+    wantedBeta: number,
+    fitsAsAsked: number,
+    kink: number,
+    reach: (beta: number) => number,
+  ): FitTable {
+    const betas: number[] = [];
+    for (let i = 0; i <= FIT_TABLE_STEPS; i++) betas.push((wantedBeta * i) / FIT_TABLE_STEPS);
+    const near = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * wantedBeta;
+    if (kink > 0 && kink < wantedBeta && !betas.some((b) => near(b, kink))) {
+      betas.push(kink);
+      betas.sort((a, b) => a - b);
+    }
+    const n = betas.length - 1;
+    const ratios = betas.map((b, i) => (i === 0 ? 1 : i === n ? fitsAsAsked : reach(b)));
+    const secants: number[] = [];
+    for (let i = 0; i < n; i++) {
+      secants.push(
+        ((betas[i + 1] as number) - (betas[i] as number)) /
+          ((ratios[i + 1] as number) - (ratios[i] as number)),
+      );
+    }
+    const slopesIn: number[] = [];
+    const slopesOut: number[] = [];
+    for (let i = 0; i <= n; i++) {
+      const before = secants[i - 1];
+      const after = secants[i];
+      const smooth =
+        before !== undefined && after !== undefined && !near(betas[i] as number, kink)
+          ? before * after <= 0
+            ? 0
+            : 2 / (1 / before + 1 / after)
+          : undefined;
+      slopesIn.push(smooth ?? before ?? 0);
+      slopesOut.push(smooth ?? after ?? 0);
+    }
+    return { betas, ratios, slopesIn, slopesOut };
+  }
+
+  /**
+   * The table's estimate of the angle reaching `ratio`, and the segment that
+   * brackets it.
+   *
+   * Nearly square boxes fall in the first segment, where the reach grows
+   * linearly from 1 and bends only gently: `ratio - 1 = a beta + b beta^2`,
+   * fitted through the first two samples, gives the angle straight from the
+   * quadratic formula. Elsewhere it is a monotone cubic through the samples.
+   */
+  fitGuess(table: FitTable, ratio: number): { segment: number; beta: number } {
+    const { betas, ratios, slopesIn, slopesOut } = table;
+    const last = betas.length - 2;
+    let segment = 0;
+    while (segment < last && (ratios[segment + 1] as number) < ratio) segment++;
+
+    if (segment === 0) {
+      const b1 = betas[1] as number;
+      const b2 = betas[2] ?? b1;
+      const y1 = (ratios[1] as number) - 1;
+      const y2 = ((ratios[2] ?? ratios[1]) as number) - 1;
+      const b = b2 === b1 ? 0 : (y2 / b2 - y1 / b1) / (b2 - b1);
+      const a = y1 / b1 - b * b1;
+      const y = ratio - 1;
+      // The root of b beta^2 + a beta - y, written to stay exact as b -> 0.
+      const disc = a * a + 4 * b * y;
+      return { segment, beta: disc > 0 ? (2 * y) / (a + Math.sqrt(disc)) : y / a };
+    }
+
+    const r0 = ratios[segment] as number;
+    const h = (ratios[segment + 1] as number) - r0;
+    const t = (ratio - r0) / h;
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return {
+      segment,
+      beta:
+        (2 * t3 - 3 * t2 + 1) * (betas[segment] as number) +
+        (t3 - 2 * t2 + t) * h * (slopesOut[segment] as number) +
+        (-2 * t3 + 3 * t2) * (betas[segment + 1] as number) +
+        (t3 - t2) * h * (slopesIn[segment + 1] as number),
+    };
   }
 
   /**
