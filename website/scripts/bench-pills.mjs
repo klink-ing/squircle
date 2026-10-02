@@ -111,7 +111,7 @@ try {
     });
     state = JSON.parse(result?.result?.value ?? "null");
     if (state?.done) break;
-    if (state) process.stderr.write(`\r${state.results.length} runs done…`);
+    if (state) process.stderr.write(`\r${state.results.length} runs done…  `);
   }
   process.stderr.write("\n");
   socket.close();
@@ -130,6 +130,10 @@ try {
     );
   }
 } finally {
+  // Wait for Chrome to exit before removing its profile: it is still writing
+  // to it as it shuts down.
+  const exited = new Promise((resolve) => chrome.once("exit", resolve));
   chrome.kill();
-  rmSync(profile, { recursive: true, force: true });
+  await Promise.race([exited, sleep(5000)]);
+  rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
