@@ -260,6 +260,20 @@ describe("pill-shape worklet geometry", () => {
       expect(easeSpan(stubby)).toBeLessThan(easeSpan(roomy));
     });
 
+    it("draws a square as a circle without searching for an easing", () => {
+      const worklet = new (paintDef as unknown as new () => {
+        junctionRatio(...args: unknown[]): number;
+        fitEasing(r: number, half: number, beta: number, q: number, c: 2 | 3): { beta: number };
+      })();
+      let probes = 0;
+      const junctionRatio = worklet.junctionRatio.bind(worklet);
+      worklet.junctionRatio = (...args) => (probes++, junctionRatio(...args));
+      for (const c of [2, 3] as const) {
+        expect(worklet.fitEasing(50, 50, Math.PI / 3, 6, c).beta).toBe(0);
+      }
+      expect(probes).toBe(0);
+    });
+
     it("renders a perfect square as a plain circle", () => {
       const ctx = paint(100, 100);
       const centre = { x: 50, y: 50 };

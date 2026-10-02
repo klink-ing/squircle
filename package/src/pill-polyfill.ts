@@ -97,9 +97,26 @@ const svgUrl = (width: number, height: number, body: string): string =>
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${body}</svg>`,
   )}")`;
 
+/**
+ * The outline as an SVG shape element: a `<circle>` for a square, which is
+ * all a square pill can be, and a traced `<path>` for anything else.
+ */
+function outlineElement(
+  width: number,
+  height: number,
+  shape: PillShapeInput | undefined,
+  attrs = "",
+) {
+  if (width === height) {
+    const r = width / 2;
+    return `<circle cx="${r}" cy="${r}" r="${r}"${attrs}/>`;
+  }
+  return `<path d="${pillOutlinePath(width, height, shape)}"${attrs}/>`;
+}
+
 /** The element's mask: the outline, filled. */
 export function pillMaskImage(width: number, height: number, shape?: PillShapeInput): string {
-  return svgUrl(width, height, `<path d="${pillOutlinePath(width, height, shape)}"/>`);
+  return svgUrl(width, height, outlineElement(width, height, shape));
 }
 
 /**
@@ -120,13 +137,13 @@ export function pillRingMaskImage(
     strokeWidth,
   );
   if (dash === null) return null;
-  const d = pillOutlinePath(width, height, shape);
   // Doubled and clipped to the outline, so the band sits wholly inside it.
   const dashAttr = dash.length > 0 ? ` stroke-dasharray="${dash.join(" ")}"` : "";
+  const stroked = ` fill="none" stroke="#000" stroke-width="${strokeWidth * 2}"${dashAttr} clip-path="url(#c)"`;
   return svgUrl(
     width,
     height,
-    `<clipPath id="c"><path d="${d}"/></clipPath><path d="${d}" fill="none" stroke="#000" stroke-width="${strokeWidth * 2}"${dashAttr} clip-path="url(#c)"/>`,
+    `<clipPath id="c">${outlineElement(width, height, shape)}</clipPath>${outlineElement(width, height, shape, stroked)}`,
   );
 }
 

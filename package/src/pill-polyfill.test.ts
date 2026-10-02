@@ -86,6 +86,14 @@ describe("pill polyfill", () => {
       expect(svg).toContain(`<path d="${pillOutlinePath(240, 60)}"/>`);
     });
 
+    it("masks a square with a plain circle", () => {
+      expect(decode(pillMaskImage(48, 48))).toContain('<circle cx="24" cy="24" r="24"/>');
+      const ring = decode(pillRingMaskImage(48, 48, 2, "dashed") as string);
+      expect(ring).toContain('<clipPath id="c"><circle cx="24" cy="24" r="24"/></clipPath>');
+      expect(ring).toContain('<circle cx="24" cy="24" r="24" fill="none"');
+      expect(decode(pillMaskImage(48, 47))).toContain("<path");
+    });
+
     it("strokes a band of the border width inside the outline", () => {
       const svg = decode(pillRingMaskImage(240, 60, 3, "solid") as string);
       // Doubled and clipped, as the worklet does it.

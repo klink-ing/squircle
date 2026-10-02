@@ -412,7 +412,9 @@ export const paintDef = class PillShape implements PaintWorklet {
     wantedExponent: number,
     continuity: Continuity = DEFAULT_CONTINUITY,
   ): { beta: number; exponent: number } {
-    if (wantedBeta <= 0) return { beta: 0, exponent: wantedExponent };
+    // A square, or anything no longer than it is tall, has no flat edge to
+    // ease into: only a circle fits, so there is nothing to search for.
+    if (wantedBeta <= 0 || half <= r) return { beta: 0, exponent: wantedExponent };
 
     // The fit depends on the box only through its aspect ratio: the whole
     // shape scales with the half-height.
@@ -485,8 +487,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     q: number,
     continuity: Continuity = DEFAULT_CONTINUITY,
   ): Point[] {
-    const { profile, fresnel, radiusRatio } = this.transition(beta, q, continuity);
-    const radius = radiusRatio * r;
+    // No easing is a bare circular cap of the full half-height: nothing to
+    // integrate.
+    const eased = beta > 0 ? this.transition(beta, q, continuity) : null;
+    const radius = eased ? eased.radiusRatio * r : r;
     const points: Point[] = [];
 
     // Circular cap, from the leftmost point to where the easing takes over.
@@ -501,7 +505,8 @@ export const paintDef = class PillShape implements PaintWorklet {
       points.push({ x: radius + radius * Math.cos(theta), y: r + radius * Math.sin(theta) });
     }
 
-    if (beta <= 0) return points;
+    if (!eased) return points;
+    const { profile, fresnel } = eased;
 
     // The lowest spread gives the transition no length at all: the arc alone
     // spans the height and meets the flat edge at a corner.
