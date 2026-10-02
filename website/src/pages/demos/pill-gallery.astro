@@ -20,6 +20,8 @@ interface Section {
   title: string;
   intro: string;
   examples: Example[];
+  /** Shown on light tiles, where a dark shadow reads clearly. */
+  light?: boolean;
 }
 
 // Every class is spelled out in full so Tailwind finds and generates it.
@@ -121,23 +123,27 @@ const sections: Section[] = [
   {
     title: "Shadows",
     intro:
-      "An outer shadow falls outside the box, and a filter runs before the pill's shape is applied, so both go on a wrapper. Inner shadows stay inside the box.",
+      "An outer shadow falls outside the box, and a filter runs before the pill's shape is applied, so both go on a wrapper. Inner shadows stay inside the box. Shown on light tiles so the shadows stand out.",
+    light: true,
     examples: [
       {
-        classes: "shadow-lg shadow-indigo-500/50",
+        classes: "shadow-xl shadow-black/60",
         note: "Outside the box: erased by the pill's shape.",
       },
       {
-        classes: "drop-shadow-lg drop-shadow-indigo-500/50",
+        classes: "drop-shadow-xl drop-shadow-black/60",
         note: "A filter on the pill: shaped away with it.",
       },
-      { classes: "shadow-inner", note: "Inside the box: follows the stadium, trimmed to the pill." },
       {
-        classes: "inset-shadow-sm inset-shadow-black/60",
+        classes: "shadow-inner shadow-black/80",
         note: "Inside the box: follows the stadium, trimmed to the pill.",
       },
       {
-        classes: "drop-shadow-lg drop-shadow-indigo-500/50",
+        classes: "inset-shadow-sm inset-shadow-black/80",
+        note: "Inside the box: follows the stadium, trimmed to the pill.",
+      },
+      {
+        classes: "drop-shadow-xl drop-shadow-black/60",
         note: "The drop shadow on a plain wrapper: follows the pill's real shape.",
         build: "shadow-wrapper",
       },
@@ -196,7 +202,12 @@ const PILL = "squircle-pill h-12 w-40 bg-indigo-500";
             <ul class="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-x-6 gap-y-8">
               {section.examples.map(({ classes, note, build = "pill" }) => (
                 <li class="flex flex-col items-start gap-3">
-                  <div class="flex h-20 items-center px-3">
+                  <div
+                    class:list={[
+                      "flex items-center",
+                      section.light ? "h-28 self-stretch rounded-lg bg-zinc-100 px-6" : "h-20 px-3",
+                    ]}
+                  >
                     {build === "pill" && <div class={`${PILL} ${classes}`} />}
                     {build === "ring-wrapper" && (
                       <div class="squircle-pill bg-white p-0.5">
