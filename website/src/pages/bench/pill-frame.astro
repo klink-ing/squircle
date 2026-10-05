@@ -1,0 +1,25 @@
+---
+// One benchmark run: `count` pills, drawn by `mode` — "worklet", "polyfill"
+// or "none" (the plain stadium, as a baseline) — resized every frame.
+//
+// Deliberately not built on the site layout: that registers the worklet,
+// which can never be unregistered, and each mode has to choose for itself.
+// The runner at /bench/pills loads this in a fresh iframe per run.
+import "../../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pill benchmark run</title>
+  </head>
+  <body class="bg-zinc-950 p-2 text-zinc-100">
+    <p id="status" class="mb-2 font-mono text-xs text-zinc-400">starting…</p>
+    <div id="stage" class="flex flex-wrap content-start items-center gap-1"></div>
+
+    <script>
+      import "../../bench/pill-frame";
+    </script>
+  </body>
+</html>

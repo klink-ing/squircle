@@ -5,4 +5,4 @@ dist/
 .pnpm-store/
 .DS_Store
 .playwright-mcp
-.superpowers/
+.superpowers/.netlify/
