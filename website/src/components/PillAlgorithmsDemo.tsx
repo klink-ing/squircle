@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { paintDef as PillShape } from "@klinking/squircle/pill-shape.worklet";
+import { PILL_SHAPE_PROPERTIES as SHAPE } from "@klinking/squircle/pill-worklet";
 import { filletQuadrant, readParams } from "../lib/pill-fillet.worklet.js";
 import filletWorkletUrl from "../lib/pill-fillet.worklet.js?url";
+import { refreshPill } from "../lib/pills";
 
 const W = 320;
 const H = 80;
 const R = H / 2;
-const NS = "--squircle-pill";
 const FILLET_ATTRIBUTE = "data-pill-fillet";
+/** Whether the browser can draw the demo's own fillet worklet. */
+const hasPaintWorklet =
+  typeof CSS !== "undefined" && Boolean((CSS as { paintWorklet?: unknown }).paintWorklet);
 
 type Point = { x: number; y: number };
 
@@ -89,9 +93,9 @@ function arcPoints(r: number, rho: number, beta: number): Point[] {
 function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant {
   const worklet = new PillShape();
   const props = propsFrom({
-    [`${NS}-amt`]: amt,
-    [`${NS}-ease`]: ease,
-    [`${NS}-continuity`]: continuity,
+    [SHAPE.amt.name]: amt,
+    [SHAPE.ease.name]: ease,
+    [SHAPE.continuity.name]: continuity,
   });
   const c = worklet.resolveContinuity(props);
   const fitted = worklet.fitEasing(
@@ -172,6 +176,23 @@ function hermiteQuadrant(values: Record<string, string | number>): Quadrant {
 }
 
 // ── Drawing ─────────────────────────────────────────────────────
+
+/**
+ * The whole outline of a `W` by `H` pill from one quadrant, mirrored the way
+ * the worklets mirror theirs, as a `clip-path`: how the fillet pill is drawn
+ * where there is no paint worklet to draw it.
+ */
+function outlineClipPath({ points }: Quadrant): string {
+  const reversed = [...points].reverse();
+  const outline = [
+    ...points,
+    ...reversed.map((p) => ({ x: W - p.x, y: p.y })),
+    ...points.map((p) => ({ x: W - p.x, y: H - p.y })),
+    ...reversed.map((p) => ({ x: p.x, y: H - p.y })),
+  ];
+  const d = outline.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`);
+  return `path("${d.join("")}Z")`;
+}
 
 const polyline = (pts: Point[]) => pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 
@@ -319,9 +340,10 @@ function Slider({
 // ── The page ────────────────────────────────────────────────────
 
 export default function PillAlgorithmsDemo() {
-  const [amt, setAmt] = useState(2);
-  const [ease, setEase] = useState(2);
-  const [spiralContinuity, setSpiralContinuity] = useState(3);
+  // The package's own defaults, so the preview opens on the pill you get.
+  const [amt, setAmt] = useState<number>(SHAPE.amt.default);
+  const [ease, setEase] = useState<number>(SHAPE.ease.default);
+  const [spiralContinuity, setSpiralContinuity] = useState<number>(SHAPE.continuity.default);
   const [continuity, setContinuity] = useState(2);
   const [fit, setFit] = useState(true);
   const [arcSetback, setArcSetback] = useState(30);
@@ -333,7 +355,7 @@ export default function PillAlgorithmsDemo() {
   // this page's alone. Gated on its own attribute, like the shipped one.
   const registered = useRef(false);
   useEffect(() => {
-    if (registered.current || !("paintWorklet" in CSS)) return;
+    if (registered.current || !hasPaintWorklet) return;
     registered.current = true;
     CSS.paintWorklet
       .addModule(filletWorkletUrl)
@@ -360,11 +382,25 @@ export default function PillAlgorithmsDemo() {
   const hermite = useMemo(() => hermiteQuadrant(filletValues), [filletValues]);
 
   const spiralStyle = {
-    [`${NS}-amt`]: amt,
-    [`${NS}-ease`]: ease,
-    [`${NS}-continuity`]: spiralContinuity,
+    [SHAPE.amt.name]: amt,
+    [SHAPE.ease.name]: ease,
+    [SHAPE.continuity.name]: spiralContinuity,
   } as React.CSSProperties;
-  const filletStyle = filletValues as unknown as React.CSSProperties;
+  // Without paint worklets the demo's own fillet worklet can't run either, so
+  // its pill is clipped to the same outline instead.
+  const filletStyle = {
+    ...(filletValues as unknown as React.CSSProperties),
+    ...(hasPaintWorklet ? {} : { clipPath: outlineClipPath(hermite) }),
+  };
+
+  // The polyfill only notices a class change; the sliders change inline
+  // properties, so it is told.
+  const spiralPill = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (spiralPill.current) refreshPill(spiralPill.current);
+  }, [amt, ease, spiralContinuity]);
+
+  const defaultLabel = (value: number) => (value === SHAPE.continuity.default ? " (default)" : "");
 
   return (
     <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
@@ -383,7 +419,7 @@ export default function PillAlgorithmsDemo() {
             (1 − t²)<sup>q−1</sup>
           </code>
           , also leaves the arc with curvature flat, and arrives flat at the edge for any ease above
-          0. It is the default.
+          0. The controls open on the package's defaults.
         </p>
         <div className="grid grid-cols-[auto_1fr_3.5rem] items-center gap-x-3 gap-y-1 text-xs">
           <label htmlFor="s-continuity" className="text-zinc-400">
@@ -395,8 +431,8 @@ export default function PillAlgorithmsDemo() {
             onChange={(e) => setSpiralContinuity(+e.target.value)}
             className="col-span-2 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-zinc-200"
           >
-            <option value={3}>G3 — squircle-pill-g3 (default)</option>
-            <option value={2}>G2 — squircle-pill-g2</option>
+            <option value={3}>G3 — squircle-pill-g3{defaultLabel(3)}</option>
+            <option value={2}>G2 — squircle-pill-g2{defaultLabel(2)}</option>
           </select>
           <Slider
             id="s-amt"
@@ -501,6 +537,7 @@ export default function PillAlgorithmsDemo() {
       </div>
 
       <div
+        ref={spiralPill}
         className="squircle-pill bg-demo-squircle"
         style={{ ...spiralStyle, width: W, height: H }}
       />

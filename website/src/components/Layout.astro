@@ -14,12 +14,8 @@ const { title } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <script>
-      import { registerPillWorklet } from "@klinking/squircle/pill-worklet";
-      // Vite serves the worklet as a hashed asset, so hand its URL over
-      // rather than relying on the helper's default sibling lookup.
-      import workletUrl from "@klinking/squircle/pill-shape.worklet.js?url";
-
-      registerPillWorklet(workletUrl);
+      // The worklet where the browser has one, the polyfill where it doesn't.
+      import "../lib/pills";
     </script>
   </head>
   <body class="min-h-screen bg-zinc-950 text-zinc-100">

@@ -474,7 +474,7 @@ import { registerPillWorklet } from "@klinking/squircle/pill-worklet";
 registerPillWorklet();
 ```
 
-The helper loads the worklet shipped next to it and, once it is in, marks `<html>` with `data-squircle-pill-worklet`. That mark is what switches pills from their `rounded-full` fallback to the drawn shape — `@supports (mask-image: paint(pill-shape))` is true whether or not a worklet by that name ever loaded, so gating on it alone would erase every pill the moment the file failed to load. Where paint worklets are unsupported it resolves to `false` and nothing changes; a load that fails rejects, so the error shows up in the console rather than as blank buttons.
+The helper loads the worklet shipped next to it and, once it is in, marks `<html>` with `data-squircle-pill-worklet`. That mark is what switches pills from their `rounded-full` fallback to the drawn shape — `@supports (mask-image: paint(pill-shape))` is true whether or not a worklet by that name ever loaded, so gating on it alone would erase every pill the moment the file failed to load. Where paint worklets are unsupported it resolves to `false` and nothing changes; a load that fails rejects, so the error shows up in the console rather than as blank buttons. The same module exports `PILL_SHAPE_PROPERTIES`, each shape setting's custom property name and default, for scripts that set or show them.
 
 The default locates the worklet with `new URL("./pill-shape.worklet.mjs", import.meta.url)`, which Vite, webpack 5 and Parcel all turn into an emitted asset. If your bundler doesn't, or you serve the file yourself, pass its URL:
 
