@@ -1,0 +1,22 @@
+# Deploy previews for pull requests. Production stays on GitHub Pages
+# (.github/workflows/deploy-site.yml).
+#
+# Netlify reads this file from the repository root. `base` is set here rather
+# than left to the site's UI settings, and `publish` is relative to it.
+#
+# Node comes from .node-version and pnpm from the packageManager field, both
+# of which Netlify reads on its own.
+#
+# The steps are called directly rather than through `vp run website#build`:
+# the vite-plus task runner builds fine locally and in GitHub Actions but
+# hangs on Netlify's build image until the build times out. The package has
+# to be built first because the website imports it from dist/.
+
+[build]
+base = "website"
+# Netlify skips a build when nothing under `base` changed, but the site
+# bundles the package from ../package, so a package-only change would leave
+# the preview stale. Exit 1 means build; skip only when neither changed.
+ignore = "git diff --quiet \"$CACHED_COMMIT_REF\" \"$COMMIT_REF\" -- . ../package ../pnpm-lock.yaml ../netlify.toml"
+command = "pnpm --filter @klinking/squircle exec tsx scripts/build.ts && pnpm --filter website exec astro build"
+publish = "dist"

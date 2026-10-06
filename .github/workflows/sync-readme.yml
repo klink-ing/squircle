@@ -2,7 +2,7 @@ name: Sync README code blocks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, beta, alpha]
   workflow_dispatch:
 
 permissions:

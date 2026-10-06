@@ -1,0 +1,49 @@
+name: Release notes preview
+
+# On a promotion PR (alpha or beta into main or beta), keeps one comment with
+# the version and release notes that adding the `promote` label would
+# publish, made by the same code as the real ones. See release/preview.mjs.
+
+on:
+  pull_request:
+    branches: [main, beta]
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  preview:
+    if: github.head_ref == 'alpha' || github.head_ref == 'beta'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Write the preview
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node release/preview.mjs >"$RUNNER_TEMP/preview.md"
+
+      - name: Post or update the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- release-notes-preview -->")) | .id' | head -1)
+          if [[ -n $existing ]]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" \
+              -F body=@"$RUNNER_TEMP/preview.md" >/dev/null
+          else
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/preview.md"
+          fi

@@ -12,6 +12,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 
 - [Requirements](#requirements)
 - [Install & setup](#install--setup)
+- [Pill Shapes with Houdini CSS Paint Worklet](#pill-shapes-with-houdini-css-paint-worklet)
 - [How the radius correction works](#how-the-radius-correction-works)
 - [Browser support & fallback strategy](#browser-support--fallback-strategy)
 - [Why it called "squircle" when it use "superellipse()"?](#why-it-called-squircle-when-it-use-superellipse)
@@ -21,6 +22,7 @@ We're all excited about `corner-shape: squircle`, but we're in a pickle right no
 - [Copy/paste source](#copypaste-source)
 - [Prior art & credits](#prior-art--credits)
 - [License](#license)
+
 <!-- END:toc -->
 
 ## Requirements
@@ -68,8 +70,8 @@ Or with options:
 ```css
 @import "tailwindcss";
 @plugin "@klinking/squircle/tailwind" {
-  prefix: sq;          /* use `sq-md`, `sq-t-lg`, etc. */
-  amt-var: --my-amt;   /* use `--my-amt` instead of `--squircle-amt` */
+  prefix: sq; /* use `sq-md`, `sq-t-lg`, etc. */
+  amt-var: --my-amt; /* use `--my-amt` instead of `--squircle-amt` */
 }
 ```
 
@@ -305,7 +307,7 @@ If you've already standardized on different variable names — say your design s
 ```ts
 squirclePreset({
   amtVar: "--corner-amt", // default: --squircle-amt
-  rVar: "--corner-r",     // default: --squircle-r
+  rVar: "--corner-r", // default: --squircle-r
 });
 ```
 
@@ -363,7 +365,7 @@ import { squircle } from "@klinking/squircle/stylex";
 `squircle` exposes one entry per variant — same 15-name table as the Panda preset (`all`, `top`, `right`, `bottom`, `left`, `start`, `end`, `topLeft`, `topRight`, `bottomRight`, `bottomLeft`, `startStart`, `startEnd`, `endStart`, `endEnd`). Each entry is a function with this signature:
 
 ```ts
-(radius: string | number, amt?: string | number) => StyleXStyles
+(radius: string | number, amt?: string | number) => StyleXStyles;
 ```
 
 - `radius` — any value valid for `border-radius` (rem, px, %, a `var(--…)` reference, or a number which StyleX converts to px).
@@ -380,7 +382,7 @@ const styles = stylex.create({
   card: { padding: 16, backgroundColor: "#fff", boxShadow: "0 1px 2px #0002" },
 });
 
-<div {...stylex.props(styles.card, squircle.all("1rem"))} />
+<div {...stylex.props(styles.card, squircle.all("1rem"))} />;
 ```
 
 ### 4. Use shared radius tokens
@@ -402,7 +404,7 @@ export const radii = stylex.defineVars({
 import { radii } from "./theme/radii.stylex";
 import { squircle } from "@klinking/squircle/stylex";
 
-<div {...stylex.props(squircle.all(radii.md))} />
+<div {...stylex.props(squircle.all(radii.md))} />;
 ```
 
 `radii.md` is a `var(--xR-…)` reference at runtime, which StyleX wraps in another custom property and the squircle calc resolves transitively.
@@ -442,6 +444,137 @@ The parameters are deliberately untyped so relative units (`em`, `rem`, containe
 **Heads up:** this doesn't supply the uncorrected fallback for browsers that have `@function` but lack `corner-shape`. By the time `@function` support is widespread, `corner-shape` probably will be too, so ¯\\\_(ツ)\_/¯.
 
 </details>
+
+## Pill Shapes with Houdini CSS Paint Worklet
+
+`rounded-full` gives you a stadium: two semicircles and two straight edges, meeting where the curvature drops from `1/r` to zero in a single step. That step is visible as a faint crease at each end of every pill button. `corner-shape: superellipse()` can't fix it — on a pill the cap _is_ the shape, so reshaping the corner changes the silhouette — and no combination of `border-radius` values can ease one curvature into another.
+
+`squircle-pill` draws the pill with a [Houdini paint worklet](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Painting_API) instead. The caps stay circular arcs, and the last stretch of each arc is replaced by a **G2-continuous easing**: a power-law spiral (a [clothoid](https://en.wikipedia.org/wiki/Euler_spiral) at its simplest setting) along which curvature falls smoothly to zero before the flat edge begins. There are no size variants — the shape is derived from the element's own dimensions, so one utility covers every button, badge and avatar.
+
+<details>
+<summary><strong>Tailwind CSS v4</strong></summary>
+
+### 1. Add the plugins
+
+```css
+@import "tailwindcss";
+@plugin "@klinking/squircle/tailwind-pill";
+@plugin "@klinking/squircle/tailwind-pill-border"; /* optional: border-* drives the pill's border */
+```
+
+Both plugins take a `prefix` option (default `squircle-pill`), the same way the squircle plugin does.
+
+### 2. Register the paint worklet
+
+Once, in your app's entry point:
+
+```js
+import { registerPillWorklet } from "@klinking/squircle/pill-worklet";
+
+registerPillWorklet();
+```
+
+The helper loads the worklet shipped next to it and, once it is in, marks `<html>` with `data-squircle-pill-worklet`. That mark is what switches pills from their `rounded-full` fallback to the drawn shape — `@supports (mask-image: paint(pill-shape))` is true whether or not a worklet by that name ever loaded, so gating on it alone would erase every pill the moment the file failed to load. Where paint worklets are unsupported it resolves to `false` and nothing changes; a load that fails rejects, so the error shows up in the console rather than as blank buttons. The same module exports `PILL_SHAPE_PROPERTIES`, each shape setting's custom property name and default, for scripts that set or show them.
+
+The default locates the worklet with `new URL("./pill-shape.worklet.mjs", import.meta.url)`, which Vite, webpack 5 and Parcel all turn into an emitted asset. If your bundler doesn't, or you serve the file yourself, pass its URL:
+
+```js
+// Vite
+import workletUrl from "@klinking/squircle/pill-shape.worklet.js?url";
+registerPillWorklet(workletUrl);
+```
+
+### 3. Use it
+
+```html
+<button class="squircle-pill bg-blue-500 px-4 py-2 text-white">Save</button>
+<span class="squircle-pill bg-green-100 px-3 py-1 text-green-900">New</span>
+<div class="squircle-pill h-10 w-10 bg-zinc-200"></div>
+```
+
+| Utility                | Effect                                                                                                                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `squircle-pill`        | The pill. Caps derived from the element's size.                                                                                                                                                          |
+| `squircle-pill-amt-*`  | How much of each cap is handed to the easing, in 30° steps. `1` is a bare semicircle; default `2`.                                                                                                       |
+| `squircle-pill-ease-*` | Stretches the easing further along the flat edge without spending more of the arc. `0` is a clothoid; default `2`.                                                                                       |
+| `squircle-pill-g2`     | Matches curvature only (G2), where the easing leaves the arc and where it meets the edge. `squircle-pill-g3`, the default, also matches the rate curvature changes (G3) at both, for any ease above `0`. |
+
+Both accept bare numbers (`squircle-pill-amt-3`, `squircle-pill-amt-1.5`) and arbitrary values (`squircle-pill-amt-[2.5]`), and reject anything else. They only set the custom property — `--squircle-pill-amt` and `--squircle-pill-ease`, and `--squircle-pill-continuity` (`2` or `3`) for the `-g2`/`-g3` utilities — which you can also set yourself, on the element or an ancestor; both are registered and animate. When an element is too narrow for what you asked for, both are eased down together so the join stays smooth; a square renders as a plain circle.
+
+### Borders, outlines and shadows
+
+The element itself is left unshaped. Its background is hidden and painted again on its `::before`, under the content, shaped exactly to the pill, so whatever the background is — colour, gradient, image — that's what gets pill-shaped. Nothing of the stadium `border-radius` underneath ever shows, which matters most next to a shadow: the stadium sits up to a few pixels outside the pill near its caps, and a background painted there would show as a hairline between the pill and its shadow.
+
+**Borders, outlines, rings and box shadows are drawn by the pill**, on its `::after`, along its true outline. With `tailwind-pill-border` loaded, Tailwind's own utilities drive them, and nothing new needs learning:
+
+- `border-*`: a band along the inside of the outline, solid, dashed or dotted. It reserves the same room in layout as a real border.
+- `outline-*` and `outline-offset-*`: a band outside the outline, or inside it with a negative offset, solid, dashed or dotted.
+- `ring-*` and `ring-offset-*`: a band outside the outline, beyond an offset band in the offset colour, as Tailwind draws them.
+- `inset-ring-*`: a band inside the border.
+- `shadow-*`: cast by the outline, with the same offsets, blur and spread. Inner shadows (`shadow-inner`, `inset-shadow-*`) are painted by the copy of the background, inside the pill.
+
+The two pseudo-elements are the pill's own. Variants work as anywhere else, so `focus-visible:ring-2` draws a focus ring along the pill and `hover:shadow-lg` lifts it. On any element that isn't a pill, the utilities keep behaving normally. Without the plugin, set the pill's own properties: `--squircle-pill-border-width`, `-border-color` and `-border-style`, `--squircle-pill-outline-width`, `-outline-offset`, `-outline-color` and `-outline-style`, `--squircle-pill-ring-width`, `-ring-color`, `-ring-offset-width` and `-ring-offset-color`, `--squircle-pill-inset-ring-width` and `-inset-ring-color`, and `--squircle-pill-box-shadow`, with `--squircle-pill-shadow-reach` set to how far its shadows reach past the pill — offset plus blur plus spread.
+
+**Everything else is left to the browser**, and follows the pill by itself: a `drop-shadow-*` or any other `filter` sees the pill-shaped background, and Tailwind's `mask-*` utilities and any `clip-path` apply to the whole pill as they would to any element — `squircle-pill mask-b-from-20%` is a pill that fades out towards the bottom, its border and shadow with it. The browser's own focus ring, set by no utility, follows the stadium.
+
+One thing to know: the pill hides its own background by clipping it to its text, and its own box shadow, both with `!important` so that nothing — a utility, an inline `background` — can put the stadium back. So `bg-clip-text` on the pill itself has no effect of its own: the copy still fills the pill. For gradient text inside a pill, put the text in a child.
+
+### Fallback
+
+Without the worklet — Safari, Firefox, or before `registerPillWorklet()` resolves — a pill is a plain `rounded-full` stadium with a real border, and nothing else. Not a superellipse: on a pill the cap is the whole shape, so a superellipse would change the silhouette rather than soften a corner. No layout shift when the worklet lands.
+
+### Polyfill for browsers without paint worklets
+
+To get the real shape in Safari and Firefox too, load the polyfill where the worklet isn't available:
+
+```js
+import { registerPillWorklet } from "@klinking/squircle/pill-worklet";
+
+if (!(await registerPillWorklet())) {
+  const { polyfillPills } = await import("@klinking/squircle/pill-polyfill");
+  polyfillPills();
+}
+```
+
+It runs the worklet's own geometry on the main thread: a `ResizeObserver` watches every pill, and on each new size the outline is set as a `clip-path: path()` for the copy of the background, and everything drawn around it — border, outline, rings, shadows — as an SVG image, on two custom properties the pill styles read. A clip rather than a mask image for the shape, because a mask image is decoded and rasterised again on every resize, which was over five times slower. The shapes are identical to the worklet's, borders, dashes and shadows included; a square needs no clip at all, its stadium already being the circle it has to be. Each pill shows its stadium until its clip is computed, so there is no flash of anything worse, and a resize too large for one frame spreads over the next few rather than dropping them. The element's own `clip-path` and masks are never touched, so they apply as they do with the worklet.
+
+It picks up pills added or removed later, and re-reads a pill when its `class` changes and when it gains or loses focus, hover or a press, so `focus-visible:` and `hover:` decorations work too. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a media query — need a `refresh()`:
+
+```js
+const pills = polyfillPills();
+pills.refresh(element); // or pills.refresh() for all of them
+```
+
+The cost is main-thread work on resize; the site's `/bench/pills` page measures it against the worklet for a few thousand pills at once, and `website/scripts/bench-pills.mjs` runs the same matrix headlessly.
+
+</details>
+
+<details>
+<summary><strong>Without Tailwind</strong></summary>
+
+The same rules, hung off an attribute:
+
+```css
+@import "@klinking/squircle/squircle-pill.css";
+```
+
+```html
+<button data-squircle-pill style="--squircle-pill-border-width: 2px">Save</button>
+```
+
+Register the worklet as above. Here the pill's own properties also drive a real border, so a bordered pill degrades to a bordered stadium without the worklet; `--squircle-pill-border-color` defaults to `currentColor` and `--squircle-pill-border-style` to `solid`. The stylesheet is generated from the same source as the Tailwind utility, so the two never disagree.
+
+</details>
+
+### How pill shapes work
+
+A circular arc has constant curvature `1/R`; a straight edge has none. The worklet joins them with a transition along which curvature falls off over the transition's arc length. With `squircle-pill-g2` it falls as `k(t) = (1/R) · (1 − t)^(q − 1)` — a clothoid at `q = 2`, where the fall is linear, and a softer spiral above it. `squircle-pill-amt-*` sets how much of the arc (β, in 30° steps) the transition replaces, and `squircle-pill-ease-*` offsets `q` (`q = ease + 2`), which lengthens the transition to `q · R · β` along the edge without eating any more of the arc. The cap radius is then solved so that the arc's rise plus the transition's rise is exactly half the element's height, so the outline always fits the box; the position along the transition is the Fresnel-type integral of that curvature, evaluated numerically once per shape and cached.
+
+That profile leaves the arc already shedding curvature at a finite rate, so it is only G2 where it leaves the arc. The default, G3, uses `k(t) = (1/R) · (1 − t²)^(q − 1)` instead, whose curvature starts falling with zero slope — G3 at the arc — and, for `q > 2` (any ease above `0`), also arrives with zero slope at the edge. Everything else, including the fit to the box, is the same for both.
+
+That's a different construction from the curvature-continuous fillet in CAD tools (SolidWorks and Onshape's "curvature continuous", Fusion's G2, Rhino's `BlendCrv`), which blend arc into edge with a quintic Hermite polynomial that has position, tangent and curvature prescribed at both ends, controlled by a setback per face and a bulge per end. The spiral's advantage is that its curvature profile is monotone by construction and its length is a closed-form function of the cap, which is what lets it fit itself to the box; the Hermite blend keeps the cap at its full radius and lets the blend bow outward, which is right for a model and wrong for a button. The site's [pill algorithms demo](https://squircle.klink.ing/demos/pill-algorithms) renders the two side by side, with each one's controls and a curvature comb, so you can judge for yourself.
+
+**Browser support:** the Paint API is in Chromium (Chrome, Edge, Opera, Samsung Internet). Safari and Firefox get the stadium fallback. Both `--squircle-pill-*` properties are registered with `@property`, which those browsers support, so nothing else changes.
 
 ## How the radius correction works
 
@@ -490,6 +623,7 @@ See the [interactive demo](https://dogmar.github.io/squircle) for a visual expla
 | [Logical properties](https://caniuse.com/css-logical-props)                | `squircle-s/e/ss/se/es/ee-*`                   | Widely supported                                               |
 | [CSS `@function`](https://caniuse.com/?search=%40function)                 | Optional `squircle-radius()` helper            | Experimental; Chrome flag only                                 |
 | [CSS custom properties](https://caniuse.com/css-variables)                 | Theme tokens, `--squircle-amt`, `--squircle-r` | Universal                                                      |
+| [CSS Paint API](https://caniuse.com/css-paint-api)                         | `squircle-pill` shape and border               | Chromium only; fallback to `rounded-full` elsewhere            |
 
 The Tailwind utilities depend on rows 1–4 and row 6. Only `corner-shape` itself is "new" — everything else is shipped broadly. The standalone `@function` helper is the only genuinely experimental piece.
 
@@ -540,7 +674,7 @@ Partially, at time of writing — recent Chrome ships `corner-shape`, Safari and
 
 The **CSS utilities** (`tailwind/utils.css`) are v4-only — they use `@utility` and `--value()`, which don't exist in v3.
 
-The **JS plugin** uses only APIs that exist in both v3 and v4 (`plugin.withOptions`, `matchUtilities`, `type: "length" | "number"`, `theme()`), so it's likely to work in v3 via a `tailwind.config.js`-style registration — but it's not currently tested or declared against v3. Tracked in [#26](https://github.com/dogmar/squircle/pull/26).
+The **JS plugin** uses only APIs that exist in both v3 and v4 (`plugin.withOptions`, `matchUtilities`, `type: "length" | "number"`, `theme()`), so it's likely to work in v3 via a `tailwind.config.js`-style registration — but it's not currently tested or declared against v3. Tracked in [#26](https://github.com/klink-ing/squircle/pull/26).
 
 </details>
 
@@ -634,7 +768,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-full {
-  border-radius: calc(infinity * 1px);
+  border-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -643,7 +777,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-* {
   border-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     border-radius: var(--squircle-r);
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -657,8 +794,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-t-full {
-  border-top-left-radius: calc(infinity * 1px);
-  border-top-right-radius: calc(infinity * 1px);
+  border-top-left-radius: calc(infinity* 1px);
+  border-top-right-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
@@ -669,7 +806,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-top-left-radius: --value(--radius-*, [length]);
   border-top-right-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     border-top-left-radius: var(--squircle-r);
     border-top-right-radius: var(--squircle-r);
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
@@ -683,8 +823,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-r-full {
-  border-top-right-radius: calc(infinity * 1px);
-  border-bottom-right-radius: calc(infinity * 1px);
+  border-top-right-radius: calc(infinity* 1px);
+  border-bottom-right-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
     corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
@@ -695,7 +835,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-top-right-radius: --value(--radius-*, [length]);
   border-bottom-right-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     border-top-right-radius: var(--squircle-r);
     border-bottom-right-radius: var(--squircle-r);
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
@@ -709,8 +852,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-b-full {
-  border-bottom-left-radius: calc(infinity * 1px);
-  border-bottom-right-radius: calc(infinity * 1px);
+  border-bottom-left-radius: calc(infinity* 1px);
+  border-bottom-right-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
     corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
@@ -721,7 +864,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-bottom-left-radius: --value(--radius-*, [length]);
   border-bottom-right-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     border-bottom-left-radius: var(--squircle-r);
     border-bottom-right-radius: var(--squircle-r);
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
@@ -735,8 +881,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-l-full {
-  border-top-left-radius: calc(infinity * 1px);
-  border-bottom-left-radius: calc(infinity * 1px);
+  border-top-left-radius: calc(infinity* 1px);
+  border-bottom-left-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
@@ -747,7 +893,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-top-left-radius: --value(--radius-*, [length]);
   border-bottom-left-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     border-top-left-radius: var(--squircle-r);
     border-bottom-left-radius: var(--squircle-r);
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
@@ -763,8 +912,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-s-full {
-  border-start-start-radius: calc(infinity * 1px);
-  border-end-start-radius: calc(infinity * 1px);
+  border-start-start-radius: calc(infinity* 1px);
+  border-end-start-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-start-start-shape: superellipse(var(--squircle-amt, 2));
     corner-end-start-shape: superellipse(var(--squircle-amt, 2));
@@ -775,7 +924,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-start-start-radius: --value(--radius-*, [length]);
   border-end-start-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     border-start-start-radius: var(--squircle-r);
     border-end-start-radius: var(--squircle-r);
     corner-start-start-shape: superellipse(var(--squircle-amt, 2));
@@ -789,8 +941,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-e-full {
-  border-start-end-radius: calc(infinity * 1px);
-  border-end-end-radius: calc(infinity * 1px);
+  border-start-end-radius: calc(infinity* 1px);
+  border-end-end-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-start-end-shape: superellipse(var(--squircle-amt, 2));
     corner-end-end-shape: superellipse(var(--squircle-amt, 2));
@@ -801,7 +953,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-start-end-radius: --value(--radius-*, [length]);
   border-end-end-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     border-start-end-radius: var(--squircle-r);
     border-end-end-radius: var(--squircle-r);
     corner-start-end-shape: superellipse(var(--squircle-amt, 2));
@@ -816,7 +971,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-tl-full {
-  border-top-left-radius: calc(infinity * 1px);
+  border-top-left-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -825,7 +980,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-tl-* {
   border-top-left-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    border-top-left-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-top-left-radius: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -835,7 +993,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-tr-full {
-  border-top-right-radius: calc(infinity * 1px);
+  border-top-right-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -844,7 +1002,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-tr-* {
   border-top-right-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    border-top-right-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-top-right-radius: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -854,7 +1015,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-br-full {
-  border-bottom-right-radius: calc(infinity * 1px);
+  border-bottom-right-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -863,7 +1024,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-br-* {
   border-bottom-right-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    border-bottom-right-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-bottom-right-radius: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -873,7 +1037,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-bl-full {
-  border-bottom-left-radius: calc(infinity * 1px);
+  border-bottom-left-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -882,7 +1046,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-bl-* {
   border-bottom-left-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    border-bottom-left-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-bottom-left-radius: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -894,7 +1061,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-ss-full {
-  border-start-start-radius: calc(infinity * 1px);
+  border-start-start-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-start-start-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -903,7 +1070,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-ss-* {
   border-start-start-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    border-start-start-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-start-start-radius: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     corner-start-start-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -913,7 +1083,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-se-full {
-  border-start-end-radius: calc(infinity * 1px);
+  border-start-end-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-start-end-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -922,7 +1092,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-se-* {
   border-start-end-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    border-start-end-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-start-end-radius: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     corner-start-end-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -932,7 +1105,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-es-full {
-  border-end-start-radius: calc(infinity * 1px);
+  border-end-start-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-end-start-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -941,7 +1114,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-es-* {
   border-end-start-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    border-end-start-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-end-start-radius: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     corner-end-start-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -951,7 +1127,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-ee-full {
-  border-end-end-radius: calc(infinity * 1px);
+  border-end-end-radius: calc(infinity* 1px);
   @supports (corner-shape: superellipse(2)) {
     corner-end-end-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -960,7 +1136,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-ee-* {
   border-end-end-radius: --value(--radius-*, [length]);
   @supports (corner-shape: superellipse(2)) {
-    border-end-end-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-end-end-radius: calc(
+      --value(--radius- *, [length]) * (1 - pow(2, -0.5)) /
+        (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2))))
+    );
     corner-end-end-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1187,8 +1366,12 @@ import { extendTailwindMerge } from "tailwind-merge";
 // group also conflicts with its `rounded` counterpart (and vice versa).
 // `squircle-amt-*` is orthogonal: radius classes never cancel it.
 const SIDE_CORNERS = {
-  t: ["tl", "tr"], r: ["tr", "br"], b: ["br", "bl"],
-  l: ["tl", "bl"], s: ["ss", "es"], e: ["se", "ee"],
+  t: ["tl", "tr"],
+  r: ["tr", "br"],
+  b: ["br", "bl"],
+  l: ["tl", "bl"],
+  s: ["ss", "es"],
+  e: ["se", "ee"],
 };
 const CORNERS = ["tl", "tr", "br", "bl", "ss", "se", "es", "ee"];
 const SIDES = Object.keys(SIDE_CORNERS);

@@ -2,7 +2,12 @@
  * @type {import('semantic-release').GlobalConfig}
  */
 export default {
-  branches: ["main"],
+  // `main` publishes to npm's `latest`. The prerelease branches publish
+  // `x.y.z-alpha.n` / `x.y.z-beta.n` to dist-tags of the same name, so
+  // `npm install @klinking/squircle` never picks them up; `@alpha` or
+  // `@beta` does. Promoting a prerelease branch into `main` (the `promote`
+  // label, .github/workflows/promote.yml) releases it.
+  branches: ["main", { name: "beta", prerelease: true }, { name: "alpha", prerelease: true }],
   plugins: [
     [
       "@semantic-release/commit-analyzer",
@@ -10,12 +15,8 @@ export default {
         preset: "conventionalcommits",
       },
     ],
-    [
-      "@semantic-release/release-notes-generator",
-      {
-        preset: "conventionalcommits",
-      },
-    ],
+    // One line per PR, from its "## Release note" section. See release/notes.mjs.
+    "./release/notes.mjs",
     [
       "@anolilab/semantic-release-pnpm",
       {

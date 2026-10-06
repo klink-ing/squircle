@@ -1,0 +1,45 @@
+---
+import Layout from "../../components/Layout.astro";
+import PillAlgorithmsDemo from "../../components/PillAlgorithmsDemo";
+---
+
+<Layout title="Pill algorithms — @klinking/squircle">
+  <h2 class="mb-2 text-2xl font-bold">Pill algorithms, side by side</h2>
+  <p class="mb-4 text-zinc-400">
+    Two ways to join a pill's semicircular cap to its straight edge with no jump in curvature.
+  </p>
+  <p class="mb-8 max-w-3xl text-sm text-zinc-500">
+    Left, the shipped <code class="text-zinc-300">squircle-pill</code> worklet. Right, the same pill
+    with the join built the way CAD tools build a curvature-continuous fillet, complete with the
+    controls those tools expose. The comb on each cap is curvature — the same graph Rhino's
+    <em>CurvatureGraph</em> and SolidWorks' curvature combs draw — and the plot beneath is
+    <code class="text-zinc-300">κ·R</code> against arc length. A step at the arc join is G1 only, a
+    kink is G2, no kink is G3. Where the browser has no paint worklets, both pills are drawn without
+    them: the shipped one by its polyfill, the fillet by a clip-path of the same outline.
+  </p>
+
+  <PillAlgorithmsDemo client:only="react" />
+
+  <p class="mt-10 text-sm text-zinc-500">
+    Back to the <a href="/demos/tailwind" class="text-indigo-400 hover:underline">Tailwind demo</a>.
+  </p>
+</Layout>
+
+<style is:global>
+  /* The demo worklet, wired up the same way the shipped one is: a stadium
+     until its worklet has loaded, gated on an attribute of its own. */
+  .pill-fillet {
+    border-radius: calc(infinity * 1px);
+    min-width: 1px;
+    min-height: 1px;
+  }
+  :root[data-pill-fillet] .pill-fillet {
+    -webkit-mask-image: paint(pill-fillet);
+    mask-image: paint(pill-fillet);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    mask-mode: alpha;
+  }
+</style>

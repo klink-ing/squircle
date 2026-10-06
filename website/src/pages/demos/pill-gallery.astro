@@ -1,0 +1,320 @@
+---
+// Every way of decorating a pill, labelled, in whichever mode the URL asks
+// for. Deliberately not built on the site layout: that registers the worklet,
+// which can never be unregistered, and each mode has to choose for itself.
+import "../../styles/global.css";
+import PillGalleryControls from "../../components/PillGalleryControls";
+// The plain-CSS stylesheet too, for the section that uses it without Tailwind.
+import "@klinking/squircle/squircle-pill.css";
+
+interface Example {
+  /**
+   * The classes under test, shown as the label; for a `standalone` pill, the
+   * inline style instead.
+   */
+  classes: string;
+  /** What to expect. */
+  note: string;
+  /**
+   * A plain pill; a focusable button for focus states; a pill holding a
+   * smaller one; or a `data-squircle-pill` element styled with the plain-CSS
+   * stylesheet's own properties, no Tailwind involved.
+   */
+  build?: "pill" | "button" | "nested" | "standalone";
+  /** Shown on a light tile, whatever its section uses. */
+  light?: boolean;
+}
+
+interface Section {
+  title: string;
+  intro: string;
+  examples: Example[];
+  /** Shown on light tiles, where a dark shadow reads clearly. */
+  light?: boolean;
+}
+
+// Every class is spelled out in full so Tailwind finds and generates it.
+const sections: Section[] = [
+  {
+    title: "Backgrounds",
+    intro:
+      "The pill hides the element's own background and paints a copy of it shaped to the pill, so any background works: colours, gradients, images, translucency.",
+    examples: [
+      { classes: "bg-linear-to-r from-indigo-500 to-pink-500", note: "A linear gradient." },
+      {
+        classes: "bg-conic-210 from-amber-400 via-violet-500 to-amber-400",
+        note: "A conic gradient.",
+      },
+      {
+        classes:
+          "bg-[repeating-conic-gradient(#0ea5e9_0_25%,#f59e0b_0_50%)] bg-size-[28px_28px]",
+        note: "A repeating image, positioned against the box as usual.",
+      },
+      { classes: "bg-indigo-500/40", note: "Translucent, so the page shows through." },
+    ],
+  },
+  {
+    title: "Clip paths of its own",
+    intro:
+      "The pill shapes a copy of its background rather than the element itself, so the element's own clip-path applies on top of it, border and all, with the worklet and the polyfill alike.",
+    examples: [
+      { classes: "[clip-path:inset(0_0_0_50%)]", note: "The right half of the pill." },
+      {
+        classes: "[clip-path:polygon(0_0,100%_0,0_100%)]",
+        note: "The pill's top-left triangle.",
+      },
+      {
+        classes: "[clip-path:circle(40%_at_100%_50%)]",
+        note: "A lens: the pill inside a circle centred on its right edge.",
+      },
+      {
+        classes: "[clip-path:inset(6px_round_10px)]",
+        note: "The pill inside a rounded rectangle 6px in from each edge.",
+      },
+    ],
+  },
+  {
+    title: "Tailwind mask utilities",
+    intro:
+      "A mask on the element applies to the whole pill, as it would to any element: the shape is on the copy of its background, so the two never compete.",
+    examples: [
+      { classes: "mask-b-from-20%", note: "Fades out towards the bottom." },
+      { classes: "mask-r-from-40%", note: "Fades out towards the right." },
+      { classes: "mask-radial-from-40%", note: "Fades out from the centre." },
+    ],
+  },
+  {
+    title: "Borders",
+    intro:
+      "Drawn by the pill along its own outline, from Tailwind's border utilities, with tailwind-pill-border loaded.",
+    examples: [
+      { classes: "border-2 border-white", note: "A solid ring along the outline." },
+      { classes: "border-4 border-dashed border-amber-300", note: "Dashes along the outline." },
+      { classes: "border-2 border-dotted border-white", note: "Dots along the outline." },
+      {
+        classes: "border-2",
+        note: "Width only: the colour defaults to currentColor, as a real border's does.",
+      },
+      {
+        classes: "border-2 border-violet-300",
+        note: "A pill inside a bordered pill draws no border of its own.",
+        build: "nested",
+      },
+    ],
+  },
+  {
+    title: "Outlines",
+    intro:
+      "Drawn by the pill along its own outline, with tailwind-pill-border loaded: offset outwards, or inwards with a negative offset, solid, dashed or dotted.",
+    examples: [
+      { classes: "outline-2 outline-white", note: "Hugging the outline." },
+      { classes: "outline-2 outline-offset-4 outline-white", note: "Offset 4px out." },
+      {
+        classes: "outline-2 outline-offset-2 outline-dashed outline-amber-300",
+        note: "Dashed, offset 2px out.",
+      },
+      {
+        classes: "outline-2 -outline-offset-2 outline-white",
+        note: "Inset 2px, just inside the edge.",
+      },
+      { classes: "outline-2 -outline-offset-6 outline-white", note: "Inset 6px." },
+    ],
+  },
+  {
+    title: "Tailwind ring utilities",
+    intro:
+      "Drawn by the pill along its own outline too, with tailwind-pill-border loaded. A ring offset is a band of its own colour, as in Tailwind.",
+    examples: [
+      { classes: "ring-2 ring-white", note: "A ring hugging the outline." },
+      {
+        classes: "ring-2 ring-white ring-offset-2 ring-offset-zinc-950",
+        note: "With a 2px offset in the page's colour.",
+      },
+      {
+        classes: "ring-4 ring-amber-300/60",
+        note: "Semi-transparent, so the background shows through.",
+      },
+      { classes: "inset-ring-2 inset-ring-white", note: "An inset ring, inside the edge." },
+    ],
+  },
+  {
+    title: "Focus",
+    intro:
+      "Tab through these. The pill picks up focus states like any other, outside the box included; with no utility at all the browser's own focus ring shows, around the stadium.",
+    examples: [
+      {
+        classes: "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+        note: "An offset outline on keyboard focus.",
+        build: "button",
+      },
+      {
+        classes:
+          "focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+        note: "A ring with an offset on keyboard focus.",
+        build: "button",
+      },
+      { classes: "", note: "The browser's own focus ring.", build: "button" },
+    ],
+  },
+  {
+    title: "Shadows",
+    intro:
+      "Box shadows are cast by the pill's own outline, so they meet it with no gap. A drop shadow follows the pill-shaped background by itself; inner shadows are painted inside the pill. Shown on light tiles so the shadows stand out.",
+    light: true,
+    examples: [
+      { classes: "shadow-xl shadow-black/60", note: "A box shadow." },
+      { classes: "drop-shadow-xl drop-shadow-black/60", note: "A drop shadow filter." },
+      { classes: "shadow-inner shadow-black/80", note: "An inner shadow." },
+      { classes: "inset-shadow-sm inset-shadow-black/80", note: "An inset shadow." },
+      {
+        classes: "shadow-lg shadow-black/50 ring-2 ring-white",
+        note: "A shadow under a ring.",
+      },
+      {
+        classes:
+          "bg-linear-to-r from-blue-700 to-violet-600 border-4 border-zinc-900 outline-2 -outline-offset-8 outline-white/60 drop-shadow-xl drop-shadow-black/60",
+        note: "A gradient, a border, an inset outline and a drop shadow, all at once.",
+      },
+    ],
+  },
+  {
+    title: "Without Tailwind",
+    intro:
+      "The plain-CSS stylesheet, squircle-pill.css, on data-squircle-pill elements, driven by the pill's own custom properties. Each label is the element's inline style.",
+    examples: [
+      {
+        classes:
+          "--squircle-pill-border-width: 3px; --squircle-pill-border-color: #fbbf24; --squircle-pill-border-style: dashed",
+        note: "A dashed border.",
+        build: "standalone",
+      },
+      {
+        classes: "--squircle-pill-border-width: 0.2rem",
+        note: "Width only: currentColor, and any length unit.",
+        build: "standalone",
+      },
+      {
+        classes:
+          "--squircle-pill-ring-width: 2px; --squircle-pill-ring-color: #fff; --squircle-pill-ring-offset-width: 2px; --squircle-pill-ring-offset-color: #09090b",
+        note: "A ring beyond an offset band.",
+        build: "standalone",
+      },
+      {
+        classes:
+          "--squircle-pill-outline-width: 2px; --squircle-pill-outline-offset: -6px; --squircle-pill-outline-color: #fff",
+        note: "An inset outline.",
+        build: "standalone",
+      },
+      {
+        classes:
+          "--squircle-pill-box-shadow: 0 8px 16px rgb(0 0 0 / 0.6); --squircle-pill-shadow-reach: 24px",
+        note: "A box shadow, with how far it reaches past the pill.",
+        build: "standalone",
+        light: true,
+      },
+    ],
+  },
+];
+
+const modes = [
+  ["auto", "Auto: worklet, or the polyfill"],
+  ["worklet", "Worklet only"],
+  ["polyfill", "Polyfill"],
+  ["none", "No shaping"],
+] as const;
+
+const PILL = "squircle-pill h-12 w-40 bg-indigo-500";
+/** The same pill for the plain-CSS stylesheet: the attribute, and its own background. */
+const STANDALONE_BACKGROUND = "background: #6366f1";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pill gallery</title>
+  </head>
+  <body class="bg-zinc-950 px-4 py-8 text-zinc-100 sm:px-8">
+    <main class="mx-auto max-w-6xl">
+      <p class="mb-2 text-sm"><a href="/demos" class="text-indigo-400 hover:underline">← Demos</a></p>
+      <h1 class="mb-2 text-3xl font-bold">Pill gallery</h1>
+      <p class="mb-4 max-w-3xl text-sm text-zinc-400">
+        Every pill below is <code class="text-zinc-300">{PILL}</code> plus the classes in its label,
+        unless its section says otherwise.
+        Switch modes to compare how each is drawn; each loads the page afresh. The notes describe a
+        shaped pill: with no shaping each is a plain stadium, so what the shape would erase still
+        shows.
+      </p>
+      <nav class="mb-2 flex flex-wrap gap-2 text-sm" aria-label="Drawing mode">
+        {
+          modes.map(([mode, label]) => (
+            <a
+              href={`?mode=${mode}`}
+              data-mode={mode}
+              class="rounded border border-zinc-700 px-3 py-1 hover:border-indigo-500"
+            >
+              {label}
+            </a>
+          ))
+        }
+      </nav>
+      <p class="mb-4 text-sm text-zinc-400">
+        Drawn by <span id="drawn-by" class="text-zinc-200">…</span>
+      </p>
+      <PillGalleryControls client:only="react" />
+
+      {
+        sections.map((section) => (
+          <section class="mb-12">
+            <h2 class="mb-1 text-xl font-semibold">{section.title}</h2>
+            <p class="mb-5 max-w-3xl text-sm text-zinc-400">{section.intro}</p>
+            <ul class="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-x-6 gap-y-8">
+              {section.examples.map(({ classes, note, build = "pill", light }) => (
+                <li class="flex flex-col items-start gap-3">
+                  <div
+                    class:list={[
+                      "flex items-center",
+                      (section.light || light)
+                        ? "h-28 self-stretch rounded-lg bg-zinc-100 px-6"
+                        : "h-20 px-3",
+                    ]}
+                  >
+                    {build === "pill" && <div class={`${PILL} ${classes}`} />}
+                    {build === "nested" && (
+                      <div class={`${PILL} flex items-center gap-3 px-3 ${classes}`}>
+                        <div class="squircle-pill size-6 bg-violet-300" />
+                        <span class="text-sm">Label</span>
+                      </div>
+                    )}
+                    {build === "standalone" && (
+                      <div
+                        data-squircle-pill
+                        class="h-12 w-40 text-zinc-100"
+                        style={`${STANDALONE_BACKGROUND}; ${classes}`}
+                      />
+                    )}
+                    {build === "button" && (
+                      <button type="button" class={`${PILL} text-sm font-medium ${classes}`}>
+                        Tab to me
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <p class="font-mono text-xs break-all text-zinc-200">
+                      {classes || "(no classes)"}
+                    </p>
+                    <p class="mt-1 text-xs text-zinc-400">{note}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      }
+    </main>
+
+    <script>
+      import "../../lib/pill-gallery";
+    </script>
+  </body>
+</html>

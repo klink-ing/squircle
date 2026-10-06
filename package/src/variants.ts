@@ -4,8 +4,141 @@
  */
 
 export const DEFAULT_AMT = 2 as const;
-export const DEFAULT_AMOUNT_VAR_NAME = "--squircle-amt" as const;
-export const DEFAULT_R_VAR_NAME = "--squircle-r" as const;
+
+/* ── Pill custom properties ───────────────────────────────────
+ * Namespaced, because `--pill-*` is the kind of name a design
+ * system is likely to have taken already.
+ *
+ * The worklet names these in `inputProperties`, a static list read
+ * once at registration, so there is no hook to rename them per
+ * project the way `--squircle-amt` can be. The prefix is therefore
+ * fixed when the package is built: set SQUIRCLE_CSS_NAMESPACE to
+ * change it, and the worklet, the plugins and the stylesheet all
+ * follow from the same value.
+ *
+ * Both the Tailwind plugin and squircle-pill.css register these
+ * with initial values matching the worklet's own fallbacks.
+ * ──────────────────────────────────────────────────────────── */
+declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
+
+/**
+ * Vite inlines the define; build scripts that import this module under plain
+ * `tsx` get no define, so they read the environment directly. `typeof` on an
+ * undeclared name is safe, which is what makes the first branch usable either
+ * way.
+ */
+export const CSS_NAMESPACE: string =
+  typeof __SQUIRCLE_CSS_NAMESPACE__ === "string"
+    ? __SQUIRCLE_CSS_NAMESPACE__
+    : (globalThis.process?.env?.SQUIRCLE_CSS_NAMESPACE ?? "squircle");
+
+/** `--<namespace>-<name>`, e.g. `--squircle-amt`. */
+const coreVar = (name: string) => `--${CSS_NAMESPACE}-${name}`;
+/** `--<namespace>-pill-<name>`, e.g. `--squircle-pill-border-width`. */
+const pillVar = (name: string) => `--${CSS_NAMESPACE}-pill-${name}`;
+
+export const PILL_AMT_VAR_NAME: string = pillVar("amt");
+export const DEFAULT_PILL_AMT = 2 as const;
+/**
+ * How far the pill's easing is drawn along the flat edge: `0` is a clothoid,
+ * higher is softer. See the worklet.
+ */
+export const PILL_EASE_VAR_NAME: string = pillVar("ease");
+export const DEFAULT_PILL_EASE = 2 as const;
+/** Border the worklet draws itself, since a CSS border cannot follow the shape. */
+export const PILL_BORDER_WIDTH_VAR_NAME: string = pillVar("border-width");
+export const PILL_BORDER_COLOR_VAR_NAME: string = pillVar("border-color");
+export const PILL_BORDER_STYLE_VAR_NAME: string = pillVar("border-style");
+export const PILL_BORDER_STYLE_FALLBACK = "solid" as const;
+/**
+ * Outline, ring and inset ring the pill draws itself, around or inside its
+ * own outline: a native `outline` or ring `box-shadow` follows the stadium
+ * `border-radius`, which sits up to a few pixels off the pill. They mirror
+ * what `outline-*`, `ring-*`, `ring-offset-*` and `inset-ring-*` mean.
+ */
+export const PILL_OUTLINE_WIDTH_VAR_NAME: string = pillVar("outline-width");
+export const PILL_OUTLINE_OFFSET_VAR_NAME: string = pillVar("outline-offset");
+export const PILL_OUTLINE_COLOR_VAR_NAME: string = pillVar("outline-color");
+export const PILL_OUTLINE_STYLE_VAR_NAME: string = pillVar("outline-style");
+export const PILL_RING_WIDTH_VAR_NAME: string = pillVar("ring-width");
+export const PILL_RING_COLOR_VAR_NAME: string = pillVar("ring-color");
+export const PILL_RING_OFFSET_WIDTH_VAR_NAME: string = pillVar("ring-offset-width");
+export const PILL_RING_OFFSET_COLOR_VAR_NAME: string = pillVar("ring-offset-color");
+export const PILL_INSET_RING_WIDTH_VAR_NAME: string = pillVar("inset-ring-width");
+export const PILL_INSET_RING_COLOR_VAR_NAME: string = pillVar("inset-ring-color");
+/**
+ * The pill's box shadows, as a `box-shadow` list. The pill draws the outer
+ * ones itself, cast by its own outline: a native shadow starts at the
+ * stadium `border-radius`, a pixel or more outside the pill near its caps.
+ * The inset ones paint inside it as usual. With Tailwind this is built from
+ * the `shadow-*`, `inset-shadow-*` and ring utilities' own variables.
+ */
+export const PILL_BOX_SHADOW_VAR_NAME: string = pillVar("box-shadow");
+/**
+ * How far those shadows reach past the box — offset, blur and spread
+ * together — which the box they are drawn on has to grow by.
+ * `tailwind-pill-border` sets it for `shadow-*`.
+ */
+export const PILL_SHADOW_REACH_VAR_NAME: string = pillVar("shadow-reach");
+/**
+ * Internal: how far everything the pill draws around itself reaches past
+ * its box — outline, ring, shadows — worked out by the stylesheet.
+ */
+export const PILL_REACH_VAR_NAME: string = pillVar("reach");
+/**
+ * Internal: how far the copy of the background pulls back from the outline,
+ * worked out by the stylesheet: half a pixel under a border or inset ring
+ * touching the outline, so the two never share an anti-aliased edge.
+ */
+export const PILL_BACKGROUND_INSET_VAR_NAME: string = pillVar("background-inset");
+/**
+ * Internal: `""` on a pill `tailwind-pill-border` has seen a border, outline,
+ * ring or shadow utility on, which is what gives it the `::after` those are
+ * drawn on; `none` otherwise.
+ */
+export const PILL_DECORATED_VAR_NAME: string = pillVar("decorated");
+/** Internal: the polyfill's drawing of those, as an image for `::after`. */
+export const PILL_DECORATION_VAR_NAME: string = pillVar("decoration");
+/**
+ * Internal: where the polyfill's drawing is a single band — a border, ring or
+ * outline alone — the band's `clip-path` for `::after`, its colour then being
+ * the image. A clip is far cheaper to redraw on resize than an image.
+ */
+export const PILL_DECORATION_CLIP_VAR_NAME: string = pillVar("decoration-clip");
+/**
+ * Geometric continuity of the pill's easing: `2` matches curvature where the
+ * cap meets the edge, `3` also matches its rate of change. See the worklet.
+ */
+export const PILL_CONTINUITY_VAR_NAME: string = pillVar("continuity");
+export const DEFAULT_PILL_CONTINUITY = 3 as const;
+/**
+ * Attribute `registerPillWorklet()` sets on `<html>` once the worklet has
+ * loaded. `@supports (mask-image: paint(pill-shape))` is true for any paint
+ * name, loaded or not, so the mask is gated on this instead; until it appears
+ * a pill is a plain stadium.
+ */
+export const PILL_WORKLET_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-worklet`;
+/**
+ * Attribute `polyfillPills()` sets on `<html>` where there is no paint
+ * worklet. The pills then take their shape from the `clip-path` below, which
+ * it computes per element from the same geometry the worklet draws.
+ */
+export const PILL_POLYFILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-polyfill`;
+export const PILL_CLIP_VAR_NAME: string = pillVar("clip");
+/** What the standalone stylesheet hangs its rules off, so it works without Tailwind. */
+export const PILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill`;
+/**
+ * The shared amount and radius properties, from the same namespace as
+ * everything else. At the default namespace these are the documented
+ * `--squircle-amt` and `--squircle-r`, unchanged.
+ *
+ * The `amtVar` and `rVar` plugin options still override them and take
+ * precedence, but are deprecated: they predate the namespace and only ever
+ * reached utilities the plugins emit, never the paint worklet, which names the
+ * properties it reads in a static `inputProperties` list.
+ */
+export const DEFAULT_AMOUNT_VAR_NAME: string = coreVar("amt");
+export const DEFAULT_R_VAR_NAME: string = coreVar("r");
 /** Static value for `squircle-full`; matches Tailwind's `rounded-full`. */
 export const FULL_RADIUS = "calc(infinity * 1px)" as const;
 /** Static value for `squircle-none`; matches Tailwind's `rounded-none`. */
