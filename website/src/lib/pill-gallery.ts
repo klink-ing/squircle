@@ -4,7 +4,7 @@
  * paint worklet can never be unregistered.
  */
 import { registerPillWorklet } from "@klinking/squircle/pill-worklet";
-import { polyfillPills } from "@klinking/squircle/pill-polyfill";
+import { polyfillPills, type PillPolyfill } from "@klinking/squircle/pill-polyfill";
 import workletUrl from "@klinking/squircle/pill-shape.worklet.js?url";
 
 type Mode = "auto" | "worklet" | "polyfill" | "none";
@@ -22,19 +22,30 @@ for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-mode]")) 
 
 const status = document.getElementById("drawn-by") as HTMLElement;
 
+/** The polyfill, where this mode uses it. */
+let polyfill: PillPolyfill | null = null;
+
 async function start() {
   let drawnBy = "the plain stadium fallback";
   if (mode === "auto" || mode === "worklet") {
     if (await registerPillWorklet(workletUrl)) drawnBy = "the paint worklet";
     else if (mode === "auto") {
-      polyfillPills();
+      polyfill = polyfillPills();
       drawnBy = "the polyfill (this browser has no paint worklet)";
     } else drawnBy = "the plain stadium fallback (this browser has no paint worklet)";
   } else if (mode === "polyfill") {
-    polyfillPills({ force: true });
+    polyfill = polyfillPills({ force: true });
     drawnBy = "the polyfill";
   }
   status.textContent = drawnBy;
 }
 
-void start();
+const started = start();
+
+/**
+ * Redraws every pill after the shape controls change it: the polyfill only
+ * notices a class change, and the controls set custom properties.
+ */
+export function refreshPills(): void {
+  void started.then(() => polyfill?.refresh());
+}

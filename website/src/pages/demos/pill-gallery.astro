@@ -3,6 +3,7 @@
 // for. Deliberately not built on the site layout: that registers the worklet,
 // which can never be unregistered, and each mode has to choose for itself.
 import "../../styles/global.css";
+import PillGalleryControls from "../../components/PillGalleryControls";
 // The plain-CSS stylesheet too, for the section that uses it without Tailwind.
 import "@klinking/squircle/squircle-pill.css";
 
@@ -257,9 +258,10 @@ const STANDALONE_BACKGROUND = "background: #6366f1";
           ))
         }
       </nav>
-      <p class="mb-10 text-sm text-zinc-400">
+      <p class="mb-4 text-sm text-zinc-400">
         Drawn by <span id="drawn-by" class="text-zinc-200">…</span>
       </p>
+      <PillGalleryControls client:only="react" />
 
       {
         sections.map((section) => (
