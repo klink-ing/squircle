@@ -1,0 +1,29 @@
+name: Promotion guard
+
+# Promotions and syncs between the release branches (alpha, beta, main) need
+# a real merge commit, and the merge button can only squash. As a required
+# check, this fails on any PR whose head is one of those branches or a sync/*
+# branch, so the button stays shut; the `promote` label merges them instead
+# (promote.yml).
+
+on:
+  pull_request:
+    branches: [main, beta, alpha]
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  promotion-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for a promotion
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            main | beta | alpha | sync/*)
+              echo "::error::Merge this PR by adding the \`promote\` label. The merge button would squash it."
+              exit 1
+              ;;
+          esac

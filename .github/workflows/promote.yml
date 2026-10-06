@@ -1,0 +1,107 @@
+name: Promote
+
+# Adding the `promote` label to a promotion PR (alpha → beta → main) merges it
+# with a real merge commit once its checks pass. The merge button can't:
+# people may only squash, and the promotion guard keeps it shut on these PRs.
+# The same label lands a sync going back down (main → beta → alpha, or a
+# sync/* branch) when the release workflow couldn't. See the scripts in
+# .github/scripts.
+#
+# pull_request_target runs this file and the scripts as they are on the base
+# branch, never the PR's, so the deploy key only ever runs trusted code.
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  promote:
+    if: >-
+      github.event.label.name == 'promote' &&
+      github.event.pull_request.state == 'open' &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: branch-bot
+    # One promotion into a branch at a time. It's on the job, not the workflow,
+    # so runs for other labels don't take a place in the queue. sync-branches.sh
+    # can still push to the same branch meanwhile; land() in lib.sh retries.
+    concurrency:
+      group: promote-${{ github.event.pull_request.base.ref }}
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_REF: ${{ github.event.pull_request.base.ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.BRANCH_BOT_SSH_KEY }}
+
+      - name: Wait for the checks
+        run: .github/scripts/wait-for-checks.sh "$PR" "$HEAD_SHA"
+
+      - name: Merge
+        run: .github/scripts/promote.sh "$HEAD_REF" "$HEAD_SHA" "$BASE_REF" "$PR"
+
+      # GitHub marks the PR merged a moment after the push. A sync/* branch is
+      # deleted only after that: deleting a PR's head first closes it unmerged.
+      - name: Wait for GitHub to mark the PR merged
+        run: |
+          for _ in $(seq 24); do
+            state=$(gh pr view "$PR" --json state --jq .state || true)
+            if [[ $state == MERGED ]]; then
+              if [[ $HEAD_REF == sync/* ]]; then
+                git push --quiet origin --delete "$HEAD_REF" ||
+                  echo "::warning::Couldn't delete $HEAD_REF. Delete it by hand."
+              fi
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::warning::$BASE_REF has the merge, but GitHub hasn't marked the PR merged yet."
+
+      - name: Report on the PR
+        if: failure() || cancelled()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh pr edit "$PR" --remove-label promote || true
+          if [[ $(gh pr view "$PR" --json state --jq .state) == MERGED ]]; then
+            body="Promoted, but a later step failed: see [the run]($RUN_URL)."
+          else
+            reason=$(cat "$RUNNER_TEMP/bot-error" 2>/dev/null || echo "The run was cancelled or timed out.")
+            body="Couldn't promote this PR. $reason See [the run]($RUN_URL); add the \`promote\` label again to retry."
+          fi
+          gh pr comment "$PR" --body "$body"
+
+  # Explains why a closed or draft PR wasn't promoted, rather than leaving the
+  # label on with nothing happening.
+  not-promotable:
+    if: >-
+      github.event.label.name == 'promote' &&
+      (github.event.pull_request.state != 'open' || github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Report on the PR
+        run: |
+          gh pr edit "$PR" --remove-label promote
+          gh pr comment "$PR" --body "Only open, ready-for-review PRs can be promoted. Mark it ready (or reopen it), then add the \`promote\` label again."
