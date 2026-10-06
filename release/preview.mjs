@@ -12,7 +12,7 @@
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { parseCommit } from "./release-note.mjs";
-import { prBodyFetcher, renderNotes, repoSlug } from "./notes.mjs";
+import { prBodyFetcher, refList, renderNotes, repoSlug } from "./notes.mjs";
 
 export const MARKER = "<!-- release-notes-preview -->";
 
@@ -66,7 +66,7 @@ export async function preview({ baseRef, headRef, baseSha, headSha, pr, prBody, 
     version = next;
   }
 
-  const { markdown, untitled } = await renderNotes({
+  const { markdown, leftOut, untitled } = await renderNotes({
     version,
     previousTag,
     tag: `v${version}`,
@@ -77,11 +77,16 @@ export async function preview({ baseRef, headRef, baseSha, headSha, pr, prBody, 
   });
   lines.push(`Adding the \`promote\` label releases **${version}** with these notes:`, "");
   if (untitled.length) {
-    const refs = untitled.map((number) => `#${number}`);
-    const prs = refs.length > 1 ? `${refs.slice(0, -1).join(", ")} and ${refs.at(-1)}` : refs[0];
+    lines.push(
+      `> [!WARNING]`,
+      `> No release note on breaking ${untitled.length === 1 ? "change" : "changes"} ${refList(untitled)}, so the title stands in. Say what changed and what to do about it in a \`## Release note\` section, then re-run this check.`,
+      "",
+    );
+  }
+  if (leftOut.length) {
     lines.push(
       `> [!NOTE]`,
-      `> ${prs} ${untitled.length === 1 ? "has" : "have"} no release note, so ${untitled.length === 1 ? "its title is" : "their titles are"} used. Add a \`## Release note\` section to ${untitled.length === 1 ? "its" : "their"} description, then re-run this check.`,
+      `> Left out, with no release note: ${refList(leftOut)}. To include one, add a \`## Release note\` section to its description, then re-run this check.`,
       "",
     );
   }

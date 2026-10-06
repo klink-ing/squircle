@@ -6,7 +6,7 @@ import {
   normalizeNote,
   parseCommit,
 } from "./release-note.mjs";
-import { renderNotes, repoSlug } from "./notes.mjs";
+import { refList, renderNotes, repoSlug } from "./notes.mjs";
 import { nextVersion } from "./preview.mjs";
 
 const body = (note) =>
@@ -81,35 +81,48 @@ describe("parseCommit", () => {
 });
 
 describe("checkReleaseNote", () => {
-  const check = (title, note, headRef = "claude/x") =>
-    checkReleaseNote({ title, body: note === undefined ? "## Summary\n\nx" : body(note), headRef });
+  const check = (title, note, { headRef = "claude/x", baseRef = "alpha" } = {}) =>
+    checkReleaseNote({
+      title,
+      body: note === undefined ? "## Summary\n\nx" : body(note),
+      headRef,
+      baseRef,
+    });
 
-  it("requires a note on features, fixes, performance and breaking changes", () => {
-    for (const title of ["feat: x", "fix(pill): x", "perf: x", "chore!: x"]) {
-      assert.match(check(title), /Add a "## Release note" section/, title);
+  it("leaves the note optional on PRs into alpha and beta", () => {
+    for (const baseRef of ["alpha", "beta"]) {
+      for (const title of ["feat: x", "fix(pill): x", "perf: x", "chore: x"]) {
+        assert.equal(check(title, undefined, { baseRef }), null, `${title} into ${baseRef}`);
+        assert.equal(check(title, "<!-- guidance -->", { baseRef }), null, `${title}, empty`);
+      }
     }
   });
-  it("doesn't on other types, promotions or syncs", () => {
-    assert.equal(check("chore: x"), null);
-    assert.equal(check("ci: x"), null);
-    for (const head of ["alpha", "beta", "main", "sync/main-into-alpha"]) {
-      assert.equal(check("feat: x", undefined, head), null, head);
+  it("requires one on features, fixes and performance into main, though 'None' will do", () => {
+    for (const title of ["feat: x", "fix(pill): x", "perf: x"]) {
+      assert.match(check(title, undefined, { baseRef: "main" }), /go straight to a stable release/);
+      assert.match(check(title, "<!-- guidance -->", { baseRef: "main" }), /stable release/);
+      assert.equal(check(title, "None.", { baseRef: "main" }), null);
+    }
+    assert.equal(check("chore: x", undefined, { baseRef: "main" }), null);
+  });
+  it("requires a real one on breaking changes, into any branch", () => {
+    for (const baseRef of ["alpha", "main"]) {
+      assert.match(check("feat!: x", undefined, { baseRef }), /breaking change, so it needs/);
+      assert.match(check("chore!: x", "None", { baseRef }), /can't be "None"/);
+      assert.equal(check("fix!: x", "Rename `--a` to `--b`.", { baseRef }), null);
     }
   });
-  it("rejects an empty note, and 'None' on a breaking change only", () => {
-    assert.match(check("feat: x", "<!-- guidance -->"), /is empty/);
-    assert.equal(check("feat(demos): x", "None."), null);
-    assert.match(check("feat!: x", "None"), /breaking change/);
+  it("needs none on promotions and syncs", () => {
+    for (const headRef of ["alpha", "beta", "main", "sync/main-into-alpha"]) {
+      assert.equal(check("feat!: x", undefined, { headRef, baseRef: "main" }), null, headRef);
+    }
   });
-  it("wants one short paragraph", () => {
+  it("wants one short paragraph, wherever there's a note", () => {
     assert.equal(check("feat: x", "One.\n\nA footer after it is fine."), null);
     assert.match(check("feat: x", "- a\n- b"), /not a list/);
-    assert.match(check("feat: x", "1. a"), /not a list/);
+    assert.match(check("chore: x", "1. a"), /not a list/);
     assert.match(check("feat: x", "a".repeat(300)), /is 301 characters; keep it under 300/);
     assert.equal(check("feat: x", "a".repeat(299)), null);
-  });
-  it("still checks a note someone added to a chore", () => {
-    assert.match(check("chore: x", "- a"), /not a list/);
   });
 });
 
@@ -134,7 +147,7 @@ describe("renderNotes", () => {
     });
 
   it("lists notes by section, puts the promotion's note on top, and leaves the rest out", async () => {
-    const { markdown, untitled } = await render([
+    const { markdown, leftOut, untitled } = await render([
       "Merge alpha into main (#43)",
       "Merge main into alpha",
       "chore(demos): hide pages (#41)",
@@ -152,7 +165,6 @@ describe("renderNotes", () => {
         "",
         "### Features",
         "",
-        "- Export defaults. ([#40](https://github.com/o/r/pull/40))",
         "- New `squircle-pill` utility. ([#38](https://github.com/o/r/pull/38))",
         "",
         "### Fixes",
@@ -161,40 +173,42 @@ describe("renderNotes", () => {
         "",
       ].join("\n"),
     );
-    assert.deepEqual(untitled, [40]);
+    assert.deepEqual(leftOut, [40], "no note: left out, and reported");
+    assert.deepEqual(untitled, []);
   });
 
   it("puts breaking changes first, whatever their type, and never drops them", async () => {
-    const { markdown } = await render([
+    const { markdown, untitled } = await render([
       "fix!: rename (#45)",
       "feat!: other (#44)",
+      "chore!: no note anywhere (#46)",
       "feat: x (#38)",
     ]);
     assert.match(
       markdown,
-      /### Breaking changes\n\n- Rename `--a` to `--b`\. \(\[#45\]\(.*\)\)\n- Other\. \(\[#44\]/,
+      /### Breaking changes\n\n- Rename `--a` to `--b`\. \(\[#45\]\(.*\)\)\n- Other\. \(\[#44\].*\n- No note anywhere\. \(\[#46\]/,
     );
     assert.ok(markdown.indexOf("### Breaking changes") < markdown.indexOf("### Features"));
+    assert.deepEqual(untitled, [44, 46], "'None' or no note: the title stands in, and is reported");
   });
 
   it("links the commit when there's no PR, and says when nothing is user-facing", async () => {
     assert.match(
-      (await render(["fix: direct push"])).markdown,
-      /- Direct push\. \(\[0000000\]\(https:\/\/github\.com\/o\/r\/commit\/0{40}\)\)/,
+      (await render(["fix: direct push\n\n## Release note\n\nfixes x"])).markdown,
+      /- Fixes x\. \(\[0000000\]\(https:\/\/github\.com\/o\/r\/commit\/0{40}\)\)/,
     );
-    assert.match(
-      (await render(["feat(demos): demo only (#44)"])).markdown,
-      /No user-facing changes\./,
-    );
+    const { markdown, leftOut } = await render(["fix: no note", "feat(demos): demo only (#44)"]);
+    assert.match(markdown, /No user-facing changes\./);
+    assert.deepEqual(leftOut, ["0000000"]);
   });
 
   it("falls back to the commit's note when GitHub can't be read", async () => {
-    const { markdown, untitled } = await render(
+    const { markdown, leftOut } = await render(
       ["feat: x (#50)\n\n## Release note\n\nfrom the commit"],
       { fetchPrBody: async () => null },
     );
     assert.match(markdown, /- From the commit\. \(\[#50\]/);
-    assert.deepEqual(untitled, []);
+    assert.deepEqual(leftOut, []);
   });
 
   it("has no compare link for a first release", async () => {
@@ -219,5 +233,13 @@ describe("repoSlug", () => {
     assert.equal(repoSlug("https://github.com/klink-ing/squircle.git", {}), "klink-ing/squircle");
     assert.equal(repoSlug("git@github.com:klink-ing/squircle.git", {}), "klink-ing/squircle");
     assert.equal(repoSlug("file:///tmp/x", {}), null);
+  });
+});
+
+describe("refList", () => {
+  it("lists PR numbers and hashes as prose", () => {
+    assert.equal(refList([40]), "#40");
+    assert.equal(refList([40, 38]), "#40 and #38");
+    assert.equal(refList([1, 2, "abc1234"]), "#1, #2 and abc1234");
   });
 });

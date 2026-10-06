@@ -90,22 +90,31 @@ export function isPromotionHead(headRef) {
 }
 
 /**
- * Checks a PR's release note. Promotions and syncs don't need one; features,
- * fixes, performance changes and breaking changes do. Returns a message
- * saying what to change, or null when the note is fine.
+ * Checks a PR's release note. Returns a message saying what to change, or null
+ * when it's fine.
+ *
+ * A note is optional on PRs into alpha and beta, where features are still
+ * being built: a PR without one is left out of the release notes, which suits
+ * a change that only mattered while the feature was in progress. PRs into main
+ * go straight to a stable release, so their features, fixes and performance
+ * changes need one, even if it's "None". Breaking changes always need a real
+ * one, since they always reach a stable release. Promotions and syncs need
+ * none: their PRs are already in the notes.
  */
-export function checkReleaseNote({ title, body, headRef }) {
+export function checkReleaseNote({ title, body, headRef, baseRef }) {
   if (isPromotionHead(headRef)) return null;
   const { type, breaking } = parseCommit(title);
-  const needed = breaking || SECTIONS.some(([sectionType]) => sectionType === type);
+  const releasable = SECTIONS.some(([sectionType]) => sectionType === type);
   const note = extractReleaseNote(body);
 
-  if (!needed && !note) return null;
-  if (note === null) {
-    return `Add a "## Release note" section to the description: one or two sentences for people using the package, saying what's new or fixed and how to use it. It goes into the release notes as written. Write "None" if users won't notice the change.`;
-  }
-  if (note === "") {
-    return `The "## Release note" section is empty. Write one or two sentences for people using the package, or "None" if they won't notice the change.`;
+  if (!note) {
+    if (breaking) {
+      return `This is a breaking change, so it needs a "## Release note" section in the description: say what changed and what to do about it.`;
+    }
+    if (baseRef === "main" && releasable) {
+      return `PRs into main go straight to a stable release, so this one needs a "## Release note" section in the description: one or two sentences for people using the package. Write "None" if they won't notice the change.`;
+    }
+    return null;
   }
   if (isNone(note)) {
     return breaking

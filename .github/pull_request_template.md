@@ -28,9 +28,11 @@
   how to use it. Its first paragraph becomes this PR's line in the release
   notes, as written, so leave how it works to the rest of the description.
 
-  Required for feat, fix and perf PRs and breaking changes (say what to change).
-  Write "None" if users won't notice the change. On a promotion PR, it's the
-  summary at the top of the release.
+  Into alpha or beta: optional. Leave it empty for a change that only matters
+  while a feature is being built; it's left out of the release notes.
+  Into main: required for feat, fix and perf PRs ("None" if users won't
+  notice). Breaking changes: always required; say what to change.
+  On a promotion PR: the summary at the top of the release.
 
   Example: Add `squircle-pill-ease-*` to stretch a pill's easing along its
   straight edges.

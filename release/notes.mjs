@@ -2,13 +2,15 @@
  * semantic-release plugin that writes the release notes, in place of
  * @semantic-release/release-notes-generator.
  *
- * Each feature, fix and performance change gets one line: its PR's release
- * note (the paragraph under `## Release note`, see release-note.mjs), read
- * from the PR as it is now, so a note can still be edited after merging. A
- * PR without one falls back to the note in its squashed commit, then to its
- * title. Breaking changes come first, whatever their type. A promotion PR's
- * own release note becomes the summary at the top of the release it makes.
- * Everything else (chores, docs, CI, the bot's merges) is left out.
+ * A feature, fix or performance change gets one line when its PR has a
+ * release note (the paragraph under `## Release note`, see release-note.mjs),
+ * read from the PR as it is now, so a note can still be added or edited after
+ * merging; failing that, from its squashed commit. A PR without one is left
+ * out: on alpha and beta that's a change that only mattered while a feature
+ * was being built. Breaking changes come first, whatever their type, and are
+ * never left out; without a note, their title stands in. A promotion PR's own
+ * release note becomes the summary at the top of the release it makes.
+ * Everything else (chores, docs, CI, the bot's merges) is left out too.
  */
 import {
   SECTIONS,
@@ -20,6 +22,14 @@ import {
 
 /** The bot's merge commit for a promotion PR (.github/scripts/promote.sh). */
 const PROMOTION = /^Merge (?:alpha|beta) into (?:beta|main) \(#(\d+)\)$/;
+
+/** "#40", "#38 and #40", "#1, #2 and abc1234": PR numbers and short hashes as prose. */
+export function refList(refs) {
+  const names = refs.map((ref) => (typeof ref === "number" ? `#${ref}` : ref));
+  return names.length > 1
+    ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+    : (names[0] ?? "");
+}
 
 /** `owner/repo` on GitHub, from Actions' environment or the repository URL. */
 export function repoSlug(repositoryUrl, env = process.env) {
@@ -61,14 +71,16 @@ export function prBodyFetcher({ slug, token, logger = console }) {
 
 /**
  * The release notes for `commits` (`{ message, hash }`, as git log lists them).
- * Returns the Markdown, and the PRs whose line fell back to their title
- * because they have no release note.
+ * Returns the Markdown; `leftOut`, the features, fixes and performance changes
+ * with no release note; and `untitled`, the breaking changes whose title
+ * stood in for a note. Each is a PR number, or a short hash without a PR.
  */
 export async function renderNotes({ version, previousTag, tag, date, slug, commits, fetchPrBody }) {
   const repoUrl = slug ? `https://github.com/${slug}` : null;
   const summary = [];
   const breaking = [];
   const sections = new Map(SECTIONS.map(([type]) => [type, []]));
+  const leftOut = [];
   const untitled = [];
 
   for (const { message, hash } of commits) {
@@ -83,6 +95,7 @@ export async function renderNotes({ version, previousTag, tag, date, slug, commi
     const list = commit.breaking ? breaking : sections.get(commit.type);
     if (!list) continue;
 
+    const ref = commit.pr ?? hash.slice(0, 7);
     const prBody = commit.pr ? await fetchPrBody(commit.pr) : null;
     let note = extractReleaseNote(prBody) || extractReleaseNote(commit.body);
     if (note && isNone(note)) {
@@ -90,8 +103,12 @@ export async function renderNotes({ version, previousTag, tag, date, slug, commi
       note = null;
     }
     if (!note) {
+      if (!commit.breaking) {
+        leftOut.push(ref);
+        continue;
+      }
       note = commit.subject;
-      if (commit.pr) untitled.push(commit.pr);
+      untitled.push(ref);
     }
 
     const link = commit.pr
@@ -111,14 +128,14 @@ export async function renderNotes({ version, previousTag, tag, date, slug, commi
     if (lines.length) blocks.push(`### ${heading}\n\n${lines.join("\n")}`);
   }
   if (blocks.length === 1) blocks.push("No user-facing changes.");
-  return { markdown: `${blocks.join("\n\n")}\n`, untitled };
+  return { markdown: `${blocks.join("\n\n")}\n`, leftOut, untitled };
 }
 
 /** semantic-release's generateNotes step. */
 export async function generateNotes(_pluginConfig, context) {
   const { commits, lastRelease, nextRelease, options, env, logger } = context;
   const slug = repoSlug(options.repositoryUrl, env);
-  const { markdown, untitled } = await renderNotes({
+  const { markdown, leftOut, untitled } = await renderNotes({
     version: nextRelease.version,
     previousTag: lastRelease?.gitTag,
     tag: nextRelease.gitTag,
@@ -127,9 +144,10 @@ export async function generateNotes(_pluginConfig, context) {
     commits: commits.map(({ message, hash }) => ({ message, hash })),
     fetchPrBody: prBodyFetcher({ slug, token: env.GITHUB_TOKEN || env.GH_TOKEN, logger }),
   });
+  if (leftOut.length) logger.log(`Left out, with no release note: ${refList(leftOut)}.`);
   if (untitled.length) {
-    logger.log(
-      `No release note on ${untitled.map((pr) => `#${pr}`).join(", ")}, so their titles are used.`,
+    logger.warn(
+      `Breaking changes with no release note, so their titles stand in: ${refList(untitled)}.`,
     );
   }
   return markdown;
