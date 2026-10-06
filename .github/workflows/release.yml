@@ -10,6 +10,13 @@ permissions:
   id-token: write
   contents: read
 
+# One run per branch at a time, so two semantic-release runs never pick the
+# same version. A newer push waits rather than cancelling the run in progress;
+# if several are waiting, only the newest runs, and it releases everything.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Release
@@ -39,3 +46,101 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: vp exec semantic-release
+
+  # Brings what was just released down into the prerelease branches below it,
+  # so they can reach its tag. It runs after the release so that the tag exists
+  # by the time beta and alpha see the commit. See .github/scripts/sync-branches.sh.
+  sync:
+    name: Sync prerelease branches
+    needs: release
+    if: github.ref_name == 'main' || github.ref_name == 'beta'
+    runs-on: ubuntu-latest
+    environment: branch-bot
+    permissions:
+      contents: read
+    outputs:
+      conflicts: ${{ steps.sync.outputs.conflicts }}
+      failed: ${{ steps.sync.outputs.failed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.BRANCH_BOT_SSH_KEY }}
+
+      - name: Sync
+        id: sync
+        run: .github/scripts/sync-branches.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
+
+  # Opens an issue when the release or the sync fails, or comments on the one
+  # already open, so a failure is never just a red run nobody looks at.
+  report:
+    name: Report failures
+    needs: [release, sync]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BRANCH: ${{ github.ref_name }}
+      RELEASE: ${{ needs.release.result }}
+      SYNC: ${{ needs.sync.result }}
+      CONFLICTS: ${{ needs.sync.outputs.conflicts }}
+      FAILED: ${{ needs.sync.outputs.failed }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Open or update issues
+        run: |
+          body=$RUNNER_TEMP/issue.md
+
+          # report <title>: comments on the open issue with that title, or opens
+          # one with the text in $body.
+          report() {
+            local existing
+            existing=$(gh issue list --state open --search "in:title \"$1\"" --limit 100 --json number,title |
+              jq -r --arg title "$1" 'map(select(.title == $title))[0].number // empty')
+            if [[ -n $existing ]]; then
+              gh issue comment "$existing" --body "It happened again: $RUN_URL"
+            else
+              gh issue create --title "$1" --body-file "$body"
+            fi
+          }
+
+          for target in $CONFLICTS; do
+            cat >"$body" <<EOF
+          Merging \`$BRANCH\` ($GITHUB_SHA) into \`$target\` conflicts, so the release workflow couldn't sync them ([run]($RUN_URL)). Until it's merged, \`$target\` can't reach \`$BRANCH\`'s latest release tag.
+
+          Merge it by hand on a \`sync/\` branch:
+
+          \`\`\`sh
+          git fetch origin
+          git switch -c sync/$BRANCH-into-$target origin/$target
+          git merge origin/$BRANCH   # resolve the conflicts, then commit
+          git push -u origin sync/$BRANCH-into-$target
+          \`\`\`
+
+          Then open a PR from \`sync/$BRANCH-into-$target\` into \`$target\` and add the \`promote\` label. The bot moves \`$target\` to your merge and deletes the branch; then close this issue.
+          EOF
+            report "Merge $BRANCH into $target by hand"
+          done
+
+          # Anything else: the release failed, or the sync failed some other way.
+          if [[ $RELEASE == failure || ($SYNC == failure && (-n $FAILED || -z $CONFLICTS)) ]]; then
+            unreached=""
+            if [[ -n $FAILED ]]; then
+              unreached=", couldn't sync into: $FAILED"
+            fi
+            cat >"$body" <<EOF
+          The [release workflow]($RUN_URL) failed on \`$BRANCH\` at $GITHUB_SHA (release: $RELEASE, sync: $SYNC$unreached).
+
+          - **Re-run the failed jobs** from the run page. The sync runs after the release, so re-running the release does both.
+          - **If the release keeps failing,** the log says why. If semantic-release pushed the tag but npm publishing failed, a re-run won't publish it again; publish that version by hand.
+          - **If the sync keeps failing,** sync by hand: open a PR from \`$BRANCH\` into the branch it couldn't reach and add the \`promote\` label.
+          - **If the bot's push was denied,** the deploy key or its secret is wrong: make a new key pair, replace the \`branch-bot\` deploy key, and update \`BRANCH_BOT_SSH_KEY\` in the \`branch-bot\` environment.
+
+          Close this issue once it's sorted.
+          EOF
+            report "The release workflow failed on $BRANCH"
+          fi
