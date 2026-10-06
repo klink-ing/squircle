@@ -25,8 +25,8 @@
 
 <!--
   One or two sentences for people using the package: what's new or fixed, and
-  how to use it. It becomes this PR's line in the release notes, as written,
-  so leave how it works to the rest of the description.
+  how to use it. Its first paragraph becomes this PR's line in the release
+  notes, as written, so leave how it works to the rest of the description.
 
   Required for feat, fix and perf PRs and breaking changes (say what to change).
   Write "None" if users won't notice the change. On a promotion PR, it's the

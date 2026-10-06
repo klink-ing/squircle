@@ -28,8 +28,10 @@ const BREAKING_HEADER = /^(\w*)(?:\((.*)\))?!: (.*)$/;
 const BREAKING_NOTE = /^[\s|*]*BREAKING[ -]CHANGE[:\s]/m;
 
 /**
- * The text of a PR body's release note section, with comments removed and
- * whitespace collapsed: `null` without the heading, `""` when it's empty.
+ * A PR body's release note: the first paragraph under its `## Release note`
+ * heading, comments aside. Only the first, so a footer after it (a sign-off,
+ * a co-author) stays out of the release notes. `null` without the heading,
+ * `""` when there's nothing under it.
  */
 export function extractReleaseNote(body) {
   if (!body) return null;
@@ -39,7 +41,11 @@ export function extractReleaseNote(body) {
   let section = text.slice(heading.index + heading[0].length);
   const next = NEXT_HEADING.exec(section);
   if (next) section = section.slice(0, next.index);
-  return section.replace(COMMENT, "").trim();
+  return section
+    .replace(COMMENT, "")
+    .trim()
+    .split(/\n[ \t]*\n/)[0]
+    .trim();
 }
 
 /** Whether a note says the change needs no line in the release notes. */
@@ -106,8 +112,8 @@ export function checkReleaseNote({ title, body, headRef }) {
       ? `This is a breaking change, so its release note can't be "None": say what changed and what to do about it.`
       : null;
   }
-  if (/\n\s*\n/.test(note) || /^\s*([-*+]|\d+\.|#)\s/m.test(note)) {
-    return `Keep the release note to one short paragraph, with no lists or headings. The rest of the description is the place for detail.`;
+  if (/^\s*([-*+]|\d+\.)\s/m.test(note)) {
+    return `Write the release note as one short paragraph, not a list: it's one line in the release notes. The rest of the description is the place for detail.`;
   }
   const length = normalizeNote(note).length;
   if (length > MAX_LENGTH) {

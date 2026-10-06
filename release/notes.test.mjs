@@ -30,6 +30,18 @@ describe("extractReleaseNote", () => {
     assert.equal(extractReleaseNote(null), null);
     assert.equal(extractReleaseNote("## Release note\n\n<!-- guidance -->\n\n## Test plan"), "");
   });
+  it("takes only the first paragraph, so a footer after it stays out", () => {
+    assert.equal(
+      extractReleaseNote(
+        "## Release note\n\nAdds `x`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+      ),
+      "Adds `x`.",
+    );
+    assert.equal(
+      extractReleaseNote("## Release note\n<!-- guidance -->\n\nAdds `x`\nacross lines.\n\nMore."),
+      "Adds `x`\nacross lines.",
+    );
+  });
   it("handles CRLF bodies", () => {
     assert.equal(extractReleaseNote("## Release note\r\n\r\nFixes y.\r\n## Next"), "Fixes y.");
   });
@@ -90,13 +102,14 @@ describe("checkReleaseNote", () => {
     assert.match(check("feat!: x", "None"), /breaking change/);
   });
   it("wants one short paragraph", () => {
-    assert.match(check("feat: x", "One.\n\nTwo."), /one short paragraph/);
-    assert.match(check("feat: x", "- a\n- b"), /one short paragraph/);
+    assert.equal(check("feat: x", "One.\n\nA footer after it is fine."), null);
+    assert.match(check("feat: x", "- a\n- b"), /not a list/);
+    assert.match(check("feat: x", "1. a"), /not a list/);
     assert.match(check("feat: x", "a".repeat(300)), /is 301 characters; keep it under 300/);
     assert.equal(check("feat: x", "a".repeat(299)), null);
   });
   it("still checks a note someone added to a chore", () => {
-    assert.match(check("chore: x", "One.\n\nTwo."), /one short paragraph/);
+    assert.match(check("chore: x", "- a"), /not a list/);
   });
 });
 
