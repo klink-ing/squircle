@@ -39,3 +39,62 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: vp exec semantic-release
+
+  # Brings what was just released down into the prerelease branches below it,
+  # so they can reach its tag. It runs after the release so that the tag exists
+  # by the time beta and alpha see the commit. See .github/scripts/sync-branches.sh.
+  sync:
+    name: Sync prerelease branches
+    needs: release
+    if: github.ref_name == 'main' || github.ref_name == 'beta'
+    runs-on: ubuntu-latest
+    environment: branch-bot
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.BRANCH_BOT_SSH_KEY }}
+
+      - name: Sync
+        id: sync
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+        run: .github/scripts/sync-branches.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
+
+      - name: Open an issue for each conflict
+        if: failure() && steps.sync.outputs.conflicts != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFLICTS: ${{ steps.sync.outputs.conflicts }}
+        run: |
+          source=$GITHUB_REF_NAME
+          for target in $CONFLICTS; do
+            title="Merge $source into $target by hand"
+            existing=$(gh issue list --state open --json number,title \
+              | jq -r --arg title "$title" 'map(select(.title == $title))[0].number // empty')
+            if [[ -n $existing ]]; then
+              gh issue comment "$existing" --body "Still conflicting as of $source at $GITHUB_SHA."
+              continue
+            fi
+            gh issue create --title "$title" --body-file - <<EOF
+          Merging \`$source\` ($GITHUB_SHA) into \`$target\` conflicts, so the release workflow couldn't sync them. Until it's merged, \`$target\` can't reach \`$source\`'s latest release tag.
+
+          Merge it by hand on a \`sync/\` branch:
+
+          \`\`\`sh
+          git fetch origin
+          git switch -c sync/$source-into-$target origin/$target
+          git merge origin/$source   # resolve the conflicts, then commit
+          git push -u origin sync/$source-into-$target
+          \`\`\`
+
+          Then open a PR from \`sync/$source-into-$target\` into \`$target\` and add the \`promote\` label. The bot moves \`$target\` to your merge and deletes the branch; then close this issue.
+          EOF
+          done

@@ -1,0 +1,79 @@
+name: Promote
+
+# Adding the `promote` label to a promotion PR (alpha → beta → main) merges it
+# with a real merge commit once its required checks pass. The merge button
+# can't: people may only squash, and the promotion guard keeps it shut on
+# these PRs. See .github/scripts/promote.sh.
+#
+# pull_request_target runs this file and the script as they are on the base
+# branch, never the PR's, so the deploy key only ever runs trusted code.
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  promote:
+    if: >-
+      github.event.label.name == 'promote' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: branch-bot
+    permissions:
+      contents: read
+      checks: read
+      statuses: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_REF: ${{ github.event.pull_request.base.ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.BRANCH_BOT_SSH_KEY }}
+
+      - name: Wait for the required checks
+        run: |
+          # The promotion guard fails on purpose, so it's left out.
+          deadline=$((SECONDS + 30 * 60))
+          while :; do
+            buckets=$(gh pr checks "$PR" --required --json workflow,bucket \
+              --jq '[.[] | select(.workflow != "Promotion guard") | .bucket] | unique | join(" ")' || true)
+            case " $buckets " in
+              *" fail "* | *" cancel "*)
+                echo "::error::A required check failed."
+                exit 1
+                ;;
+              *" pending "* | "  ") ;;
+              *) break ;;
+            esac
+            if ((SECONDS > deadline)); then
+              echo "::error::The required checks didn't finish within 30 minutes."
+              exit 1
+            fi
+            sleep 20
+          done
+
+      - name: Merge
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+        run: .github/scripts/promote.sh "$HEAD_REF" "$HEAD_SHA" "$BASE_REF" "$PR"
+
+      - name: Report the failure on the PR
+        if: failure()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh pr edit "$PR" --remove-label promote
+          gh pr comment "$PR" --body "Couldn't promote this PR: see [the run]($RUN_URL). Add the \`promote\` label again to retry."

@@ -14,4 +14,9 @@
     feat!: rename plugin export path
 
   Types 'refactor' and 'build' are NOT allowed.
+
+  Promotions (alpha → beta → main) aren't merged with the button, which can
+  only squash: add the `promote` label and a bot merges them with a merge
+  commit. After each release, main and beta are merged back down into the
+  branches below them automatically.
 -->
