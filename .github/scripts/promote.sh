@@ -5,12 +5,15 @@
 # and the two branches would drift apart. The deploy key this runs with is the
 # only thing allowed to push a merge commit to a protected branch.
 #
-# Promotions go up a channel: alpha → beta, alpha → main or beta → main. A
-# sync/* branch carries a merge resolved by hand back down into alpha or beta,
-# after sync-branches.sh found a conflict.
+# Promotions go up a channel (alpha → beta, alpha → main, beta → main) and
+# always get a merge commit. Syncs go down (main → beta, main → alpha,
+# beta → alpha), as do sync/* branches carrying a merge resolved by hand into
+# alpha or beta; those fast-forward when they can. The release workflow syncs
+# on its own, so a down PR is only needed when that failed.
 #
 # Usage: promote.sh <head branch> <head commit> <base branch> <pr number>
 set -euo pipefail
+source "$(dirname "$0")/lib.sh"
 
 head=$1
 head_sha=$2
@@ -18,46 +21,26 @@ base=$3
 pr=$4
 
 case "$head:$base" in
-  alpha:beta | alpha:main | beta:main | sync/*:alpha | sync/*:beta) ;;
-  *)
-    echo "::error::$head → $base isn't a promotion. Promotions go alpha → beta → main, and sync/* branches go into alpha or beta."
-    exit 1
-    ;;
+  alpha:beta | alpha:main | beta:main) mode=merge ;;
+  main:beta | main:alpha | beta:alpha | sync/*:alpha | sync/*:beta) mode=ff ;;
+  *) fail "$head → $base isn't a promotion. Promotions go alpha → beta → main, syncs go back down, and sync/* branches go into alpha or beta." ;;
 esac
 
-git fetch --quiet origin \
-  "+refs/heads/$head:refs/remotes/origin/$head" \
-  "+refs/heads/$base:refs/remotes/origin/$base"
-
+git fetch --quiet origin "+refs/heads/$head:refs/remotes/origin/$head"
 if [[ $(git rev-parse "origin/$head") != "$head_sha" ]]; then
-  echo "::error::$head has moved since the label was added. Add the label again to promote what's there now."
-  exit 1
+  fail "$head has moved since the label was added. Add it again once the new commits' checks pass."
 fi
 
-base_tip=$(git rev-parse "origin/$base")
-if git merge-base --is-ancestor "$head_sha" "$base_tip"; then
-  echo "$base already contains $head."
-  exit 0
-fi
-
-if [[ $head == sync/* ]] && git merge-base --is-ancestor "$base_tip" "$head_sha"; then
-  # The branch is already the merge; take it as it is.
-  echo "Fast-forwarding $base to $head."
-  new=$head_sha
-else
-  git switch --quiet --detach "$base_tip"
-  if ! git merge --quiet --no-ff --no-edit -m "Merge $head into $base (#$pr)" "$head_sha"; then
-    git merge --abort
-    echo "::error::Merging $head into $base conflicts."
-    exit 1
-  fi
-  echo "Merging $head into $base."
-  new=$(git rev-parse HEAD)
-fi
-
-# GitHub marks the PR merged once its head is reachable from the base.
-git push --quiet origin "$new:refs/heads/$base"
-
-if [[ $head == sync/* ]]; then
-  git push --quiet origin --delete "$head"
-fi
+echo "Merging $head into $base."
+status=0
+land "$base" "$head_sha" "Merge $head into $base (#$pr)" "$mode" || status=$?
+case $status in
+  0) ;;
+  1)
+    if [[ $mode == merge ]]; then
+      fail "Merging $head into $base conflicts: $base has changes $head doesn't. Sync them down into $head first (see any open \"by hand\" issue), then add the label again."
+    fi
+    fail "Merging $head into $base conflicts. Merge it by hand on a sync/ branch, open a PR from that into $base, and add the label there."
+    ;;
+  *) fail "Couldn't push to $base." ;;
+esac
