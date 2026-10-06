@@ -1,4 +1,8 @@
-name: PR title check
+name: PR title and release note
+
+# Checks the PR title against Conventional Commits, and the "## Release note"
+# section of the description (release/check-release-note.mjs). Both report the
+# required `check` status.
 
 on:
   pull_request:
@@ -14,3 +18,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pass_on_octokit_error: false
           configuration_path: .github/pr-title-checker.json
+
+      - uses: actions/checkout@v6
+        if: github.event_name == 'pull_request'
+        with:
+          sparse-checkout: release
+
+      - name: Check the release note
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: node release/check-release-note.mjs
