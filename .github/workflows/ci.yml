@@ -25,6 +25,9 @@ jobs:
 
       - run: vp run ready
 
+      - name: Test the release notes
+        run: node --test 'release/*.test.mjs'
+
       - run: npx semantic-release --dry-run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
