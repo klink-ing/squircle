@@ -218,6 +218,33 @@ describe("pill-shape worklet contract", () => {
       }
     });
 
+    it("caps one end from the attribute's value", () => {
+      for (const [value, side] of [
+        ["t", "t"],
+        ["r", "r"],
+        ["b", "b"],
+        ["l", "l"],
+        ["x", "auto"],
+        ["y", "auto"],
+        ["s", "l"],
+        ["e", "r"],
+      ]) {
+        const rule = new RegExp(
+          `\\[${PILL_ATTRIBUTE}="${value}"\\] \\{[^}]*${PILL_SIDE_VAR_NAME}: ${side};`,
+        );
+        expect(stylesheet, value).toMatch(rule);
+      }
+      expect(stylesheet).toMatch(
+        new RegExp(`\\[${PILL_ATTRIBUTE}="s"\\]:dir\\(rtl\\) \\{[^}]*${PILL_SIDE_VAR_NAME}: r;`),
+      );
+    });
+
+    it("starts a bare pill at auto, at zero specificity", () => {
+      expect(stylesheet).toMatch(
+        new RegExp(`:where\\(\\[${PILL_ATTRIBUTE}\\]\\) \\{[^}]*${PILL_SIDE_VAR_NAME}: auto;`),
+      );
+    });
+
     it("registers nothing that is neither read nor fed into something read", () => {
       // Registrations for properties nothing consumes are dead plumbing: they
       // read as configuration but change nothing.
@@ -321,7 +348,11 @@ describe("pill-shape worklet contract", () => {
       // pill doesn't draw follows with it. Never a percentage: `50%` is an
       // ellipse on any non-square element. Never a superellipse: on a pill
       // the cap is the whole shape, so reshaping it changes the silhouette.
-      expect(ruleBody(stylesheet, SHAPE)).toContain("border-radius: calc(infinity * 1px);");
+      // At zero specificity, so a side's radius wins whatever the order.
+      expect(ruleBody(stylesheet, `:where(${SHAPE})`)).toContain(
+        "border-radius: calc(infinity * 1px);",
+      );
+      expect(ruleBody(stylesheet, SHAPE)).not.toContain("border-radius");
       expect(stylesheet).not.toContain("border-radius: 50%");
       expect(stylesheet).not.toContain("corner-shape");
     });
