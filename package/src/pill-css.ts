@@ -6,6 +6,7 @@
 import {
   DEFAULT_PILL_AMT,
   DEFAULT_PILL_CONTINUITY,
+  DEFAULT_PILL_SIDE,
   DEFAULT_PILL_EASE,
   FULL_RADIUS,
   PILL_AMT_VAR_NAME,
@@ -36,6 +37,7 @@ import {
   PILL_RING_WIDTH_VAR_NAME,
   PILL_SHADOW_REACH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
+  PILL_SIDE_VAR_NAME,
 } from "./variants";
 
 /** Nested CSS-in-JS: a declaration, or a nested rule keyed by its selector. */
@@ -102,6 +104,11 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
     [`@property ${PILL_CONTINUITY_VAR_NAME}`]: {
       syntax: '"<integer>"',
       "initial-value": String(DEFAULT_PILL_CONTINUITY),
+      inherits: "true",
+    },
+    [`@property ${PILL_SIDE_VAR_NAME}`]: {
+      syntax: '"auto | t | r | b | l"',
+      "initial-value": DEFAULT_PILL_SIDE,
       inherits: "true",
     },
     ...Object.fromEntries(

@@ -36,6 +36,7 @@ import {
   PILL_RING_OFFSET_WIDTH_VAR_NAME,
   PILL_RING_WIDTH_VAR_NAME,
   PILL_SHADOW_REACH_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -176,12 +177,14 @@ describe("pill-shape worklet contract", () => {
       PILL_AMT_VAR_NAME,
       PILL_EASE_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
+      PILL_SIDE_VAR_NAME,
       PILL_BACKGROUND_INSET_VAR_NAME,
     ]);
     expect(decorationInputs).toEqual([
       PILL_AMT_VAR_NAME,
       PILL_EASE_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
+      PILL_SIDE_VAR_NAME,
       PILL_REACH_VAR_NAME,
       PILL_BORDER_WIDTH_VAR_NAME,
       PILL_BORDER_COLOR_VAR_NAME,
@@ -205,7 +208,12 @@ describe("pill-shape worklet contract", () => {
   describe("against squircle-pill.css", () => {
     it("registers every shaping property the worklet reads", () => {
       const registered = registeredProperties(stylesheet);
-      for (const name of [PILL_AMT_VAR_NAME, PILL_EASE_VAR_NAME, PILL_CONTINUITY_VAR_NAME]) {
+      for (const name of [
+        PILL_AMT_VAR_NAME,
+        PILL_EASE_VAR_NAME,
+        PILL_CONTINUITY_VAR_NAME,
+        PILL_SIDE_VAR_NAME,
+      ]) {
         expect(registered, `${name} must be registered`).toContain(name);
       }
     });
