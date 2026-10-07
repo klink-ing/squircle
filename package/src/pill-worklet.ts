@@ -7,9 +7,11 @@ import {
   DEFAULT_PILL_AMT,
   DEFAULT_PILL_CONTINUITY,
   DEFAULT_PILL_EASE,
+  DEFAULT_PILL_SIDE,
   PILL_AMT_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -26,6 +28,7 @@ export const PILL_SHAPE_PROPERTIES = {
   amt: { name: PILL_AMT_VAR_NAME, default: DEFAULT_PILL_AMT },
   ease: { name: PILL_EASE_VAR_NAME, default: DEFAULT_PILL_EASE },
   continuity: { name: PILL_CONTINUITY_VAR_NAME, default: DEFAULT_PILL_CONTINUITY },
+  side: { name: PILL_SIDE_VAR_NAME, default: DEFAULT_PILL_SIDE },
 } as const;
 
 /**

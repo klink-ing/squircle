@@ -43,6 +43,41 @@ import {
 /** Nested CSS-in-JS: a declaration, or a nested rule keyed by its selector. */
 export type PillCss = { [key: string]: string | PillCss };
 
+/** Every side utility's suffix, and every value `data-<namespace>-pill` takes. */
+export const PILL_SIDE_NAMES = ["x", "y", "t", "r", "b", "l", "s", "e"] as const;
+export type PillSideName = (typeof PILL_SIDE_NAMES)[number];
+
+type PillSide = typeof DEFAULT_PILL_SIDE | "t" | "r" | "b" | "l";
+
+/** The stadium fallback for each side: full on the capped corners, square on the others. */
+const SIDE_RADII: Record<PillSide, string> = {
+  auto: FULL_RADIUS,
+  t: `${FULL_RADIUS} ${FULL_RADIUS} 0 0`,
+  r: `0 ${FULL_RADIUS} ${FULL_RADIUS} 0`,
+  b: `0 0 ${FULL_RADIUS} ${FULL_RADIUS}`,
+  l: `${FULL_RADIUS} 0 0 ${FULL_RADIUS}`,
+};
+
+const capping = (side: PillSide): PillCss => ({
+  [PILL_SIDE_VAR_NAME]: side,
+  "border-radius": SIDE_RADII[side],
+});
+
+/**
+ * One side's rules: the end it caps, and the fallback radius to match, which
+ * the browser scales down to the same radius the worklet clamps a cap to.
+ * `x` and `y` are the automatic pill: a cap can never be wider than the box
+ * allows, so capping both ends of either axis is what `auto` already draws.
+ * `s` and `e` turn into `l` and `r`, swapped under `:dir(rtl)`, so the
+ * worklet only ever sees a physical side.
+ */
+export function pillSideCss(name: PillSideName): PillCss {
+  if (name === "x" || name === "y") return capping(DEFAULT_PILL_SIDE);
+  if (name === "s") return { ...capping("l"), "&:dir(rtl)": capping("r") };
+  if (name === "e") return { ...capping("r"), "&:dir(rtl)": capping("l") };
+  return capping(name);
+}
+
 /**
  * Where the pill's rules come from decides how its border and shadows are
  * wired up.
@@ -209,10 +244,6 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
   });
 
   return {
-    // A stadium on every branch: it is the whole fallback without the
-    // worklet, and what an outline the pill doesn't draw itself — the
-    // browser's focus ring — follows with it.
-    "border-radius": FULL_RADIUS,
     ...(flavor === "standalone"
       ? {
           "border-width": `var(${PILL_BORDER_WIDTH_VAR_NAME})`,
@@ -227,6 +258,14 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // Everything here inherits, so each pill also starts from none of it,
     // rather than drawing a decorated parent's border, rings or shadows.
     ":where(&)": {
+      // A stadium on every branch: it is the whole fallback without the
+      // worklet, and what an outline the pill doesn't draw itself — the
+      // browser's focus ring — follows with it. Zero specificity, so a side
+      // utility's radius wins whatever the order.
+      "border-radius": FULL_RADIUS,
+      // Every pill starts with both ends capped, rather than taking a side
+      // from a pill it is nested in.
+      [PILL_SIDE_VAR_NAME]: DEFAULT_PILL_SIDE,
       [PILL_BORDER_WIDTH_VAR_NAME]: "0px",
       [PILL_BORDER_COLOR_VAR_NAME]: "currentColor",
       [PILL_OUTLINE_WIDTH_VAR_NAME]: "0px",
@@ -352,5 +391,10 @@ export function renderPillCss(selector = `[${PILL_ATTRIBUTE}]`): string {
   }
 
   blocks.push(...renderRule(selector, pillCssObj("standalone")));
+  // `data-<namespace>-pill="t"` and friends: the side utilities' rules, on
+  // the attribute's value.
+  for (const name of PILL_SIDE_NAMES) {
+    blocks.push(...renderRule(selector.replace(/\]$/, `="${name}"]`), pillSideCss(name)));
+  }
   return blocks.join("\n\n") + "\n";
 }

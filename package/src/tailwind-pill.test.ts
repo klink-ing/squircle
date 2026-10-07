@@ -20,6 +20,7 @@ import {
   PILL_POLYFILL_ATTRIBUTE,
   PILL_REACH_VAR_NAME,
   PILL_RING_COLOR_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -30,6 +31,14 @@ const compilePillAll = (candidates: string[], block = "") =>
   compilePluginAll(candidates, block, "./tailwind-pill.ts");
 
 const LOADED = `:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`;
+
+const FULL = FULL_RADIUS;
+const escape = (s: string) => s.replace(/[()*]/g, "\\$&");
+/** The declarations directly in `.name { … }`, before any nested rule. */
+const ownBlock = (css: string, name: string) => {
+  const start = css.indexOf(`.${name} {`);
+  return css.slice(start, css.indexOf("{", css.indexOf("\n", start) + 1));
+};
 
 describe("tailwind-pill.ts utilities", () => {
   it("shapes a copy of the background once the worklet has loaded", async () => {
@@ -133,16 +142,14 @@ describe("tailwind-pill.ts utilities", () => {
   });
 
   describe("the stadium underneath", () => {
-    it("is a plain fully-rounded rectangle on every branch", async () => {
-      // The whole fallback without the worklet — the same radius the `-full`
-      // utilities use, matching `rounded-full` — and, with it, the shape
-      // native inset decorations follow before the mask trims them.
+    it("is a plain fully-rounded rectangle, at zero specificity", async () => {
+      // The whole fallback without the worklet: the same radius the `-full`
+      // utilities use, matching `rounded-full`. Zero specificity, so a side
+      // utility's radius wins whichever is emitted first.
       const css = await compilePill(["squircle-pill"]);
-      expect(css).toMatch(
-        new RegExp(
-          `\\.squircle-pill \\{\\s*border-radius: ${FULL_RADIUS.replace(/[()*]/g, "\\$&")}`,
-        ),
-      );
+      const own = /:where\(&\) \{([^}]*)\}/.exec(css)?.[1];
+      expect(own).toContain(`border-radius: ${FULL};`);
+      expect(ownBlock(css, "squircle-pill")).not.toContain("border-radius");
     });
 
     it("never reshapes the corner", async () => {
@@ -178,6 +185,7 @@ describe("tailwind-pill.ts utilities", () => {
         PILL_AMT_VAR_NAME,
         PILL_EASE_VAR_NAME,
         PILL_CONTINUITY_VAR_NAME,
+        PILL_SIDE_VAR_NAME,
         PILL_BORDER_WIDTH_VAR_NAME,
         PILL_BORDER_COLOR_VAR_NAME,
       ]) {
@@ -188,6 +196,9 @@ describe("tailwind-pill.ts utilities", () => {
       expect(css).toMatch(new RegExp(`@property ${PILL_EASE_VAR_NAME} \\{[^}]*initial-value: 2;`));
       expect(css).toMatch(
         new RegExp(`@property ${PILL_CONTINUITY_VAR_NAME} \\{[^}]*initial-value: 3;`),
+      );
+      expect(css).toMatch(
+        new RegExp(`@property ${PILL_SIDE_VAR_NAME} \\{[^}]*initial-value: auto;`),
       );
       expect(css).toContain("initial-value: 0px");
     });
@@ -200,13 +211,10 @@ describe("tailwind-pill.ts utilities", () => {
   });
 
   describe("one shape, two knobs", () => {
-    it("has no size or side variants", async () => {
-      // A pill's caps are derived from its own size, and a mask has no
-      // per-side meaning, so there is nothing for such a variant to set. The
-      // border plugin scopes to `.squircle-pill` alone, so a copy under
-      // another name would also silently lose its border.
+    it("has no size or corner variants", async () => {
+      // A pill is capped by its ends; a single corner isn't one, and its
+      // caps are derived from its own size.
       const css = await compilePill([
-        "squircle-pill-t",
         "squircle-pill-tl",
         "squircle-pill-ss",
         "squircle-pill-md",
@@ -245,6 +253,63 @@ describe("tailwind-pill.ts utilities", () => {
       ]) {
         expect(await compilePill([candidate]), candidate).toBe("");
       }
+    });
+  });
+
+  describe("sides", () => {
+    const radii: Record<string, string> = {
+      t: `${FULL} ${FULL} 0 0`,
+      r: `0 ${FULL} ${FULL} 0`,
+      b: `0 0 ${FULL} ${FULL}`,
+      l: `${FULL} 0 0 ${FULL}`,
+    };
+
+    for (const [side, radius] of Object.entries(radii)) {
+      it(`-${side} caps that end, and rounds the fallback to match`, async () => {
+        const css = await compilePill([`squircle-pill-${side}`]);
+        expect(css).toContain(`${PILL_SIDE_VAR_NAME}: ${side};`);
+        expect(css).toContain(`border-radius: ${radius};`);
+      });
+    }
+
+    it("-x and -y are the automatic pill", async () => {
+      for (const axis of ["x", "y"]) {
+        const css = await compilePill([`squircle-pill-${axis}`]);
+        expect(css).toContain(`${PILL_SIDE_VAR_NAME}: auto;`);
+        expect(css).toMatch(new RegExp(`border-radius: ${escape(FULL)};`));
+      }
+    });
+
+    it("-s and -e follow the direction", async () => {
+      for (const [name, ltr, rtl] of [
+        ["s", "l", "r"],
+        ["e", "r", "l"],
+      ]) {
+        const css = await compilePill([`squircle-pill-${name}`]);
+        const flipped = css.indexOf(":dir(rtl)");
+        expect(flipped, name).toBeGreaterThan(-1);
+        expect(css.slice(0, flipped)).toContain(`${PILL_SIDE_VAR_NAME}: ${ltr};`);
+        expect(css.slice(flipped)).toContain(`${PILL_SIDE_VAR_NAME}: ${rtl};`);
+        expect(css.slice(flipped)).toContain(`border-radius: ${radii[rtl]};`);
+      }
+    });
+
+    it("sets only the side and the fallback radius", async () => {
+      const css = await compilePill(["squircle-pill-t"]);
+      expect(css).not.toContain("mask-image");
+      expect(css).not.toContain("::before");
+    });
+
+    it("starts every pill at auto, so a nested pill doesn't take its parent's side", async () => {
+      const css = await compilePill(["squircle-pill"]);
+      const own = /:where\(&\) \{([^}]*)\}/.exec(css)?.[1];
+      expect(own).toContain(`${PILL_SIDE_VAR_NAME}: auto;`);
+    });
+
+    it("honours a custom prefix", async () => {
+      const css = await compilePill(["pillbox-l"], 'prefix: "pillbox";');
+      expect(css).toContain(".pillbox-l");
+      expect(css).toContain(`${PILL_SIDE_VAR_NAME}: l;`);
     });
   });
 
