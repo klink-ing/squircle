@@ -24,14 +24,15 @@
 ## Release note
 
 <!--
-  One or two sentences for people using the package: what's new or fixed, and
-  how to use it. Its first paragraph becomes this PR's line in the release
-  notes, as written, so leave how it works to the rest of the description.
+  This PR's line in the alpha and beta release notes, which are generated
+  from the PRs since the last one. Without a note, the PR's title is used.
+  One or two sentences for someone trying the prerelease: what changed and
+  what to use. Write "None" to leave the PR out.
 
-  Required for feat, fix and perf PRs and breaking changes (say what to change).
-  Write "None" if users won't notice the change. On a promotion PR, it's the
-  summary at the top of the release.
+  Optional on PRs into alpha and beta. Required on feat, fix and perf PRs
+  into main, which are released straight away ("None" will do), and on
+  breaking changes anywhere (say what to change).
 
-  Example: Add `squircle-pill-ease-*` to stretch a pill's easing along its
-  straight edges.
+  A promotion into main instead carries the stable release's notes, written
+  by hand under "## Release notes". See AGENTS.md.
 -->

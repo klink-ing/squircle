@@ -1,14 +1,22 @@
 /**
- * The release note a PR carries for the release notes: the paragraph under its
- * `## Release note` heading. Shared by the notes generator (notes.mjs), the
- * promotion preview (preview.mjs) and the PR check (check-release-note.mjs).
- * No dependencies, so the workflows can run it without installing anything.
+ * Release notes written on PRs, and the rules for them. Shared by the notes
+ * generator (notes.mjs), the promotion preview (preview.mjs) and the PR check
+ * (check-release-note.mjs). No dependencies, so the workflows can run it
+ * without installing anything.
+ *
+ * Two kinds:
+ *
+ * - A PR's `## Release note`: its first paragraph is the PR's line in the
+ *   alpha and beta release notes, and in a release straight from main.
+ * - A promotion PR's `## Release notes`: the stable release's notes, written by
+ *   hand and published as they are. The section runs to the next `#`/`##`
+ *   heading or `---` line, so it can hold `###` headings and lists.
  */
 
-/** Longest note allowed, in characters. A note is a line in a list, not a description. */
+/** Longest line a PR's note can make, in characters. */
 export const MAX_LENGTH = 300;
 
-/** Types that appear in the release notes, in order, with their headings. */
+/** Types that appear in generated release notes, in order, with their headings. */
 export const SECTIONS = [
   ["feat", "Features"],
   ["fix", "Fixes"],
@@ -16,6 +24,9 @@ export const SECTIONS = [
 ];
 
 const HEADING = /^#{2,3}[ \t]*release[ \t]+notes?[ \t]*$/im;
+const NOTES_HEADING = /^#{2,3}[ \t]*release[ \t]+notes[ \t]*$/im;
+const SECTION_END = /^(?:#{1,2}[ \t]|-{3,}[ \t]*$)/;
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const NEXT_HEADING = /^#{1,3}[ \t]/m;
 const COMMENT = /<!--[\s\S]*?-->/g;
 const NONE = /^none\.?$/i;
@@ -28,17 +39,44 @@ const BREAKING_HEADER = /^(\w*)(?:\((.*)\))?!: (.*)$/;
 const BREAKING_NOTE = /^[\s|*]*BREAKING[ -]CHANGE[:\s]/m;
 
 /**
- * A PR body's release note: the first paragraph under its `## Release note`
- * heading, comments aside. Only the first, so a footer after it (a sign-off,
- * a co-author) stays out of the release notes. `null` without the heading,
- * `""` when there's nothing under it.
+ * The text after a body's release note heading, or null without one. With
+ * `plural`, a `## Release notes` heading wins over an earlier `## Release
+ * note`, like the one the PR template leaves above hand-written notes.
  */
-export function extractReleaseNote(body) {
+function afterHeading(body, { plural = false } = {}) {
   if (!body) return null;
   const text = body.replace(/\r\n/g, "\n");
-  const heading = HEADING.exec(text);
-  if (!heading) return null;
-  let section = text.slice(heading.index + heading[0].length);
+  const heading = (plural && NOTES_HEADING.exec(text)) || HEADING.exec(text);
+  return heading ? text.slice(heading.index + heading[0].length) : null;
+}
+
+/** Where a promotion's notes end: the first `#`/`##` heading or `---` line outside a code block. */
+function notesEnd(section) {
+  let fence = null;
+  let offset = 0;
+  for (const line of section.split("\n")) {
+    const marker = FENCE.exec(line)?.[1];
+    if (fence) {
+      const closes = marker?.[0] === fence[0] && marker.length >= fence.length;
+      if (closes && !line.trim().slice(marker.length).trim()) fence = null;
+    } else if (marker) {
+      fence = marker;
+    } else if (SECTION_END.test(line)) {
+      return offset;
+    }
+    offset += line.length + 1;
+  }
+  return section.length;
+}
+
+/**
+ * A PR's release note: the first paragraph under its `## Release note`
+ * heading, comments aside. Only the first, so a footer after it (a sign-off,
+ * a co-author) stays out. `null` without the heading, `""` when it's empty.
+ */
+export function extractReleaseNote(body) {
+  let section = afterHeading(body);
+  if (section === null) return null;
   const next = NEXT_HEADING.exec(section);
   if (next) section = section.slice(0, next.index);
   return section
@@ -48,14 +86,30 @@ export function extractReleaseNote(body) {
     .trim();
 }
 
+/**
+ * A promotion PR's release notes: everything under its `## Release notes`
+ * heading up to the next `#`/`##` heading or `---` line outside a code block,
+ * comments aside. `null` without the heading, `""` when it's empty.
+ */
+export function extractReleaseNotes(body) {
+  const section = afterHeading(body, { plural: true });
+  if (section === null) return null;
+  // Comments go first, so a `---` or heading in one doesn't end the notes.
+  const text = section.replace(COMMENT, "");
+  return text
+    .slice(0, notesEnd(text))
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /** Whether a note says the change needs no line in the release notes. */
 export function isNone(note) {
   return NONE.test(note);
 }
 
 /**
- * One line of release notes from a note: a single paragraph that starts with a
- * capital letter and ends with a full stop.
+ * One line of release notes from a note or a title: a single paragraph that
+ * starts with a capital letter and ends with a full stop.
  */
 export function normalizeNote(note) {
   let text = note.replace(/\s+/g, " ").trim();
@@ -65,8 +119,8 @@ export function normalizeNote(note) {
 
 /**
  * A commit's or PR title's conventional header, as the version is worked out
- * from it: `{ type, scope, subject, breaking, pr }`. `type` is null when the
- * header isn't conventional, like the bot's "Merge alpha into main".
+ * from it: `{ type, scope, subject, breaking, pr, body }`. `type` is null when
+ * the header isn't conventional, like the bot's "Merge alpha into main".
  */
 export function parseCommit(message) {
   const [header = "", ...rest] = message.replace(/\r\n/g, "\n").split("\n");
@@ -89,23 +143,38 @@ export function isPromotionHead(headRef) {
   return ["main", "beta", "alpha"].includes(headRef) || headRef.startsWith("sync/");
 }
 
+/** Whether a PR promotes alpha or beta into main, making a stable release. */
+export function isStablePromotion({ headRef, baseRef }) {
+  return baseRef === "main" && (headRef === "alpha" || headRef === "beta");
+}
+
 /**
- * Checks a PR's release note. Promotions and syncs don't need one; features,
- * fixes, performance changes and breaking changes do. Returns a message
- * saying what to change, or null when the note is fine.
+ * Checks a PR's release note. Returns a message saying what to change, or null
+ * when it's fine.
+ *
+ * - Features, fixes and performance changes into main need a `## Release
+ *   note`, since they're released straight away ("None" will do).
+ * - Breaking changes always need a real one, saying what to do.
+ * - Otherwise a note is optional; the title stands in for it.
+ * - Promotions and syncs need none here. A promotion into main needs its
+ *   hand-written `## Release notes` only if it releases something, which the
+ *   release notes preview works out and checks (preview.mjs).
  */
-export function checkReleaseNote({ title, body, headRef }) {
+export function checkReleaseNote({ title, body, headRef, baseRef }) {
   if (isPromotionHead(headRef)) return null;
+
   const { type, breaking } = parseCommit(title);
-  const needed = breaking || SECTIONS.some(([sectionType]) => sectionType === type);
+  const releasable = SECTIONS.some(([sectionType]) => sectionType === type);
   const note = extractReleaseNote(body);
 
-  if (!needed && !note) return null;
-  if (note === null) {
-    return `Add a "## Release note" section to the description: one or two sentences for people using the package, saying what's new or fixed and how to use it. It goes into the release notes as written. Write "None" if users won't notice the change.`;
-  }
-  if (note === "") {
-    return `The "## Release note" section is empty. Write one or two sentences for people using the package, or "None" if they won't notice the change.`;
+  if (!note) {
+    if (breaking) {
+      return `This is a breaking change, so it needs a "## Release note" section in the description: say what changed and what to do about it.`;
+    }
+    if (baseRef === "main" && releasable) {
+      return `PRs into main are released straight away, so this one needs a "## Release note" section in the description: one or two sentences for people using the package. Write "None" if they won't notice the change.`;
+    }
+    return null;
   }
   if (isNone(note)) {
     return breaking

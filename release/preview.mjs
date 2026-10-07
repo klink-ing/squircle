@@ -1,7 +1,13 @@
 /**
  * Prints the comment release-notes.yml keeps on a promotion PR: the version
- * and release notes that adding the `promote` label would publish, made by the
- * same code as the real ones (notes.mjs).
+ * and the release notes that adding the `promote` label would publish, made by
+ * the same code as the real ones (notes.mjs).
+ *
+ * Into main, those are this PR's `## Release notes`, written by hand; below
+ * them, every change since the last stable release, to write them from. A
+ * promotion into main that releases something needs them ("None" won't do):
+ * the check fails until they're written, and the promote bot waits for it.
+ * Into beta, the notes are generated from the PRs.
  *
  * The version is worked out the way commit-analyzer does it, from the last
  * stable tag on the base branch. Prereleases (into beta) aren't numbered here.
@@ -11,8 +17,8 @@
  */
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { parseCommit } from "./release-note.mjs";
-import { prBodyFetcher, renderNotes, repoSlug } from "./notes.mjs";
+import { extractReleaseNotes, isNone, isStablePromotion, parseCommit } from "./release-note.mjs";
+import { generateSections, prBodyFetcher, releaseTitle, renderNotes, repoSlug } from "./notes.mjs";
 
 export const MARKER = "<!-- release-notes-preview -->";
 
@@ -42,68 +48,129 @@ export function nextVersion(tag, commits) {
   return null;
 }
 
-export async function preview({ baseRef, headRef, baseSha, headSha, pr, prBody, slug, token }) {
-  const commits = commitsBetween(baseSha, headSha);
-  // The merge commit promoting this PR doesn't exist yet; stand one in, so its
-  // release note becomes the summary just as it will in the release.
-  commits.unshift({ hash: headSha, message: `Merge ${headRef} into ${baseRef} (#${pr})` });
-  const fetchFromGitHub = prBodyFetcher({ slug, token });
-  const fetchPrBody = (number) =>
-    number === pr ? Promise.resolve(prBody) : fetchFromGitHub(number);
-
+/**
+ * The comment, for a promotion PR whose `commits` (newest first) aren't on the
+ * base yet, and whether the PR is `ok` to promote: false when it releases a
+ * stable version without written notes. `previousTag` is the last stable tag
+ * on main; unused into beta.
+ */
+export async function previewComment({
+  baseRef,
+  headRef,
+  commits,
+  previousTag,
+  prBody,
+  fetchPrBody,
+  slug,
+  date,
+}) {
   const lines = [MARKER, "### Release notes preview", ""];
-  let version = "the next beta";
-  let previousTag;
-  if (baseRef === "main") {
-    previousTag = git("describe", "--tags", "--abbrev=0", "--exclude=*-*", baseSha).trim();
-    const next = nextVersion(previousTag, commits);
-    if (!next) {
-      lines.push(
-        "Promoting this releases nothing: none of its commits are features, fixes, performance changes or breaking changes.",
-      );
-      return `${lines.join("\n")}\n`;
-    }
-    version = next;
+
+  if (!isStablePromotion({ headRef, baseRef })) {
+    const { markdown } = await renderNotes({
+      stable: false,
+      version: "Next beta",
+      date,
+      commits,
+      fetchPrBody,
+      slug,
+    });
+    lines.push(
+      "Adding the `promote` label releases the next beta, with notes generated from its PRs:",
+      "",
+      "---",
+      "",
+      markdown.trim(),
+      "",
+      "---",
+      "",
+      `<sub>Each line is a PR's "Release note", or its title. Edit those, then re-run this check.</sub>`,
+    );
+    return { comment: `${lines.join("\n")}\n`, ok: true };
   }
 
-  const { markdown, untitled } = await renderNotes({
-    version,
-    previousTag,
-    tag: `v${version}`,
-    date: new Date().toISOString().slice(0, 10),
-    slug,
-    commits,
-    fetchPrBody,
-  });
-  lines.push(`Adding the \`promote\` label releases **${version}** with these notes:`, "");
-  if (untitled.length) {
-    const refs = untitled.map((number) => `#${number}`);
-    const prs = refs.length > 1 ? `${refs.slice(0, -1).join(", ")} and ${refs.at(-1)}` : refs[0];
+  const version = nextVersion(previousTag, commits);
+  if (!version) {
     lines.push(
-      `> [!NOTE]`,
-      `> ${prs} ${untitled.length === 1 ? "has" : "have"} no release note, so ${untitled.length === 1 ? "its title is" : "their titles are"} used. Add a \`## Release note\` section to ${untitled.length === 1 ? "its" : "their"} description, then re-run this check.`,
+      "Promoting this releases nothing: none of its commits are features, fixes, performance changes or breaking changes. It needs no release notes.",
+    );
+    return { comment: `${lines.join("\n")}\n`, ok: true };
+  }
+
+  const changes = await generateSections({ commits, fetchPrBody, slug });
+  const notes = extractReleaseNotes(prBody);
+  const written = notes && !isNone(notes) ? notes : null;
+  const major = version.split(".")[0] !== previousTag.replace(/^v/, "").split(".")[0];
+
+  if (major) {
+    lines.push(
+      "> [!WARNING]",
+      `> **${version} is a major release**, for the breaking changes listed below. Say in the notes what changed and what to do about it.`,
       "",
     );
   }
-  lines.push("---", "", markdown.trim(), "", "---", "");
+  if (written) {
+    const title = releaseTitle({ version, previousTag, tag: `v${version}`, date, slug });
+    lines.push(
+      `Adding the \`promote\` label releases **${version}** with this PR's "Release notes", as written:`,
+      "",
+      "---",
+      "",
+      title,
+      "",
+      written,
+      "",
+      "---",
+      "",
+      "<details>",
+      `<summary>Changes since ${previousTag}, to write the notes from</summary>`,
+      "",
+    );
+  } else {
+    lines.push(
+      "> [!IMPORTANT]",
+      `> Write ${version}'s notes under a \`## Release notes\` heading in this PR's description${notes ? ` ("None" won't do: this promotion releases ${version})` : ""}. They're published as written, and this check fails, so the PR can't be promoted, until they're there.`,
+      "",
+      `**Changes since ${previousTag}**, to write them from:`,
+      "",
+    );
+  }
   lines.push(
-    `<sub>Each line is a PR's "Release note" section, and the paragraph under the heading is this PR's. Edit those, then re-run this check to update the preview.</sub>`,
+    `Every feature, fix and performance change since the last stable release, as the alpha notes listed them. Cover what's new or different for someone on ${previousTag}; leave out what only mattered while building it.`,
+    "",
+    changes || "_None._",
   );
-  return `${lines.join("\n")}\n`;
+  if (written) lines.push("", "</details>");
+  return { comment: `${lines.join("\n")}\n`, ok: Boolean(written) };
+}
+
+async function main(env) {
+  const slug = repoSlug(undefined, env);
+  const pr = Number(env.PR_NUMBER);
+  const prBody = env.PR_BODY ?? "";
+  const fromGitHub = prBodyFetcher({ slug, token: env.GITHUB_TOKEN });
+  return previewComment({
+    baseRef: env.BASE_REF,
+    headRef: env.HEAD_REF,
+    commits: commitsBetween(env.BASE_SHA, env.HEAD_SHA),
+    previousTag:
+      env.BASE_REF === "main"
+        ? git("describe", "--tags", "--abbrev=0", "--exclude=*-*", env.BASE_SHA).trim()
+        : undefined,
+    prBody,
+    fetchPrBody: (number) => (number === pr ? Promise.resolve(prBody) : fromGitHub(number)),
+    slug,
+    date: new Date().toISOString().slice(0, 10),
+  });
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { env } = process;
-  process.stdout.write(
-    await preview({
-      baseRef: env.BASE_REF,
-      headRef: env.HEAD_REF,
-      baseSha: env.BASE_SHA,
-      headSha: env.HEAD_SHA,
-      pr: Number(env.PR_NUMBER),
-      prBody: env.PR_BODY ?? "",
-      slug: repoSlug(undefined, env),
-      token: env.GITHUB_TOKEN,
-    }),
-  );
+  const { comment, ok } = await main(process.env);
+  process.stdout.write(comment);
+  if (!ok) {
+    console.error(
+      `::error title=Release notes::Write this release's notes under "## Release notes" in the description; see the preview comment.`,
+    );
+    process.exitCode = 1;
+  }
 }

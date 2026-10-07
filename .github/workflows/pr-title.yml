@@ -1,8 +1,9 @@
 name: PR title and release note
 
-# Checks the PR title against Conventional Commits, and the "## Release note"
-# section of the description (release/check-release-note.mjs). Both report the
-# required `check` status.
+# Checks the PR title against Conventional Commits, and the description's
+# "## Release note" where one is needed (release/check-release-note.mjs).
+# Both report the required `check` status. A promotion's hand-written
+# "## Release notes" are checked by the release notes preview instead.
 
 on:
   pull_request:
@@ -30,4 +31,5 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
         run: node release/check-release-note.mjs
