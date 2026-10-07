@@ -241,7 +241,7 @@ export function pillDecorationImage(
   for (const band of bands) {
     const d = subpath(geometry.offsetOutline(outline, (band.from + band.to) / 2));
     const dash = band.dash.length > 0 ? ` stroke-dasharray="${band.dash.join(" ")}"` : "";
-    body += `<path d="${d}" fill="none" stroke-width="${round(band.to - band.from)}" stroke-linejoin="round"${dash} style="stroke:${band.color}"/>`;
+    body += `<path d="${d}" fill="none" stroke-width="${round(band.to - band.from)}" stroke-linejoin="miter"${dash} style="stroke:${band.color}"/>`;
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${defs ? `<defs>${defs}</defs>` : ""}${body}</svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;

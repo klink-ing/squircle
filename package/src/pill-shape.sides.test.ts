@@ -11,6 +11,7 @@ type Point = { x: number; y: number };
 
 const geometry = new (paintDef as unknown as new () => {
   boxOutline(width: number, height: number, props?: unknown): Point[];
+  offsetOutline(points: Point[], distance: number): Point[];
 })();
 
 const props = (values: Record<string, string | number | undefined>) => ({
@@ -139,6 +140,43 @@ describe("pill sides", () => {
       expect(has(top, 40, 40)).toBe(true);
       // The two caps meet halfway along the top.
       for (const p of top.filter((p) => p.y < EPS)) expect(p.x).toBeCloseTo(20, 6);
+    });
+  });
+
+  describe("decorations", () => {
+    it("move a square corner out along its miter, keeping it square", () => {
+      // Each edge has to move the full distance, so the corner moves √2
+      // times it; along the average normal alone, the whole square edge
+      // would sit too close and the flat edge before it would slope.
+      const out = geometry.offsetOutline(outline(200, 40, "l"), 5);
+      expect(has(out, 205, -5)).toBe(true);
+      expect(has(out, 205, 45)).toBe(true);
+      const inner = geometry.offsetOutline(outline(200, 40, "l"), -2);
+      expect(has(inner, 198, 2)).toBe(true);
+      expect(has(inner, 198, 38)).toBe(true);
+    });
+
+    it("leave a full pill's outline where it was", () => {
+      // Smooth everywhere, so the miter is the plain offset there: every
+      // point stays its distance from the outline.
+      const pill = geometry.boxOutline(240, 60);
+      const ring = distinct(pill);
+      const distanceTo = (p: Point) => {
+        let best = Infinity;
+        for (let i = 0; i < ring.length; i++) {
+          const a = ring[i] as Point;
+          const b = ring[(i + 1) % ring.length] as Point;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const t = Math.max(
+            0,
+            Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)),
+          );
+          best = Math.min(best, Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)));
+        }
+        return best;
+      };
+      for (const p of geometry.offsetOutline(pill, 4)) expect(distanceTo(p)).toBeCloseTo(4, 2);
     });
   });
 
