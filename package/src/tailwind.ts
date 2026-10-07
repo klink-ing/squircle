@@ -115,6 +115,11 @@ export default squircle;
 // group also conflicts with its `rounded` counterpart (and vice versa), since
 // both set the same border-radius properties. `squircle-amt-*` is orthogonal:
 // it controls corner shape, not radius, so radius classes never cancel it.
+//
+// `squircle-pill` shapes all four corners, so it sits with the all-corners
+// utilities. Its `-amt-*`, `-ease-*` and `-g2`/`-g3` knobs each get a group of
+// their own; left out, the catch-all `squircle-*` group would take them for
+// radii and have them cancel the pill and each other.
 const SIDE_CORNERS = {
   t: ["tl", "tr"],
   r: ["tr", "br"],
@@ -130,9 +135,12 @@ const ALL_SUFFIXES: readonly string[] = ["", ...SIDES, ...CORNERS];
 const sq = (suffix: string) => (suffix ? `squircle-${suffix}` : "squircle");
 const rd = (suffix: string) => (suffix ? `rounded-${suffix}` : "rounded");
 
+const PILL = "squircle-pill";
+
 const conflictingClassGroups: Record<string, string[]> = {
-  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd)],
-  rounded: ALL_SUFFIXES.map(sq),
+  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL],
+  rounded: [...ALL_SUFFIXES.map(sq), PILL],
+  [PILL]: [...ALL_SUFFIXES.map(sq), ...ALL_SUFFIXES.map(rd)],
 };
 for (const side of SIDES) {
   const corners: readonly string[] = SIDE_CORNERS[side];
@@ -144,14 +152,18 @@ for (const corner of CORNERS) {
   conflictingClassGroups[rd(corner)] = [sq(corner)];
 }
 
+// String-keyed, so it reads as an extension of tailwind-merge's own groups.
+const classGroups: Record<string, (string | Record<string, (() => boolean)[]>)[]> = {
+  ...Object.fromEntries(
+    ALL_SUFFIXES.map((suffix) => [sq(suffix), [{ [sq(suffix)]: [() => true] }]]),
+  ),
+  "squircle-amt": [{ "squircle-amt": [() => true] }],
+  [PILL]: [PILL],
+  [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
+  [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
+  [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
+};
+
 export const squircleMergeConfig = {
-  extend: {
-    classGroups: {
-      ...Object.fromEntries(
-        ALL_SUFFIXES.map((suffix) => [sq(suffix), [{ [sq(suffix)]: [() => true] }]]),
-      ),
-      "squircle-amt": [{ "squircle-amt": [() => true] }],
-    },
-    conflictingClassGroups,
-  },
+  extend: { classGroups, conflictingClassGroups },
 };

@@ -88,7 +88,7 @@ const twMerge = extendTailwindMerge(squircleMergeConfig, {
 });
 ```
 
-The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners utility cancels earlier side/corner utilities (from either family), a side cancels its two corners, and a narrower utility refines a broader one instead of canceling it — `squircle-md squircle-tl-sm` keeps both. `squircle-amt-*` is independent of radius classes.
+The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners utility cancels earlier side/corner utilities (from either family), a side cancels its two corners, and a narrower utility refines a broader one instead of canceling it — `squircle-md squircle-tl-sm` keeps both. `squircle-amt-*` is independent of radius classes. `squircle-pill` counts as an all-corners utility, and its `-amt-*`, `-ease-*` and `-g2`/`-g3` modifiers each only cancel their own kind.
 
 ### Utilities
 
@@ -1365,6 +1365,7 @@ import { extendTailwindMerge } from "tailwind-merge";
 // corners, and a narrower utility never cancels a broader one. Each squircle
 // group also conflicts with its `rounded` counterpart (and vice versa).
 // `squircle-amt-*` is orthogonal: radius classes never cancel it.
+// `squircle-pill` is an all-corners utility; its knobs each get their own group.
 const SIDE_CORNERS = {
   t: ["tl", "tr"],
   r: ["tr", "br"],
@@ -1380,9 +1381,12 @@ const ALL_SUFFIXES = ["", ...SIDES, ...CORNERS];
 const sq = (suffix) => (suffix ? `squircle-${suffix}` : "squircle");
 const rd = (suffix) => (suffix ? `rounded-${suffix}` : "rounded");
 
+const PILL = "squircle-pill";
+
 const conflictingClassGroups = {
-  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd)],
-  rounded: ALL_SUFFIXES.map(sq),
+  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL],
+  rounded: [...ALL_SUFFIXES.map(sq), PILL],
+  [PILL]: [...ALL_SUFFIXES.map(sq), ...ALL_SUFFIXES.map(rd)],
 };
 for (const side of SIDES) {
   const corners = SIDE_CORNERS[side];
@@ -1401,6 +1405,10 @@ export const squircleMergeConfig = {
         ALL_SUFFIXES.map((suffix) => [sq(suffix), [{ [sq(suffix)]: [() => true] }]]),
       ),
       "squircle-amt": [{ "squircle-amt": [() => true] }],
+      [PILL]: [PILL],
+      [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
+      [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
+      [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
     },
     conflictingClassGroups,
   },
