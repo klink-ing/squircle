@@ -16,11 +16,25 @@ interface Example {
   /** What to expect. */
   note: string;
   /**
-   * A plain pill; a focusable button for focus states; a pill holding a
-   * smaller one; or a `data-squircle-pill` element styled with the plain-CSS
-   * stylesheet's own properties, no Tailwind involved.
+   * A plain pill; a tall or square one, for the sides; a focusable button for
+   * focus states; a pill holding a smaller one; a three-button group capped
+   * at its ends; or a `data-squircle-pill` element styled with the plain-CSS
+   * stylesheet's own properties, or (`standalone-side`) given `classes` as
+   * the attribute's value.
    */
-  build?: "pill" | "button" | "nested" | "standalone";
+  build?:
+    | "pill"
+    | "tall"
+    | "square"
+    | "button"
+    | "nested"
+    | "group"
+    | "standalone"
+    | "standalone-side";
+  /** Laid out right to left, for the inline sides. */
+  rtl?: boolean;
+  /** For `group`: a border on every button. */
+  bordered?: boolean;
   /** Shown on a light tile, whatever its section uses. */
   light?: boolean;
 }
@@ -35,6 +49,65 @@ interface Section {
 
 // Every class is spelled out in full so Tailwind finds and generates it.
 const sections: Section[] = [
+  {
+    title: "Sides",
+    intro:
+      "A side caps that end alone and squares the other. -s and -e are the inline ends, so they swap right to left. -x and -y are the automatic pill spelled out: a cap can't be wider than the box, so capping both ends of either axis is what squircle-pill already draws.",
+    examples: [
+      { classes: "", note: "Both short ends, chosen from the aspect ratio." },
+      { classes: "squircle-pill-x", note: "The same pill, the axis spelled out." },
+      { classes: "squircle-pill-y", note: "Still the same pill: the caps can't outgrow the height." },
+      { classes: "squircle-pill-l", note: "The left end, the same cap as a full pill's." },
+      { classes: "squircle-pill-r", note: "The right end." },
+      { classes: "squircle-pill-t", note: "The top: a tab whose corners run the full height." },
+      { classes: "squircle-pill-b", note: "The bottom." },
+      { classes: "squircle-pill-s", note: "The inline start: the left here." },
+      { classes: "squircle-pill-e", note: "The inline end: the right here." },
+      { classes: "squircle-pill-s", note: "Right to left, the start is the right.", rtl: true },
+      { classes: "squircle-pill-e", note: "Right to left, the end is the left.", rtl: true },
+    ],
+  },
+  {
+    title: "Sides on tall and square pills",
+    intro:
+      "The same utilities on a pill taller than it is wide, and on a square. A cap is clamped to what the box can give it, so a square capped at one end is an arch, not a circle.",
+    examples: [
+      { classes: "", note: "Tall: caps top and bottom.", build: "tall" },
+      { classes: "squircle-pill-x", note: "Still top and bottom.", build: "tall" },
+      { classes: "squircle-pill-y", note: "The axis spelled out.", build: "tall" },
+      { classes: "squircle-pill-t", note: "The top end alone.", build: "tall" },
+      { classes: "squircle-pill-b", note: "The bottom end alone.", build: "tall" },
+      { classes: "squircle-pill-l", note: "The left, clamped to the width.", build: "tall" },
+      { classes: "squircle-pill-r", note: "The right, clamped to the width.", build: "tall" },
+      { classes: "", note: "Square: a circle.", build: "square" },
+      { classes: "squircle-pill-t", note: "Square, top only: an arch.", build: "square" },
+      { classes: "squircle-pill-l", note: "Square, left only.", build: "square" },
+    ],
+  },
+  {
+    title: "Button groups",
+    intro:
+      "What sides are for: the first button capped at the start, the last at the end, the middle square. The same markup right to left caps the other way round.",
+    examples: [
+      {
+        classes: "squircle-pill-s · (square) · squircle-pill-e",
+        note: "Left to right.",
+        build: "group",
+      },
+      {
+        classes: "squircle-pill-s · (square) · squircle-pill-e",
+        note: "The same markup, right to left.",
+        build: "group",
+        rtl: true,
+      },
+      {
+        classes: "squircle-pill-s · (square) · squircle-pill-e",
+        note: "With a border on each button.",
+        build: "group",
+        bordered: true,
+      },
+    ],
+  },
   {
     title: "Backgrounds",
     intro:
@@ -212,6 +285,16 @@ const sections: Section[] = [
         build: "standalone",
         light: true,
       },
+      { classes: "t", note: "Capped at the top, from the attribute alone.", build: "standalone-side" },
+      { classes: "l", note: "Capped at the left.", build: "standalone-side" },
+      { classes: "e", note: "Capped at the inline end.", build: "standalone-side" },
+      {
+        classes: "e",
+        note: "The inline end, right to left.",
+        build: "standalone-side",
+        rtl: true,
+      },
+      { classes: "x", note: "The automatic pill.", build: "standalone-side" },
     ],
   },
 ];
@@ -269,17 +352,64 @@ const STANDALONE_BACKGROUND = "background: #6366f1";
             <h2 class="mb-1 text-xl font-semibold">{section.title}</h2>
             <p class="mb-5 max-w-3xl text-sm text-zinc-400">{section.intro}</p>
             <ul class="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-x-6 gap-y-8">
-              {section.examples.map(({ classes, note, build = "pill", light }) => (
+              {section.examples.map(({ classes, note, build = "pill", light, rtl, bordered }) => (
                 <li class="flex flex-col items-start gap-3">
                   <div
+                    dir={rtl ? "rtl" : undefined}
                     class:list={[
                       "flex items-center",
                       (section.light || light)
                         ? "h-28 self-stretch rounded-lg bg-zinc-100 px-6"
-                        : "h-20 px-3",
+                        : build === "tall"
+                          ? "h-40 px-3"
+                          : "h-20 px-3",
                     ]}
                   >
                     {build === "pill" && <div class={`${PILL} ${classes}`} />}
+                    {build === "tall" && (
+                      <div class={`squircle-pill h-36 w-12 bg-indigo-500 ${classes}`} />
+                    )}
+                    {build === "square" && (
+                      <div class={`squircle-pill size-16 bg-indigo-500 ${classes}`} />
+                    )}
+                    {build === "group" && (
+                      <div class="flex gap-0.5">
+                        <button
+                          type="button"
+                          class:list={[
+                            "squircle-pill squircle-pill-s h-10 bg-indigo-500 px-4 text-sm font-medium",
+                            bordered && "border-2 border-white",
+                          ]}
+                        >
+                          Day
+                        </button>
+                        <button
+                          type="button"
+                          class:list={[
+                            "h-10 bg-indigo-500 px-4 text-sm font-medium",
+                            bordered && "border-2 border-white",
+                          ]}
+                        >
+                          Week
+                        </button>
+                        <button
+                          type="button"
+                          class:list={[
+                            "squircle-pill squircle-pill-e h-10 bg-indigo-500 px-4 text-sm font-medium",
+                            bordered && "border-2 border-white",
+                          ]}
+                        >
+                          Month
+                        </button>
+                      </div>
+                    )}
+                    {build === "standalone-side" && (
+                      <div
+                        data-squircle-pill={classes}
+                        class="h-12 w-40 text-zinc-100"
+                        style={STANDALONE_BACKGROUND}
+                      />
+                    )}
                     {build === "nested" && (
                       <div class={`${PILL} flex items-center gap-3 px-3 ${classes}`}>
                         <div class="squircle-pill size-6 bg-violet-300" />
@@ -301,7 +431,10 @@ const STANDALONE_BACKGROUND = "background: #6366f1";
                   </div>
                   <div>
                     <p class="font-mono text-xs break-all text-zinc-200">
-                      {classes || "(no classes)"}
+                      {build === "standalone-side"
+                        ? `data-squircle-pill="${classes}"`
+                        : classes || "(no classes)"}
+                      {rtl && " · dir=rtl"}
                     </p>
                     <p class="mt-1 text-xs text-zinc-400">{note}</p>
                   </div>
