@@ -908,11 +908,12 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * The outline moved `distance` outwards (inwards where negative), each
-   * point along the average of its two edges' outward normals. Exact enough
-   * for a convex outline sampled this densely, out to any distance and in to
-   * well past any decoration's width; the points where the quadrants meet,
-   * repeated, are dropped first, having no direction of their own.
+   * The outline moved `distance` outwards (inwards where negative): each
+   * point of a curve along the average of its two edges' outward normals, and
+   * each real corner along its miter. Exact enough for a convex outline
+   * sampled this densely, out to any distance and in to well past any
+   * decoration's width; the points where the pieces meet, repeated, are
+   * dropped first, having no direction of their own.
    */
   offsetOutline(points: Point[], distance: number): Point[] {
     const ring: Point[] = [];
@@ -949,8 +950,13 @@ export const paintDef = class PillShape implements PaintWorklet {
       const b = normal(p, next);
       const mx = a.x + b.x;
       const my = a.y + b.y;
-      const length = Math.hypot(mx, my) || 1;
-      return { x: p.x + (mx / length) * out, y: p.y + (my / length) * out };
+      // Where the outline turns a real corner — a side pill's square end —
+      // along the miter, so both edges move the full distance and the corner
+      // stays square. Elsewhere the outline samples a curve, and the average
+      // normal is the curve's own.
+      const cos = a.x * b.x + a.y * b.y;
+      const scale = cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.hypot(mx, my) || 1);
+      return { x: p.x + mx * scale, y: p.y + my * scale };
     });
   }
 
@@ -1148,7 +1154,8 @@ export const decorationDef = class PillDecoration extends paintDef {
       ctx.restore();
     }
 
-    ctx.lineJoin = "round";
+    // Mitred, so a band keeps a side pill's square corners square.
+    ctx.lineJoin = "miter";
     for (const band of bands) {
       trace(this.offsetOutline(outline, (band.from + band.to) / 2));
       ctx.strokeStyle = band.color;

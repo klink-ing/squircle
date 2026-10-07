@@ -198,6 +198,23 @@ describe("pill polyfill", () => {
         (m) => ({ points: parse(m[1] as string)[0] as Point[], color: m[2] as string }),
       );
 
+    it("joins its bands with miters, so a side pill's square corners stay square", () => {
+      const image = svg(
+        pillDecorationImage(
+          200,
+          40,
+          {
+            [PILL_BORDER_WIDTH_VAR_NAME]: "4px",
+            [PILL_BORDER_COLOR_VAR_NAME]: "red",
+            [PILL_BORDER_STYLE_VAR_NAME]: "dashed",
+          },
+          { side: "l" },
+        ),
+      );
+      expect(image).toContain('stroke-linejoin="miter"');
+      expect(image).not.toContain('stroke-linejoin="round"');
+    });
+
     it("draws nothing without a border, outline, ring or shadow", () => {
       expect(decorate({})).toBeNull();
       expect(decorate({ [PILL_OUTLINE_COLOR_VAR_NAME]: "red" })).toBeNull();

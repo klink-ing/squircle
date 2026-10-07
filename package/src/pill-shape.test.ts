@@ -75,7 +75,7 @@ type Point = { x: number; y: number };
 type Drawn = {
   /** Every path traced, in order, with what was done with it. */
   paths: { points: Point[]; op?: "fill" | "stroke" | "clip"; rule?: string }[];
-  strokes: { color: string; width: number; dash: number[]; points: Point[] }[];
+  strokes: { color: string; width: number; dash: number[]; join: string; points: Point[] }[];
   shadows: { color: string; blur: number; x: number; y: number; points: Point[] }[];
 };
 
@@ -132,7 +132,13 @@ const record = (
     },
     stroke() {
       drawn.paths[drawn.paths.length - 1].op = "stroke";
-      drawn.strokes.push({ color: ctx.strokeStyle, width: ctx.lineWidth, dash, points: current });
+      drawn.strokes.push({
+        color: ctx.strokeStyle,
+        width: ctx.lineWidth,
+        dash,
+        join: ctx.lineJoin,
+        points: current,
+      });
     },
     clip(rule?: string) {
       const path = drawn.paths[drawn.paths.length - 1];
@@ -488,6 +494,16 @@ describe("pill-shape worklet contract", () => {
           [PILL_BOX_SHADOW_VAR_NAME]: "0 0 #0000, 0 4px 8px rgb(0 0 0 / 0)",
         }).paths,
       ).toEqual([]);
+    });
+
+    it("joins its bands with miters, so a side pill's square corners stay square", () => {
+      const drawn = record(decorationDef, {
+        [PILL_BORDER_WIDTH_VAR_NAME]: "4px",
+        [PILL_BORDER_COLOR_VAR_NAME]: "red",
+        [PILL_SIDE_VAR_NAME]: "l",
+      });
+      expect(drawn.strokes.length).toBeGreaterThan(0);
+      for (const stroke of drawn.strokes) expect(stroke.join).toBe("miter");
     });
 
     it("draws nothing for border-style none or hidden", () => {
