@@ -6,7 +6,7 @@ PRs are squash-merged, so the title becomes the commit subject and the descripti
 
 ### Title
 
-[Conventional Commits](https://www.conventionalcommits.org), checked in CI: `type(scope): description`, with `feat`, `fix`, `perf`, `docs`, `chore`, `test`, `ci`, `style` or `revert` (`refactor` and `build` are rejected). The type sets the next version: `feat` is a minor release, `fix` and `perf` a patch, and `!` after the type a major. Mark a change `!` only if it breaks something in the last stable release.
+[Conventional Commits](https://www.conventionalcommits.org), checked in CI: `type(scope): description`, with `feat`, `fix`, `perf`, `docs`, `chore`, `test`, `ci`, `style` or `revert` (`refactor` and `build` are rejected). The type sets the next version: `feat` is a minor release, `fix` and `perf` a patch, and `!` just before the colon a major (`feat!:`, `feat(pill)!:`). Mark a change `!` only if it breaks something in the last stable release.
 
 A `feat`, `fix` or `perf` title is also the PR's line in the alpha and beta release notes when it has no release note, so write it to read well there.
 
@@ -30,7 +30,7 @@ Each `feat`, `fix` and `perf` PR since the previous alpha or beta gets a line, b
 
 ### Stable releases: written by hand on the promotion PR
 
-A promotion into main (from alpha or beta) carries the stable release's notes under `## Release notes`, published as written. Promoting is blocked until they're there.
+A promotion into main (from alpha or beta) carries the stable release's notes under `## Release notes`, published as written. If the promotion releases anything, its "Release notes preview" check fails until they're written (`None` doesn't count), and the promote bot won't merge it.
 
 **Write them against the last stable release, not the last alpha or beta.** Someone upgrading from it never saw the prereleases in between.
 

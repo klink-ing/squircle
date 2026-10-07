@@ -4,8 +4,10 @@
  * the same code as the real ones (notes.mjs).
  *
  * Into main, those are this PR's `## Release notes`, written by hand; below
- * them, every change since the last stable release, to write them from. Into
- * beta, they're generated from the PRs.
+ * them, every change since the last stable release, to write them from. A
+ * promotion into main that releases something needs them ("None" won't do):
+ * the check fails until they're written, and the promote bot waits for it.
+ * Into beta, the notes are generated from the PRs.
  *
  * The version is worked out the way commit-analyzer does it, from the last
  * stable tag on the base branch. Prereleases (into beta) aren't numbered here.
@@ -15,8 +17,8 @@
  */
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { extractReleaseNotes, isStablePromotion, parseCommit } from "./release-note.mjs";
-import { generateSections, prBodyFetcher, renderNotes, repoSlug } from "./notes.mjs";
+import { extractReleaseNotes, isNone, isStablePromotion, parseCommit } from "./release-note.mjs";
+import { generateSections, prBodyFetcher, releaseTitle, renderNotes, repoSlug } from "./notes.mjs";
 
 export const MARKER = "<!-- release-notes-preview -->";
 
@@ -48,7 +50,9 @@ export function nextVersion(tag, commits) {
 
 /**
  * The comment, for a promotion PR whose `commits` (newest first) aren't on the
- * base yet. `previousTag` is the last stable tag on main; unused into beta.
+ * base yet, and whether the PR is `ok` to promote: false when it releases a
+ * stable version without written notes. `previousTag` is the last stable tag
+ * on main; unused into beta.
  */
 export async function previewComment({
   baseRef,
@@ -82,19 +86,20 @@ export async function previewComment({
       "",
       `<sub>Each line is a PR's "Release note", or its title. Edit those, then re-run this check.</sub>`,
     );
-    return `${lines.join("\n")}\n`;
+    return { comment: `${lines.join("\n")}\n`, ok: true };
   }
 
   const version = nextVersion(previousTag, commits);
   if (!version) {
     lines.push(
-      "Promoting this releases nothing: none of its commits are features, fixes, performance changes or breaking changes.",
+      "Promoting this releases nothing: none of its commits are features, fixes, performance changes or breaking changes. It needs no release notes.",
     );
-    return `${lines.join("\n")}\n`;
+    return { comment: `${lines.join("\n")}\n`, ok: true };
   }
 
   const changes = await generateSections({ commits, fetchPrBody, slug });
-  const written = extractReleaseNotes(prBody);
+  const notes = extractReleaseNotes(prBody);
+  const written = notes && !isNone(notes) ? notes : null;
   const major = version.split(".")[0] !== previousTag.replace(/^v/, "").split(".")[0];
 
   if (major) {
@@ -105,7 +110,7 @@ export async function previewComment({
     );
   }
   if (written) {
-    const title = `## [${version}](https://github.com/${slug}/compare/${previousTag}...v${version}) (${date})`;
+    const title = releaseTitle({ version, previousTag, tag: `v${version}`, date, slug });
     lines.push(
       `Adding the \`promote\` label releases **${version}** with this PR's "Release notes", as written:`,
       "",
@@ -124,7 +129,7 @@ export async function previewComment({
   } else {
     lines.push(
       "> [!IMPORTANT]",
-      `> Write ${version}'s notes under a \`## Release notes\` heading in this PR's description. They're published as written, and promoting is blocked until they're there.`,
+      `> Write ${version}'s notes under a \`## Release notes\` heading in this PR's description${notes ? ` ("None" won't do: this promotion releases ${version})` : ""}. They're published as written, and this check fails, so the PR can't be promoted, until they're there.`,
       "",
       `**Changes since ${previousTag}**, to write them from:`,
       "",
@@ -136,7 +141,7 @@ export async function previewComment({
     changes || "_None._",
   );
   if (written) lines.push("", "</details>");
-  return `${lines.join("\n")}\n`;
+  return { comment: `${lines.join("\n")}\n`, ok: Boolean(written) };
 }
 
 async function main(env) {
@@ -160,5 +165,12 @@ async function main(env) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.stdout.write(await main(process.env));
+  const { comment, ok } = await main(process.env);
+  process.stdout.write(comment);
+  if (!ok) {
+    console.error(
+      `::error title=Release notes::Write this release's notes under "## Release notes" in the description; see the preview comment.`,
+    );
+    process.exitCode = 1;
+  }
 }

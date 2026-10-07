@@ -2,7 +2,9 @@ name: Release notes preview
 
 # On a promotion PR (alpha or beta into main or beta), keeps one comment with
 # the version and release notes that adding the `promote` label would
-# publish, made by the same code as the real ones. See release/preview.mjs.
+# publish, made by the same code as the real ones. Fails a promotion into main
+# that releases something without hand-written "## Release notes"; the
+# promote bot waits for it. See release/preview.mjs.
 
 on:
   pull_request:
@@ -34,11 +36,15 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node release/preview.mjs >"$RUNNER_TEMP/preview.md"
 
+      # Even when the step above failed for missing notes: the comment says
+      # what to write. Not when it crashed and left nothing to post.
       - name: Post or update the comment
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          [[ -s $RUNNER_TEMP/preview.md ]] || exit 0
           existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
             --jq '.[] | select(.body | startswith("<!-- release-notes-preview -->")) | .id' | head -1)
           if [[ -n $existing ]]; then

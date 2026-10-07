@@ -24,7 +24,9 @@ export const SECTIONS = [
 ];
 
 const HEADING = /^#{2,3}[ \t]*release[ \t]+notes?[ \t]*$/im;
-const SECTION_END = /^(?:#{1,2}[ \t]|-{3,}[ \t]*$)/m;
+const NOTES_HEADING = /^#{2,3}[ \t]*release[ \t]+notes[ \t]*$/im;
+const SECTION_END = /^(?:#{1,2}[ \t]|-{3,}[ \t]*$)/;
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const NEXT_HEADING = /^#{1,3}[ \t]/m;
 const COMMENT = /<!--[\s\S]*?-->/g;
 const NONE = /^none\.?$/i;
@@ -36,12 +38,35 @@ const HEADER = /^(\w*)(?:\((.*)\))?!?: (.*)$/;
 const BREAKING_HEADER = /^(\w*)(?:\((.*)\))?!: (.*)$/;
 const BREAKING_NOTE = /^[\s|*]*BREAKING[ -]CHANGE[:\s]/m;
 
-/** The text after a body's release note heading, or null without one. */
-function afterHeading(body) {
+/**
+ * The text after a body's release note heading, or null without one. With
+ * `plural`, a `## Release notes` heading wins over an earlier `## Release
+ * note`, like the one the PR template leaves above hand-written notes.
+ */
+function afterHeading(body, { plural = false } = {}) {
   if (!body) return null;
   const text = body.replace(/\r\n/g, "\n");
-  const heading = HEADING.exec(text);
+  const heading = (plural && NOTES_HEADING.exec(text)) || HEADING.exec(text);
   return heading ? text.slice(heading.index + heading[0].length) : null;
+}
+
+/** Where a promotion's notes end: the first `#`/`##` heading or `---` line outside a code block. */
+function notesEnd(section) {
+  let fence = null;
+  let offset = 0;
+  for (const line of section.split("\n")) {
+    const marker = FENCE.exec(line)?.[1];
+    if (fence) {
+      const closes = marker?.[0] === fence[0] && marker.length >= fence.length;
+      if (closes && !line.trim().slice(marker.length).trim()) fence = null;
+    } else if (marker) {
+      fence = marker;
+    } else if (SECTION_END.test(line)) {
+      return offset;
+    }
+    offset += line.length + 1;
+  }
+  return section.length;
 }
 
 /**
@@ -63,16 +88,16 @@ export function extractReleaseNote(body) {
 
 /**
  * A promotion PR's release notes: everything under its `## Release notes`
- * heading up to the next `#`/`##` heading or `---` line, comments aside.
- * `null` without the heading, `""` when it's empty.
+ * heading up to the next `#`/`##` heading or `---` line outside a code block,
+ * comments aside. `null` without the heading, `""` when it's empty.
  */
 export function extractReleaseNotes(body) {
-  let section = afterHeading(body);
+  const section = afterHeading(body, { plural: true });
   if (section === null) return null;
-  const end = SECTION_END.exec(section);
-  if (end) section = section.slice(0, end.index);
-  return section
-    .replace(COMMENT, "")
+  // Comments go first, so a `---` or heading in one doesn't end the notes.
+  const text = section.replace(COMMENT, "");
+  return text
+    .slice(0, notesEnd(text))
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -124,23 +149,18 @@ export function isStablePromotion({ headRef, baseRef }) {
 }
 
 /**
- * Checks a PR's release notes. Returns a message saying what to change, or
- * null when they're fine.
+ * Checks a PR's release note. Returns a message saying what to change, or null
+ * when it's fine.
  *
- * - A promotion into main needs `## Release notes`: the stable release's
- *   notes, written by hand.
- * - Other promotions and syncs need nothing.
  * - Features, fixes and performance changes into main need a `## Release
  *   note`, since they're released straight away ("None" will do).
  * - Breaking changes always need a real one, saying what to do.
  * - Otherwise a note is optional; the title stands in for it.
+ * - Promotions and syncs need none here. A promotion into main needs its
+ *   hand-written `## Release notes` only if it releases something, which the
+ *   release notes preview works out and checks (preview.mjs).
  */
 export function checkReleaseNote({ title, body, headRef, baseRef }) {
-  if (isStablePromotion({ headRef, baseRef })) {
-    return extractReleaseNotes(body)
-      ? null
-      : `Write the stable release's notes under a "## Release notes" heading in the description: what's new, changed or fixed since the last stable release, for someone using the package. They're published as written. The "Release notes preview" comment lists every change since then.`;
-  }
   if (isPromotionHead(headRef)) return null;
 
   const { type, breaking } = parseCommit(title);

@@ -80,13 +80,19 @@ export async function generateSections({ commits, fetchPrBody, slug }) {
   const breaking = [];
   const sections = new Map(SECTIONS.map(([type]) => [type, []]));
 
+  const listed = [];
   for (const { message, hash } of commits) {
     const commit = parseCommit(message);
     const list = commit.breaking ? breaking : sections.get(commit.type);
-    if (!list) continue;
+    if (list) listed.push({ hash, commit, list });
+  }
+  // Read the PRs all at once rather than one after another.
+  const prBodies = await Promise.all(
+    listed.map(({ commit }) => (commit.pr ? fetchPrBody(commit.pr) : null)),
+  );
 
-    const prBody = commit.pr ? await fetchPrBody(commit.pr) : null;
-    let note = extractReleaseNote(prBody) || extractReleaseNote(commit.body);
+  for (const [i, { hash, commit, list }] of listed.entries()) {
+    let note = extractReleaseNote(prBodies[i]) || extractReleaseNote(commit.body);
     if (note && isNone(note)) {
       if (!commit.breaking) continue;
       note = null;
@@ -108,21 +114,23 @@ export async function generateSections({ commits, fetchPrBody, slug }) {
 }
 
 /**
- * The release notes. On a stable release with a promotion PR whose
+ * The release notes. On a stable release made by a promotion PR whose
  * `## Release notes` are written, those; otherwise generated ones. Returns
  * the Markdown, whether it was `written`, and the promotion PR, if any.
+ *
+ * Only a promotion whose merge is the newest commit made the release. An
+ * earlier one in the range released nothing (or its release failed), so its
+ * notes don't describe this release, like a hotfix that came after it.
  */
 export async function renderNotes({ stable, commits, fetchPrBody, slug, ...release }) {
   const title = releaseTitle({ slug, ...release });
-  let promotion = null;
-  if (stable) {
-    for (const { message } of commits) {
-      const match = STABLE_PROMOTION.exec(message.split("\n")[0]);
-      if (!match) continue;
-      promotion = Number(match[1]);
-      const written = extractReleaseNotes(await fetchPrBody(promotion));
-      if (written) return { markdown: `${title}\n\n${written}\n`, written: true, promotion };
-    }
+  const match =
+    stable && commits.length ? STABLE_PROMOTION.exec(commits[0].message.split("\n")[0]) : null;
+  const promotion = match ? Number(match[1]) : null;
+  if (promotion) {
+    const written = extractReleaseNotes(await fetchPrBody(promotion));
+    if (written && !isNone(written))
+      return { markdown: `${title}\n\n${written}\n`, written: true, promotion };
   }
   const sections = await generateSections({ commits, fetchPrBody, slug });
   return {
@@ -150,7 +158,7 @@ export async function generateNotes(_pluginConfig, context) {
     logger.log(`Release notes written on #${promotion}.`);
   } else if (promotion) {
     logger.warn(
-      `#${promotion} has no "## Release notes" to publish, so they're generated instead.`,
+      `#${promotion}'s "## Release notes" are missing or couldn't be read, so they're generated instead.`,
     );
   }
   return markdown;

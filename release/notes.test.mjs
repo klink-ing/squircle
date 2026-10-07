@@ -68,6 +68,18 @@ describe("extractReleaseNotes", () => {
     assert.equal(extractReleaseNotes("## Summary\n\nx"), null);
     assert.equal(extractReleaseNotes(promotionBody("")), "");
   });
+  it("finds them below the template's own '## Release note' heading", () => {
+    const templated = `## Release note\n\n<!-- guidance -->\n\n## Release notes\n\n${WRITTEN}`;
+    assert.equal(extractReleaseNotes(templated), WRITTEN);
+  });
+  it("isn't ended by a --- or heading inside a comment", () => {
+    const body = `## Release notes\n\n<!--\n---\n## not the end\n-->\n${WRITTEN}\n\n---\n\nfooter`;
+    assert.equal(extractReleaseNotes(body), WRITTEN);
+  });
+  it("doesn't end inside a code block", () => {
+    const notes = "Renamed.\n\n```sh\n# before\nnpm i a\n---\n```\n\nAfter the code.";
+    assert.equal(extractReleaseNotes(`## Release notes\n\n${notes}\n\n---\n\nfooter`), notes);
+  });
 });
 
 describe("normalizeNote", () => {
@@ -112,19 +124,10 @@ describe("checkReleaseNote", () => {
       baseRef,
     });
 
-  it("needs hand-written notes on a promotion into main", () => {
-    for (const headRef of ["alpha", "beta"]) {
-      const promotion = { headRef, baseRef: "main" };
-      const message = /under a "## Release notes" heading/;
-      assert.match(checkReleaseNote({ title: "chore: x", body: "x", ...promotion }), message);
-      const empty = promotionBody("");
-      assert.match(checkReleaseNote({ title: "chore: x", body: empty, ...promotion }), message);
-      const written = promotionBody(WRITTEN);
-      assert.equal(checkReleaseNote({ title: "chore: x", body: written, ...promotion }), null);
-    }
-  });
-  it("needs nothing on other promotions and syncs", () => {
+  it("needs nothing on promotions and syncs: the preview checks a promotion's notes", () => {
     for (const [headRef, baseRef] of [
+      ["alpha", "main"],
+      ["beta", "main"],
       ["alpha", "beta"],
       ["main", "alpha"],
       ["beta", "alpha"],
@@ -253,6 +256,25 @@ describe("renderNotes", () => {
       promotion: 50,
     });
   });
+  it("only takes the notes of the promotion that makes the release", async () => {
+    const hotfix = await render([
+      "fix: crease (#39)\n\n## Release note\n\nfixes it",
+      "Merge alpha into main (#50)",
+      "chore(site): x (#41)",
+    ]);
+    assert.equal(hotfix.written, false);
+    assert.equal(hotfix.promotion, null);
+    assert.match(hotfix.markdown, /### Fixes\n\n- Fixes it\./);
+    const unreadable = await render(["Merge beta into main (#99)", "Merge alpha into main (#50)"]);
+    assert.equal(unreadable.written, false);
+    assert.equal(unreadable.promotion, 99);
+  });
+  it("never publishes 'None' as a release's notes", async () => {
+    prs[52] = promotionBody("None");
+    const result = await render(["Merge alpha into main (#52)", "feat: Add pill (#38)"]);
+    assert.equal(result.written, false);
+    assert.match(result.markdown, /### Features\n\n- New `squircle-pill` utility\./);
+  });
   it("generates them when the promotion has none, so a release is never blank", async () => {
     const result = await render(["Merge alpha into main (#51)", "feat: Add pill (#38)"]);
     assert.equal(result.written, false);
@@ -291,7 +313,8 @@ describe("previewComment", () => {
     });
 
   it("shows the written notes as published, with the changes since the last stable release folded away", async () => {
-    const comment = await preview(promotionBody(WRITTEN), ["feat: Add pill (#38)"]);
+    const { comment, ok } = await preview(promotionBody(WRITTEN), ["feat: Add pill (#38)"]);
+    assert.equal(ok, true);
     assert.match(comment, /^<!-- release-notes-preview -->\n/);
     assert.match(comment, /releases \*\*0\.12\.0\*\* with this PR's "Release notes", as written/);
     assert.ok(comment.includes(`(2026-11-02)\n\n${WRITTEN}\n\n---`));
@@ -300,8 +323,16 @@ describe("previewComment", () => {
       /<details>\n<summary>Changes since v0\.11\.0[\s\S]*- New `squircle-pill` utility\.[\s\S]*<\/details>\n$/,
     );
   });
-  it("asks for them, with the changes to write them from, when they're missing", async () => {
-    const comment = await preview(promotionBody(""), ["feat: Add pill (#38)"]);
+  it("titles them like the release does, with no compare link without a repository", async () => {
+    const { comment } = await preview(promotionBody(WRITTEN), ["feat: Add pill (#38)"], {
+      slug: null,
+    });
+    assert.ok(comment.includes(`## 0.12.0 (2026-11-02)\n\n${WRITTEN}`));
+    assert.ok(!comment.includes("github.com/null"));
+  });
+  it("fails, asking for them with the changes to write them from, when they're missing", async () => {
+    const { comment, ok } = await preview(promotionBody(""), ["feat: Add pill (#38)"]);
+    assert.equal(ok, false);
     assert.match(
       comment,
       /\[!IMPORTANT\]\n> Write 0\.12\.0's notes under a `## Release notes` heading/,
@@ -309,16 +340,24 @@ describe("previewComment", () => {
     assert.match(comment, /\*\*Changes since v0\.11\.0\*\*[\s\S]*- New `squircle-pill` utility\./);
     assert.ok(!comment.includes("<details>"));
   });
+  it("doesn't take 'None' for the notes of a promotion that releases something", async () => {
+    const { comment, ok } = await preview(promotionBody("None"), ["feat: Add pill (#38)"]);
+    assert.equal(ok, false);
+    assert.match(comment, /"None" won't do: this promotion releases 0\.12\.0/);
+  });
   it("warns about a major release", async () => {
-    const comment = await preview(promotionBody(WRITTEN), ["fix!: rename (#45)"]);
+    const { comment } = await preview(promotionBody(WRITTEN), ["fix!: rename (#45)"]);
     assert.match(comment, /\*\*1\.0\.0 is a major release\*\*/);
     assert.match(comment, /### Breaking changes\n\n- Rename `--a` to `--b`\./);
   });
-  it("says when promoting releases nothing", async () => {
-    assert.match(await preview("", ["chore: x"]), /Promoting this releases nothing/);
+  it("needs no notes when promoting releases nothing", async () => {
+    const { comment, ok } = await preview("", ["chore: x"]);
+    assert.equal(ok, true);
+    assert.match(comment, /Promoting this releases nothing[\s\S]*It needs no release notes\./);
   });
-  it("shows generated notes for a promotion into beta", async () => {
-    const comment = await preview("", ["feat: Add pill (#38)"], { baseRef: "beta" });
+  it("shows generated notes for a promotion into beta, which needs none written", async () => {
+    const { comment, ok } = await preview("", ["feat: Add pill (#38)"], { baseRef: "beta" });
+    assert.equal(ok, true);
     assert.match(comment, /releases the next beta, with notes generated from its PRs/);
     assert.match(
       comment,

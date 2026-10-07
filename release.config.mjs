@@ -15,7 +15,9 @@ export default {
         preset: "conventionalcommits",
       },
     ],
-    // One line per PR, from its "## Release note" section. See release/notes.mjs.
+    // Stable releases from a promotion: the promotion PR's hand-written
+    // "## Release notes". Everything else: one line per PR, from its
+    // "## Release note" section. See release/notes.mjs.
     "./release/notes.mjs",
     [
       "@anolilab/semantic-release-pnpm",
