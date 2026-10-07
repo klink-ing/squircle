@@ -112,6 +112,13 @@ export const PILL_DECORATION_CLIP_VAR_NAME: string = pillVar("decoration-clip");
 export const PILL_CONTINUITY_VAR_NAME: string = pillVar("continuity");
 export const DEFAULT_PILL_CONTINUITY = 3 as const;
 /**
+ * Which end of a pill is capped: `auto` caps both short ends, as a pill
+ * always has; `t`, `r`, `b` or `l` caps that end alone and squares the other.
+ * See the worklet's `sideOutline`.
+ */
+export const PILL_SIDE_VAR_NAME: string = pillVar("side");
+export const DEFAULT_PILL_SIDE = "auto" as const;
+/**
  * Attribute `registerPillWorklet()` sets on `<html>` once the worklet has
  * loaded. `@supports (mask-image: paint(pill-shape))` is true for any paint
  * name, loaded or not, so the mask is gated on this instead; until it appears
