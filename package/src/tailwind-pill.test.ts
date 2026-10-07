@@ -33,7 +33,6 @@ const compilePillAll = (candidates: string[], block = "") =>
 const LOADED = `:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`;
 
 const FULL = FULL_RADIUS;
-const escape = (s: string) => s.replace(/[()*]/g, "\\$&");
 /** The declarations directly in `.name { … }`, before any nested rule. */
 const ownBlock = (css: string, name: string) => {
   const start = css.indexOf(`.${name} {`);
@@ -272,12 +271,10 @@ describe("tailwind-pill.ts utilities", () => {
       });
     }
 
-    it("-x and -y are the automatic pill", async () => {
-      for (const axis of ["x", "y"]) {
-        const css = await compilePill([`squircle-pill-${axis}`]);
-        expect(css).toContain(`${PILL_SIDE_VAR_NAME}: auto;`);
-        expect(css).toMatch(new RegExp(`border-radius: ${escape(FULL)};`));
-      }
+    it("has no axis variants, which could only draw the automatic pill", async () => {
+      // A cap can't be wider than the box, so capping both ends of either
+      // axis is what `squircle-pill` already draws.
+      expect(await compilePill(["squircle-pill-x", "squircle-pill-y"])).toBe("");
     });
 
     it("-s and -e follow the direction", async () => {

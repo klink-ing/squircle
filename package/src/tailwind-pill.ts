@@ -14,10 +14,10 @@ export interface SquirclePillPluginOptions {
 
 /**
  * One shape, `squircle-pill`, with its caps derived from the element's own
- * size, so there is no size to pick. What can be picked is which end it caps:
- * `-t`, `-r`, `-b`, `-l`, and `-s`/`-e` for the inline ends, cap that end
- * alone and square the other; `-x` and `-y` are the automatic pill, spelled
- * out. The knobs the shape has — the easing amount, its ease, and its
+ * size, so there is no size or axis to pick: a cap can't be wider than the
+ * box, so it always caps the short ends. What can be picked is capping one
+ * end alone: `-t`, `-r`, `-b`, `-l`, and `-s`/`-e` for the inline ends,
+ * square the other. The knobs the shape has — the easing amount, its ease, and its
  * continuity — get `-amt-*`, `-ease-*` and `-g2`/`-g3` utilities, which only
  * set the custom property, the same thing writing it yourself does.
  *
