@@ -117,9 +117,10 @@ export default squircle;
 // it controls corner shape, not radius, so radius classes never cancel it.
 //
 // `squircle-pill` shapes all four corners, so it sits with the all-corners
-// utilities. Its `-amt-*`, `-ease-*` and `-g2`/`-g3` knobs each get a group of
-// their own; left out, the catch-all `squircle-*` group would take them for
-// radii and have them cancel the pill and each other.
+// utilities. Its `-amt-*`, `-ease-*`, `-g2`/`-g3` and side (`-t`, `-x`, …)
+// knobs each get a group of their own; left out, the catch-all `squircle-*`
+// group would take them for radii and have them cancel the pill and each
+// other.
 const SIDE_CORNERS = {
   t: ["tl", "tr"],
   r: ["tr", "br"],
@@ -167,6 +168,7 @@ const classGroups: Record<string, (string | Record<string, ((value: string) => b
   [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
   [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
   [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
+  [`${PILL}-side`]: ["x", "y", "t", "r", "b", "l", "s", "e"].map((side) => `${PILL}-${side}`),
 };
 
 export const squircleMergeConfig = {
