@@ -284,7 +284,7 @@ describe("tailwind-pill.ts utilities", () => {
       for (const [name, ltr, rtl] of [
         ["s", "l", "r"],
         ["e", "r", "l"],
-      ]) {
+      ] as const) {
         const css = await compilePill([`squircle-pill-${name}`]);
         const flipped = css.indexOf(":dir(rtl)");
         expect(flipped, name).toBeGreaterThan(-1);
