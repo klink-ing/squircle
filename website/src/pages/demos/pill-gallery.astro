@@ -52,11 +52,9 @@ const sections: Section[] = [
   {
     title: "Sides",
     intro:
-      "A side caps that end alone and squares the other. -s and -e are the inline ends, so they swap right to left. -x and -y are the automatic pill spelled out: a cap can't be wider than the box, so capping both ends of either axis is what squircle-pill already draws.",
+      "A side caps that end alone and squares the other. -s and -e are the inline ends, so they swap right to left. There are no -x or -y: a cap can't be wider than the box, so squircle-pill always caps the short ends.",
     examples: [
       { classes: "", note: "Both short ends, chosen from the aspect ratio." },
-      { classes: "squircle-pill-x", note: "The same pill, the axis spelled out." },
-      { classes: "squircle-pill-y", note: "Still the same pill: the caps can't outgrow the height." },
       { classes: "squircle-pill-l", note: "The left end, the same cap as a full pill's." },
       { classes: "squircle-pill-r", note: "The right end." },
       { classes: "squircle-pill-t", note: "The top: a tab whose corners run the full height." },
@@ -73,8 +71,6 @@ const sections: Section[] = [
       "The same utilities on a pill taller than it is wide, and on a square. A cap is clamped to what the box can give it, so a square capped at one end is an arch, not a circle.",
     examples: [
       { classes: "", note: "Tall: caps top and bottom.", build: "tall" },
-      { classes: "squircle-pill-x", note: "Still top and bottom.", build: "tall" },
-      { classes: "squircle-pill-y", note: "The axis spelled out.", build: "tall" },
       { classes: "squircle-pill-t", note: "The top end alone.", build: "tall" },
       { classes: "squircle-pill-b", note: "The bottom end alone.", build: "tall" },
       { classes: "squircle-pill-l", note: "The left, clamped to the width.", build: "tall" },
@@ -294,7 +290,6 @@ const sections: Section[] = [
         build: "standalone-side",
         rtl: true,
       },
-      { classes: "x", note: "The automatic pill.", build: "standalone-side" },
     ],
   },
 ];

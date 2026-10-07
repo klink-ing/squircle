@@ -109,7 +109,7 @@ describe("squircleMergeConfig", () => {
 
     it("its sides replace each other and nothing else", () => {
       expect(twMerge("squircle-pill-t squircle-pill-l")).toBe("squircle-pill-l");
-      expect(twMerge("squircle-pill-x squircle-pill-s")).toBe("squircle-pill-s");
+      expect(twMerge("squircle-pill-b squircle-pill-s")).toBe("squircle-pill-s");
       expect(twMerge("squircle-pill squircle-pill-e squircle-pill-amt-3")).toBe(
         "squircle-pill squircle-pill-e squircle-pill-amt-3",
       );

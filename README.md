@@ -497,7 +497,6 @@ registerPillWorklet(workletUrl);
 | `squircle-pill`                     | The pill. Caps derived from the element's size.                                                                                                                                                          |
 | `squircle-pill-t`, `-r`, `-b`, `-l` | Caps that end alone and squares the other. A cap is never larger than the box allows, so `squircle-pill-t` on a wide button is a tab whose top corners run its full height.                              |
 | `squircle-pill-s`, `-e`             | The inline-start or inline-end end: `-l`/`-r`, swapped under `dir="rtl"`.                                                                                                                                |
-| `squircle-pill-x`, `-y`             | The automatic pill, spelled out: a cap can't be wider than the box, so capping both ends of either axis is what `squircle-pill` already draws, and a square is always a circle.                          |
 | `squircle-pill-amt-*`               | How much of each cap is handed to the easing, in 30° steps. `1` is a bare semicircle; default `2`.                                                                                                       |
 | `squircle-pill-ease-*`              | Stretches the easing further along the flat edge without spending more of the arc. `0` is a clothoid; default `2`.                                                                                       |
 | `squircle-pill-g2`                  | Matches curvature only (G2), where the easing leaves the arc and where it meets the edge. `squircle-pill-g3`, the default, also matches the rate curvature changes (G3) at both, for any ease above `0`. |
@@ -577,7 +576,7 @@ The same rules, hung off an attribute:
 <button data-squircle-pill style="--squircle-pill-border-width: 2px">Save</button>
 ```
 
-Give the attribute a value to cap one end: `data-squircle-pill="t"`, and `r`, `b`, `l`, `s`, `e`, `x` and `y`, as the utilities do.
+Give the attribute a value to cap one end: `data-squircle-pill="t"`, and `r`, `b`, `l`, `s` and `e`, as the utilities do.
 
 Register the worklet as above. Here the pill's own properties also drive a real border, so a bordered pill degrades to a bordered stadium without the worklet; `--squircle-pill-border-color` defaults to `currentColor` and `--squircle-pill-border-style` to `solid`. The stylesheet is generated from the same source as the Tailwind utility, so the two never disagree.
 
@@ -1430,7 +1429,7 @@ export const squircleMergeConfig = {
       [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
       [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
       [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
-      [`${PILL}-side`]: ["x", "y", "t", "r", "b", "l", "s", "e"].map((side) => `${PILL}-${side}`),
+      [`${PILL}-side`]: ["t", "r", "b", "l", "s", "e"].map((side) => `${PILL}-${side}`),
     },
     conflictingClassGroups,
   },

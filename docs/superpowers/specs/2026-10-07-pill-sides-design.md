@@ -11,8 +11,6 @@ that isn't capped gets plain right-angle corners.
 | Utility                          | Caps                                                               |
 | -------------------------------- | ------------------------------------------------------------------ |
 | `squircle-pill`                  | The short ends, chosen from the aspect ratio (as today)            |
-| `squircle-pill-x`                | Left and right                                                     |
-| `squircle-pill-y`                | Top and bottom                                                     |
 | `squircle-pill-t` `-r` `-b` `-l` | That end only                                                      |
 | `squircle-pill-s` `-e`           | The inline-start or inline-end end; `l`/`r` in LTR, `r`/`l` in RTL |
 
@@ -20,9 +18,8 @@ The side utilities are modifiers, written alongside `squircle-pill` like the
 `-amt-*`, `-ease-*` and `-g2`/`-g3` knobs. They don't combine: one side per
 pill, and a later one replaces an earlier one.
 
-`-x` and `-y` change nothing about the shape (see Geometry): they exist so the
-axis can be spelled out in markup, and they set the same value `squircle-pill`
-does.
+There are no `-x` or `-y`: they could only draw the automatic pill (see
+Geometry), so they were dropped.
 
 ## The side property
 
@@ -60,16 +57,15 @@ and the drawn shape agree on every side.
 
 ### Tailwind (`tailwind-pill.ts`)
 
-`addUtilities` gains `${prefix}-x`, `-y`, `-t`, `-r`, `-b`, `-l`, `-s` and
-`-e`. Each sets `--squircle-pill-side` and `border-radius`; `-s` and `-e` add
+`addUtilities` gains `${prefix}-t`, `-r`, `-b`, `-l`, `-s` and `-e`. Each sets `--squircle-pill-side` and `border-radius`; `-s` and `-e` add
 an `&:dir(rtl)` rule with the mirrored values. The shared rules in
 `pill-css.ts` hold the per-side values, so the Tailwind and standalone outputs
 are generated from one table.
 
 ### Standalone (`squircle-pill.css`)
 
-The side goes in the attribute's value: `data-squircle-pill="t"`, and `x`,
-`y`, `r`, `b`, `l`, `s` and `e`. A bare `data-squircle-pill` stays the
+The side goes in the attribute's value: `data-squircle-pill="t"`, and `r`,
+`b`, `l`, `s` and `e`. A bare `data-squircle-pill` stays the
 automatic pill. Each value gets the same declarations as its utility, under
 `[data-squircle-pill="t"]`, and so on. Setting `--squircle-pill-side` directly
 also works, but only the attribute sets the fallback radius too.
@@ -79,16 +75,17 @@ also works, but only the attribute sets the fallback radius too.
 `inputProperties` gains `--squircle-pill-side`. `boxOutline` reads it:
 
 - `auto` takes today's path unchanged, so existing pills render the same, down
-  to the cache keys. (`-x` and `-y` set `auto`.)
+  to the cache keys.
 - A side takes a new path, `sideOutline`, built corner by corner.
 
-### Why `-x` and `-y` are the automatic pill
+### Why there is no `-x` or `-y`
 
 A corner's radius is clamped (below) to the smaller of what its two edges can
 give it. With caps on both ends of either axis, all four corners are capped,
 and every corner's limit comes out as half the shorter side, which is
-today's pill. `-x` on a tall element can't be wider than the element, so it
-turns into the top-and-bottom stadium too, and a square is always a circle.
+today's pill. A `-x` on a tall element can't be wider than the element, so it
+would turn into the top-and-bottom stadium too, and a square is always a
+circle. Neither could ever draw anything `squircle-pill` doesn't.
 
 ### Clamped radius
 
@@ -139,15 +136,15 @@ default.
 
 ## tailwind-merge (`tailwind.ts`)
 
-One more group, `squircle-pill-side`, holding `-x`, `-y`, `-t`, `-r`, `-b`,
-`-l`, `-s` and `-e`. Its members cancel each other and nothing else, and
+One more group, `squircle-pill-side`, holding `-t`, `-r`, `-b`, `-l`, `-s`
+and `-e`. Its members cancel each other and nothing else, and
 nothing else cancels them, as with the other knobs.
 
 ## Docs
 
 The README's pill section gets the side utilities, the standalone
-`data-squircle-pill` attribute values, a button-group example, and one line
-each on `-x`/`-y` being the automatic pill and on the clamp. Its copy of the
+`data-squircle-pill` attribute values, a button-group example, and a line
+on the clamp. Its copy of the
 merge config gains the new group.
 
 ## Testing

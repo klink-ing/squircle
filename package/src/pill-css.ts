@@ -44,14 +44,13 @@ import {
 export type PillCss = { [key: string]: string | PillCss };
 
 /** Every side utility's suffix, and every value `data-<namespace>-pill` takes. */
-export const PILL_SIDE_NAMES = ["x", "y", "t", "r", "b", "l", "s", "e"] as const;
+export const PILL_SIDE_NAMES = ["t", "r", "b", "l", "s", "e"] as const;
 export type PillSideName = (typeof PILL_SIDE_NAMES)[number];
 
-type PillSide = typeof DEFAULT_PILL_SIDE | "t" | "r" | "b" | "l";
+type PillSide = "t" | "r" | "b" | "l";
 
 /** The stadium fallback for each side: full on the capped corners, square on the others. */
 const SIDE_RADII: Record<PillSide, string> = {
-  auto: FULL_RADIUS,
   t: `${FULL_RADIUS} ${FULL_RADIUS} 0 0`,
   r: `0 ${FULL_RADIUS} ${FULL_RADIUS} 0`,
   b: `0 0 ${FULL_RADIUS} ${FULL_RADIUS}`,
@@ -66,13 +65,10 @@ const capping = (side: PillSide): PillCss => ({
 /**
  * One side's rules: the end it caps, and the fallback radius to match, which
  * the browser scales down to the same radius the worklet clamps a cap to.
- * `x` and `y` are the automatic pill: a cap can never be wider than the box
- * allows, so capping both ends of either axis is what `auto` already draws.
  * `s` and `e` turn into `l` and `r`, swapped under `:dir(rtl)`, so the
  * worklet only ever sees a physical side.
  */
 export function pillSideCss(name: PillSideName): PillCss {
-  if (name === "x" || name === "y") return capping(DEFAULT_PILL_SIDE);
   if (name === "s") return { ...capping("l"), "&:dir(rtl)": capping("r") };
   if (name === "e") return { ...capping("r"), "&:dir(rtl)": capping("l") };
   return capping(name);

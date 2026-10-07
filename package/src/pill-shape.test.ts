@@ -230,8 +230,6 @@ describe("pill-shape worklet contract", () => {
         ["r", "r"],
         ["b", "b"],
         ["l", "l"],
-        ["x", "auto"],
-        ["y", "auto"],
         ["s", "l"],
         ["e", "r"],
       ]) {
@@ -243,6 +241,9 @@ describe("pill-shape worklet contract", () => {
       expect(stylesheet).toMatch(
         new RegExp(`\\[${PILL_ATTRIBUTE}="s"\\]:dir\\(rtl\\) \\{[^}]*${PILL_SIDE_VAR_NAME}: r;`),
       );
+      // No axis values: they could only draw the automatic pill.
+      expect(stylesheet).not.toContain(`[${PILL_ATTRIBUTE}="x"]`);
+      expect(stylesheet).not.toContain(`[${PILL_ATTRIBUTE}="y"]`);
     });
 
     it("starts a bare pill at auto, at zero specificity", () => {
