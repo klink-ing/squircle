@@ -354,11 +354,14 @@ describe("pill-shape worklet contract", () => {
       // pill doesn't draw follows with it. Never a percentage: `50%` is an
       // ellipse on any non-square element. Never a superellipse: on a pill
       // the cap is the whole shape, so reshaping it changes the silhouette.
-      // At zero specificity, so a side's radius wins whatever the order.
-      expect(ruleBody(stylesheet, `:where(${SHAPE})`)).toContain(
-        "border-radius: calc(infinity * 1px);",
+      // On the attribute itself: the sheet is in no layer, so at zero
+      // specificity a plain `button { border-radius: 6px }` would beat it.
+      // The side rules match the same specificity and come later, so they
+      // still win.
+      expect(ruleBody(stylesheet, SHAPE)).toContain("border-radius: calc(infinity * 1px);");
+      expect(stylesheet.indexOf(`\n[${PILL_ATTRIBUTE}="t"] {`)).toBeGreaterThan(
+        stylesheet.indexOf(`\n${SHAPE} {`),
       );
-      expect(ruleBody(stylesheet, SHAPE)).not.toContain("border-radius");
       expect(stylesheet).not.toContain("border-radius: 50%");
       expect(stylesheet).not.toContain("corner-shape");
     });
