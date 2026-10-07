@@ -37,7 +37,9 @@ const distinct = (points: Point[]): Point[] => {
     const last = out.at(-1);
     if (!last || !near(last.x, p.x) || !near(last.y, p.y)) out.push(p);
   }
-  if (out.length > 1 && near(out[0].x, out.at(-1)!.x) && near(out[0].y, out.at(-1)!.y)) out.pop();
+  const first = out[0] as Point;
+  const end = out.at(-1) as Point;
+  if (out.length > 1 && near(first.x, end.x) && near(first.y, end.y)) out.pop();
   return out;
 };
 
@@ -46,9 +48,9 @@ const isConvex = (points: Point[]): boolean => {
   const ring = distinct(points);
   let sign = 0;
   for (let i = 0; i < ring.length; i++) {
-    const a = ring[i];
-    const b = ring[(i + 1) % ring.length];
-    const c = ring[(i + 2) % ring.length];
+    const a = ring[i] as Point;
+    const b = ring[(i + 1) % ring.length] as Point;
+    const c = ring[(i + 2) % ring.length] as Point;
     const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
     if (Math.abs(cross) < 1e-7) continue;
     if (sign !== 0 && Math.sign(cross) !== sign) return false;
@@ -149,7 +151,7 @@ describe("pill sides", () => {
         [50, 40],
         [40, 50],
         [41, 80],
-      ]) {
+      ] as const) {
         for (const amt of [1, 2, 3]) {
           for (const ease of [-2, 0, 2, 6]) {
             const points = outline(width, height, side, amt, ease);
