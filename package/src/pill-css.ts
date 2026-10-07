@@ -244,8 +244,16 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
   });
 
   return {
+    // A stadium on every branch: it is the whole fallback without the
+    // worklet, and what an outline the pill doesn't draw itself — the
+    // browser's focus ring — follows with it. With Tailwind it sits at zero
+    // specificity, in `:where(&)`, which the utilities layer still lifts over
+    // any base style. The standalone sheet is in no layer, so it keeps the
+    // attribute's specificity here, or a plain `button { border-radius }`
+    // would beat it; its side rules match that and come later.
     ...(flavor === "standalone"
       ? {
+          "border-radius": FULL_RADIUS,
           "border-width": `var(${PILL_BORDER_WIDTH_VAR_NAME})`,
           "border-style": `var(${PILL_BORDER_STYLE_VAR_NAME}, ${PILL_BORDER_STYLE_FALLBACK})`,
           "border-color": `var(${PILL_BORDER_COLOR_VAR_NAME})`,
@@ -258,11 +266,9 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // Everything here inherits, so each pill also starts from none of it,
     // rather than drawing a decorated parent's border, rings or shadows.
     ":where(&)": {
-      // A stadium on every branch: it is the whole fallback without the
-      // worklet, and what an outline the pill doesn't draw itself — the
-      // browser's focus ring — follows with it. Zero specificity, so a side
-      // utility's radius wins whatever the order.
-      "border-radius": FULL_RADIUS,
+      // With Tailwind, the stadium is here, so a side utility's radius wins
+      // whatever the order; see below.
+      ...(flavor === "tailwind" ? { "border-radius": FULL_RADIUS } : {}),
       // Every pill starts with both ends capped, rather than taking a side
       // from a pill it is nested in.
       [PILL_SIDE_VAR_NAME]: DEFAULT_PILL_SIDE,
