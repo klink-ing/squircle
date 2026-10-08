@@ -57,6 +57,8 @@ const SIDE_RADII: Record<PillSide, string> = {
   l: `${FULL_RADIUS} 0 0 ${FULL_RADIUS}`,
 };
 
+const RTL = '&:where(:dir(rtl), [dir="rtl"], [dir="rtl"] *)';
+
 const capping = (side: PillSide): PillCss => ({
   [PILL_SIDE_VAR_NAME]: side,
   "border-radius": SIDE_RADII[side],
@@ -68,11 +70,13 @@ const capping = (side: PillSide): PillCss => ({
  * `s` and `e` turn into `l` and `r`, swapped under `:dir(rtl)`, so the
  * worklet only ever sees a physical side. The swap is in `:where()`, so it
  * keeps the bare utility's specificity, and a later side — `md:-t`,
- * `hover:-e` — still replaces it under RTL.
+ * `hover:-e` — still replaces it under RTL. It matches what Tailwind's own
+ * `rtl:` does, `[dir="rtl"]` as well as `:dir(rtl)`, which browsers before
+ * Chrome 120 lack; `:where()` forgives a selector it doesn't know.
  */
 export function pillSideCss(name: PillSideName): PillCss {
-  if (name === "s") return { ...capping("l"), "&:where(:dir(rtl))": capping("r") };
-  if (name === "e") return { ...capping("r"), "&:where(:dir(rtl))": capping("l") };
+  if (name === "s") return { ...capping("l"), [RTL]: capping("r") };
+  if (name === "e") return { ...capping("r"), [RTL]: capping("l") };
   return capping(name);
 }
 
@@ -396,9 +400,13 @@ export function renderPillCss(selector = `[${PILL_ATTRIBUTE}]`): string {
 
   blocks.push(...renderRule(selector, pillCssObj("standalone")));
   // `data-<namespace>-pill="t"` and friends: the side utilities' rules, on
-  // the attribute's value.
+  // the attribute's value, which narrows an attribute selector and is added
+  // to any other.
   for (const name of PILL_SIDE_NAMES) {
-    blocks.push(...renderRule(selector.replace(/\]$/, `="${name}"]`), pillSideCss(name)));
+    const valued = selector.endsWith(`[${PILL_ATTRIBUTE}]`)
+      ? `${selector.slice(0, -1)}="${name}"]`
+      : `${selector}[${PILL_ATTRIBUTE}="${name}"]`;
+    blocks.push(...renderRule(valued, pillSideCss(name)));
   }
   return blocks.join("\n\n") + "\n";
 }

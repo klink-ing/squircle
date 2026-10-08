@@ -88,7 +88,7 @@ const twMerge = extendTailwindMerge(squircleMergeConfig, {
 });
 ```
 
-The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners utility cancels earlier side/corner utilities (from either family), a side cancels its two corners, and a narrower utility refines a broader one instead of canceling it — `squircle-md squircle-tl-sm` keeps both. `squircle-amt-*` is independent of radius classes. `squircle-pill` counts as an all-corners utility, and its `-amt-*`, `-ease-*`, `-g2`/`-g3` and side modifiers each only cancel their own kind.
+The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners utility cancels earlier side/corner utilities (from either family), a side cancels its two corners, and a narrower utility refines a broader one instead of canceling it — `squircle-md squircle-tl-sm` keeps both. `squircle-amt-*` is independent of radius classes. `squircle-pill` counts as an all-corners utility, and its `-amt-*`, `-ease-*`, `-g2`/`-g3` and side modifiers each only cancel their own kind, except that a later all-corners radius cancels a side along with the pill.
 
 ### Utilities
 
@@ -1400,8 +1400,8 @@ const rd = (suffix) => (suffix ? `rounded-${suffix}` : "rounded");
 const PILL = "squircle-pill";
 
 const conflictingClassGroups = {
-  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL],
-  rounded: [...ALL_SUFFIXES.map(sq), PILL],
+  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL, `${PILL}-side`],
+  rounded: [...ALL_SUFFIXES.map(sq), PILL, `${PILL}-side`],
   [PILL]: [...ALL_SUFFIXES.map(sq), ...ALL_SUFFIXES.map(rd)],
 };
 for (const side of SIDES) {
