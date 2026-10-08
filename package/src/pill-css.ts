@@ -66,11 +66,13 @@ const capping = (side: PillSide): PillCss => ({
  * One side's rules: the end it caps, and the fallback radius to match, which
  * the browser scales down to the same radius the worklet clamps a cap to.
  * `s` and `e` turn into `l` and `r`, swapped under `:dir(rtl)`, so the
- * worklet only ever sees a physical side.
+ * worklet only ever sees a physical side. The swap is in `:where()`, so it
+ * keeps the bare utility's specificity, and a later side — `md:-t`,
+ * `hover:-e` — still replaces it under RTL.
  */
 export function pillSideCss(name: PillSideName): PillCss {
-  if (name === "s") return { ...capping("l"), "&:dir(rtl)": capping("r") };
-  if (name === "e") return { ...capping("r"), "&:dir(rtl)": capping("l") };
+  if (name === "s") return { ...capping("l"), "&:where(:dir(rtl))": capping("r") };
+  if (name === "e") return { ...capping("r"), "&:where(:dir(rtl))": capping("l") };
   return capping(name);
 }
 

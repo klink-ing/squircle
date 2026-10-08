@@ -19,7 +19,8 @@ export { PILL_WORKLET_ATTRIBUTE };
 
 /**
  * The pill's shape settings — the custom properties `squircle-pill-amt-*`,
- * `squircle-pill-ease-*` and `squircle-pill-g2`/`-g3` set — and the values
+ * `squircle-pill-ease-*`, `squircle-pill-g2`/`-g3` and the side utilities
+ * (`squircle-pill-t`, …) set — and the values
  * they start at, for scripts that set or show them: a settings panel, a
  * preview. The same constants the stylesheet's registrations and the
  * worklet's own fallbacks come from, so they never disagree.

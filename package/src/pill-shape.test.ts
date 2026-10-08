@@ -239,7 +239,9 @@ describe("pill-shape worklet contract", () => {
         expect(stylesheet, value).toMatch(rule);
       }
       expect(stylesheet).toMatch(
-        new RegExp(`\\[${PILL_ATTRIBUTE}="s"\\]:dir\\(rtl\\) \\{[^}]*${PILL_SIDE_VAR_NAME}: r;`),
+        new RegExp(
+          `\\[${PILL_ATTRIBUTE}="s"\\]:where\\(:dir\\(rtl\\)\\) \\{[^}]*${PILL_SIDE_VAR_NAME}: r;`,
+        ),
       );
       // No axis values: they could only draw the automatic pill.
       expect(stylesheet).not.toContain(`[${PILL_ATTRIBUTE}="x"]`);
