@@ -382,6 +382,9 @@ const cached = (key: string, make: () => string | null): string | null => {
   clipCache.set(key, value);
   return value;
 };
+/** How long the viewport has to stop resizing before pills are re-read. */
+const VIEWPORT_SETTLE_MS = 150;
+
 const drawingCache = new Map<string, PillDecorationDrawing | null>();
 const cachedDrawing = (
   key: string,
@@ -407,10 +410,11 @@ const cachedDrawing = (
  * background shows as a stadium.
  *
  * Shape and decoration properties are read when the polyfill first sees a
- * pill, whenever its `class` changes, and when it
- * gains or loses focus, hover or a press; call `refresh()` after anything
+ * pill, whenever its `class` changes or an ancestor's `class` or `dir` does,
+ * when it gains or loses focus, hover or a press, and once the viewport
+ * settles after a resize, for media queries; call `refresh()` after anything
  * else that changes them, such as an inline style, a stylesheet change or a
- * media query.
+ * container query.
  *
  * Returns `null` without doing anything where paint worklets are supported,
  * unless `force` is set.
@@ -420,17 +424,21 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
   if (supported && !options.force) return null;
 
   const root = options.root ?? document;
-  const doc = root instanceof Document ? root : root.ownerDocument;
+  // By node type, not `instanceof`, which fails for a document from another
+  // frame.
+  const isDocument = (node: Node): node is Document => node.nodeType === Node.DOCUMENT_NODE;
+  const doc = isDocument(root) ? root : (root.ownerDocument as Document);
   const selector = `.${options.prefix ?? "squircle-pill"}, [${PILL_ATTRIBUTE}]`;
   const lastKey = new WeakMap<Element, string>();
   const watched = new Set<Element>();
   const sizes = new WeakMap<Element, { width: number; height: number }>();
 
   /**
-   * Each pill's shape settings, read once and kept until its class changes or
-   * `refresh()` is called. A resize never changes them, and re-reading
-   * computed style for every pill on every frame of one costs more than the
-   * geometry does.
+   * Each pill's shape settings, read once and kept until its class, or an
+   * ancestor's class or `dir`, changes, the viewport settles after a resize,
+   * or `refresh()` is called. A pill's own resize never changes them, and
+   * re-reading computed style for every pill on every frame of one costs more
+   * than the geometry does.
    */
   interface Settings {
     shape: PillShapeInput;
@@ -557,6 +565,11 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
           watch(el);
           changed.add(el);
         } else unwatch(el);
+        // An ancestor's `dir` flips `-s` and `-e`, and its class can restyle
+        // the pills inside it: `.dark` and a `dark:border-*`, say.
+        for (const inner of el.querySelectorAll(selector)) {
+          if (watched.has(inner)) changed.add(inner);
+        }
         continue;
       }
       for (const node of record.addedNodes) if (node instanceof Element) scan(node);
@@ -599,15 +612,32 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     root.addEventListener(type, reread, { capture: true, passive: true });
 
   doc.documentElement.setAttribute(PILL_POLYFILL_ATTRIBUTE, "");
-  scan(root instanceof Document ? root.documentElement : root);
+  scan(isDocument(root) ? root.documentElement : root);
   mutations.observe(root, {
     childList: true,
     subtree: true,
     attributes: true,
     // Not `style`: the clips are written there, so watching it would re-read
     // every pill after every write.
-    attributeFilter: ["class", PILL_ATTRIBUTE],
+    attributeFilter: ["class", "dir", PILL_ATTRIBUTE],
   });
+
+  /*
+   * A media query — `sm:squircle-pill-t`, `md:squircle-pill-amt-3` — changes
+   * what a pill's classes mean without changing them, and the viewport
+   * resizing is when one can. Every pill is re-read once it settles, not on
+   * each event of a drag.
+   */
+  const view = doc.defaultView;
+  let settling: ReturnType<typeof setTimeout> | undefined;
+  const resettle = () => {
+    clearTimeout(settling);
+    settling = setTimeout(() => {
+      for (const el of watched) settings.delete(el);
+      apply(watched);
+    }, VIEWPORT_SETTLE_MS);
+  };
+  view?.addEventListener("resize", resettle, { passive: true });
 
   return {
     refresh(element) {
@@ -620,6 +650,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     },
     disconnect() {
       pending.clear();
+      clearTimeout(settling);
+      view?.removeEventListener("resize", resettle);
       for (const type of STATE_EVENTS) root.removeEventListener(type, reread, { capture: true });
       mutations.disconnect();
       resizes.disconnect();
