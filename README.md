@@ -513,7 +513,7 @@ A side is a modifier on the pill, one per pill; a later one replaces an earlier 
 </div>
 ```
 
-The side sets `--squircle-pill-side` (`auto`, `t`, `r`, `b` or `l`) and the fallback's `border-radius`. Under the polyfill, a pill's side is read when its class or attribute changes. If you flip `dir` on an ancestor of `-s`/`-e` pills, call the polyfill's `refresh()`.
+The side sets `--squircle-pill-side` (`auto`, `t`, `r`, `b` or `l`) and the fallback's `border-radius`. The polyfill re-reads it when the pill's class changes, when an ancestor's `dir` or class changes, and once the viewport settles after a resize, so `dir="rtl"` and responsive sides like `sm:squircle-pill-s` follow.
 
 ### Borders, outlines and shadows
 
@@ -552,7 +552,7 @@ if (!(await registerPillWorklet())) {
 
 It runs the worklet's own geometry on the main thread: a `ResizeObserver` watches every pill, and on each new size the outline is set as a `clip-path: path()` for the copy of the background, and everything drawn around it — border, outline, rings, shadows — as an SVG image, on two custom properties the pill styles read. A clip rather than a mask image for the shape, because a mask image is decoded and rasterised again on every resize, which was over five times slower. The shapes are identical to the worklet's, borders, dashes and shadows included; a square needs no clip at all, its stadium already being the circle it has to be. Each pill shows its stadium until its clip is computed, so there is no flash of anything worse, and a resize too large for one frame spreads over the next few rather than dropping them. The element's own `clip-path` and masks are never touched, so they apply as they do with the worklet.
 
-It picks up pills added or removed later, and re-reads a pill when its `class` changes and when it gains or loses focus, hover or a press, so `focus-visible:` and `hover:` decorations work too. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a media query — need a `refresh()`:
+It picks up pills added or removed later, and re-reads a pill when its `class` changes, when an ancestor's `class` or `dir` changes, when it gains or loses focus, hover or a press, and once the viewport settles after a resize, so `focus-visible:`, `hover:`, `dark:`, `rtl:` and breakpoint variants work too. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a container query — need a `refresh()`:
 
 ```js
 const pills = polyfillPills();
