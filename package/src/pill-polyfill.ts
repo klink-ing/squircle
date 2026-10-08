@@ -48,6 +48,7 @@ export interface PillShapeInput {
 
 interface PillGeometry {
   boxOutline(width: number, height: number, props: Lookup): Point[];
+  resolveSide(props: Lookup): string;
   offsetOutline(points: Point[], distance: number): Point[];
   resolveLength(props: Lookup, name: string): number;
   decorationOutset(props: Lookup): number;
@@ -144,7 +145,8 @@ export function pillClipPath(
   shape?: PillShapeInput,
   inset = 0,
 ): string | null {
-  const auto = !shape?.side?.trim() || shape.side.trim() === "auto";
+  // The worklet's own reading of the side, so a value it ignores is `auto` here too.
+  const auto = geometry.resolveSide(lookup({ [PILL_SIDE_VAR_NAME]: shape?.side })) === "auto";
   if (width <= 0 || height <= 0 || (width === height && inset <= 0 && auto)) return null;
   if (inset <= 0) return `path("${pillOutlinePath(width, height, shape)}")`;
   return `path("${subpath(geometry.offsetOutline(pillOutlinePoints(width, height, shape), -inset))}")`;

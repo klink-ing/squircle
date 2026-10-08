@@ -283,7 +283,8 @@ describe("tailwind-pill.ts utilities", () => {
         ["e", "r", "l"],
       ] as const) {
         const css = await compilePill([`squircle-pill-${name}`]);
-        const flipped = css.indexOf(":dir(rtl)");
+        // In `:where()`, so a later side, `md:` or `hover:`, still wins under RTL.
+        const flipped = css.indexOf(":where(:dir(rtl))");
         expect(flipped, name).toBeGreaterThan(-1);
         expect(css.slice(0, flipped)).toContain(`${PILL_SIDE_VAR_NAME}: ${ltr};`);
         expect(css.slice(flipped)).toContain(`${PILL_SIDE_VAR_NAME}: ${rtl};`);

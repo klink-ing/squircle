@@ -4,6 +4,7 @@
  */
 
 import plugin from "tailwindcss/plugin";
+import { PILL_SIDE_NAMES } from "./pill-css";
 import {
   DEFAULT_AMOUNT_VAR_NAME,
   DEFAULT_R_VAR_NAME,
@@ -168,7 +169,7 @@ const classGroups: Record<string, (string | Record<string, ((value: string) => b
   [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
   [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
   [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
-  [`${PILL}-side`]: ["t", "r", "b", "l", "s", "e"].map((side) => `${PILL}-${side}`),
+  [`${PILL}-side`]: PILL_SIDE_NAMES.map((side) => `${PILL}-${side}`),
 };
 
 export const squircleMergeConfig = {
