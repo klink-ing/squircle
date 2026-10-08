@@ -41,7 +41,12 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
           ...Object.fromEntries(
             PILL_SIDE_NAMES.map((name) => [
               `.${prefix}-${name}`,
-              pillSideCss(name) as Record<string, string | Record<string, string>>,
+              // Only on a pill, at no cost in specificity: left on a plain
+              // element, a side would round half of it.
+              { [`&:where(.${prefix})`]: pillSideCss(name) } as Record<
+                string,
+                string | Record<string, string>
+              >,
             ]),
           ),
         });

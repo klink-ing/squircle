@@ -283,13 +283,22 @@ describe("tailwind-pill.ts utilities", () => {
         ["e", "r", "l"],
       ] as const) {
         const css = await compilePill([`squircle-pill-${name}`]);
-        // In `:where()`, so a later side, `md:` or `hover:`, still wins under RTL.
-        const flipped = css.indexOf(":where(:dir(rtl))");
+        // In `:where()`, so a later side, `md:` or `hover:`, still wins under
+        // RTL; with Tailwind's own `rtl:` selectors, for browsers before `:dir()`.
+        const flipped = css.indexOf(':where(:dir(rtl), [dir="rtl"], [dir="rtl"] *)');
         expect(flipped, name).toBeGreaterThan(-1);
         expect(css.slice(0, flipped)).toContain(`${PILL_SIDE_VAR_NAME}: ${ltr};`);
         expect(css.slice(flipped)).toContain(`${PILL_SIDE_VAR_NAME}: ${rtl};`);
         expect(css.slice(flipped)).toContain(`border-radius: ${radii[rtl]};`);
       }
+    });
+
+    it("does nothing on an element that isn't a pill", async () => {
+      // Scoped to the pill at no cost in specificity, so a side left on a
+      // plain element can't leave it half rounded.
+      const css = await compilePill(["squircle-pill-t"]);
+      expect(css).toContain(":where(.squircle-pill)");
+      expect(ownBlock(css, "squircle-pill-t")).not.toContain("border-radius");
     });
 
     it("sets only the side and the fallback radius", async () => {

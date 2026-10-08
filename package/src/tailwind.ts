@@ -140,8 +140,8 @@ const rd = (suffix: string) => (suffix ? `rounded-${suffix}` : "rounded");
 const PILL = "squircle-pill";
 
 const conflictingClassGroups: Record<string, string[]> = {
-  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL],
-  rounded: [...ALL_SUFFIXES.map(sq), PILL],
+  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL, `${PILL}-side`],
+  rounded: [...ALL_SUFFIXES.map(sq), PILL, `${PILL}-side`],
   [PILL]: [...ALL_SUFFIXES.map(sq), ...ALL_SUFFIXES.map(rd)],
 };
 for (const side of SIDES) {

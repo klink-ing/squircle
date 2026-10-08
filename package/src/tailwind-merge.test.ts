@@ -113,7 +113,9 @@ describe("squircleMergeConfig", () => {
       expect(twMerge("squircle-pill squircle-pill-e squircle-pill-amt-3")).toBe(
         "squircle-pill squircle-pill-e squircle-pill-amt-3",
       );
-      expect(twMerge("squircle-pill-l squircle-md")).toBe("squircle-pill-l squircle-md");
+      // A later all-corners radius replaces the pill, side and all.
+      expect(twMerge("squircle-pill squircle-pill-t rounded-lg")).toBe("rounded-lg");
+      expect(twMerge("squircle-pill-l squircle-md")).toBe("squircle-md");
     });
 
     it("a later knob wins over an earlier one of the same kind", () => {
