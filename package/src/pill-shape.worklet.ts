@@ -19,6 +19,7 @@ const AMT_VAR = `${NS}-amt`;
 const EASE_VAR = `${NS}-ease`;
 const BORDER_STYLE_VAR = `${NS}-border-style`;
 const CONTINUITY_VAR = `${NS}-continuity`;
+const SIDE_VAR = `${NS}-side`;
 const BORDER_WIDTH_VAR = `${NS}-border-width`;
 const BORDER_COLOR_VAR = `${NS}-border-color`;
 const OUTLINE_WIDTH_VAR = `${NS}-outline-width`;
@@ -140,6 +141,9 @@ interface Point {
   x: number;
   y: number;
 }
+
+/** An end a pill can cap alone; see `sideOutline`. */
+type Side = "t" | "r" | "b" | "l";
 
 interface FresnelTotals {
   totalCos: number;
@@ -328,7 +332,7 @@ export const paintDef = class PillShape implements PaintWorklet {
    * resize, which adds up over hundreds of them.
    */
   static get inputProperties() {
-    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR, BACKGROUND_INSET_VAR];
+    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR, SIDE_VAR, BACKGROUND_INSET_VAR];
   }
 
   /**
@@ -368,6 +372,12 @@ export const paintDef = class PillShape implements PaintWorklet {
   resolveContinuity(props?: PaintProperties): Continuity {
     const raw = Number.parseFloat(props?.get(CONTINUITY_VAR)?.toString() ?? "");
     return Number.isFinite(raw) && raw < 2.5 ? 2 : DEFAULT_CONTINUITY;
+  }
+
+  /** The end the pill caps alone, or `auto` for both short ends. */
+  resolveSide(props?: PaintProperties): Side | "auto" {
+    const value = props?.get(SIDE_VAR)?.toString().trim();
+    return value === "t" || value === "r" || value === "b" || value === "l" ? value : "auto";
   }
 
   /** The transition's curvature profile for exponent `q`; see `Profile`. */
@@ -832,6 +842,8 @@ export const paintDef = class PillShape implements PaintWorklet {
    * tall pill's outline running the other way round.
    */
   boxOutline(width: number, height: number, props?: PaintProperties): Point[] {
+    const side = this.resolveSide(props);
+    if (side !== "auto") return this.sideOutline(width, height, side, props);
     const vertical = height > width;
     const long = vertical ? height : width;
     const short = vertical ? width : height;
@@ -850,11 +862,58 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * The outline moved `distance` outwards (inwards where negative), each
-   * point along the average of its two edges' outward normals. Exact enough
-   * for a convex outline sampled this densely, out to any distance and in to
-   * well past any decoration's width; the points where the quadrants meet,
-   * repeated, are dropped first, having no direction of their own.
+   * The outline of a pill capped at `side` alone, square at the other end.
+   * Built for the left end, then turned into place: `r` mirrored, `t`
+   * transposed, `b` transposed and mirrored. Which way round it runs doesn't
+   * matter; `offsetOutline` works out either.
+   *
+   * Each capped corner gets the largest radius both its edges can give it:
+   * half the left edge, which the two caps share, or the whole top edge,
+   * which the cap has to itself. Whichever is smaller is used up entirely, so
+   * the corner is exactly a pill's quadrant. Its cap meets its mirror image
+   * halfway down the left edge, or the square corner at the far end of the
+   * top one, and its easing runs along the other edge.
+   */
+  sideOutline(width: number, height: number, side: Side, props?: PaintProperties): Point[] {
+    const across = side === "t" || side === "b";
+    // The box seen from the capped end: `w` along the square edges, `h` along the capped one.
+    const w = across ? height : width;
+    const h = across ? width : height;
+    const ease = this.resolveAngle(props);
+    const exponent = this.resolveExponent(props);
+    const continuity = this.resolveContinuity(props);
+
+    // The top-left corner, from the left edge round to the top edge.
+    const corner =
+      h / 2 <= w
+        ? // The left edge binds: the caps meet halfway down it, and each eases
+          // along the whole top edge.
+          this.fittedQuadrant(2 * w, h, ease, exponent, continuity)
+        : // The top edge binds: the cap spans it, meeting the square corner,
+          // and eases down half the left edge.
+          this.fittedQuadrant(h, 2 * w, ease, exponent, continuity)
+            .map((p) => ({ x: p.y, y: p.x }))
+            .reverse();
+    const left: Point[] = [
+      ...corner,
+      { x: w, y: 0 },
+      { x: w, y: h },
+      ...[...corner].reverse().map((p) => ({ x: p.x, y: h - p.y })),
+    ];
+
+    if (side === "l") return left;
+    if (side === "r") return left.map((p) => ({ x: w - p.x, y: p.y }));
+    if (side === "t") return left.map((p) => ({ x: p.y, y: p.x }));
+    return left.map((p) => ({ x: p.y, y: w - p.x }));
+  }
+
+  /**
+   * The outline moved `distance` outwards (inwards where negative): each
+   * point of a curve along the average of its two edges' outward normals, and
+   * each real corner along its miter. Exact enough for a convex outline
+   * sampled this densely, out to any distance and in to well past any
+   * decoration's width; the points where the pieces meet, repeated, are
+   * dropped first, having no direction of their own.
    */
   offsetOutline(points: Point[], distance: number): Point[] {
     const ring: Point[] = [];
@@ -891,8 +950,13 @@ export const paintDef = class PillShape implements PaintWorklet {
       const b = normal(p, next);
       const mx = a.x + b.x;
       const my = a.y + b.y;
-      const length = Math.hypot(mx, my) || 1;
-      return { x: p.x + (mx / length) * out, y: p.y + (my / length) * out };
+      // Where the outline turns a real corner — a side pill's square end —
+      // along the miter, so both edges move the full distance and the corner
+      // stays square. Elsewhere the outline samples a curve, and the average
+      // normal is the curve's own.
+      const cos = a.x * b.x + a.y * b.y;
+      const scale = cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.hypot(mx, my) || 1);
+      return { x: p.x + mx * scale, y: p.y + my * scale };
     });
   }
 
@@ -1044,7 +1108,7 @@ declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
  */
 export const decorationDef = class PillDecoration extends paintDef {
   static override get inputProperties() {
-    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR, ...DECORATION_INPUTS];
+    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR, SIDE_VAR, ...DECORATION_INPUTS];
   }
 
   override paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {
@@ -1090,7 +1154,8 @@ export const decorationDef = class PillDecoration extends paintDef {
       ctx.restore();
     }
 
-    ctx.lineJoin = "round";
+    // Mitred, so a band keeps a side pill's square corners square.
+    ctx.lineJoin = "miter";
     for (const band of bands) {
       trace(this.offsetOutline(outline, (band.from + band.to) / 2));
       ctx.strokeStyle = band.color;

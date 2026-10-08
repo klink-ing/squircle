@@ -6,6 +6,7 @@
 import {
   DEFAULT_PILL_AMT,
   DEFAULT_PILL_CONTINUITY,
+  DEFAULT_PILL_SIDE,
   DEFAULT_PILL_EASE,
   FULL_RADIUS,
   PILL_AMT_VAR_NAME,
@@ -36,10 +37,48 @@ import {
   PILL_RING_WIDTH_VAR_NAME,
   PILL_SHADOW_REACH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
+  PILL_SIDE_VAR_NAME,
 } from "./variants";
 
 /** Nested CSS-in-JS: a declaration, or a nested rule keyed by its selector. */
 export type PillCss = { [key: string]: string | PillCss };
+
+/** Every side utility's suffix, and every value `data-<namespace>-pill` takes. */
+export const PILL_SIDE_NAMES = ["t", "r", "b", "l", "s", "e"] as const;
+export type PillSideName = (typeof PILL_SIDE_NAMES)[number];
+
+type PillSide = "t" | "r" | "b" | "l";
+
+/** The stadium fallback for each side: full on the capped corners, square on the others. */
+const SIDE_RADII: Record<PillSide, string> = {
+  t: `${FULL_RADIUS} ${FULL_RADIUS} 0 0`,
+  r: `0 ${FULL_RADIUS} ${FULL_RADIUS} 0`,
+  b: `0 0 ${FULL_RADIUS} ${FULL_RADIUS}`,
+  l: `${FULL_RADIUS} 0 0 ${FULL_RADIUS}`,
+};
+
+const RTL = '&:where(:dir(rtl), [dir="rtl"], [dir="rtl"] *)';
+
+const capping = (side: PillSide): PillCss => ({
+  [PILL_SIDE_VAR_NAME]: side,
+  "border-radius": SIDE_RADII[side],
+});
+
+/**
+ * One side's rules: the end it caps, and the fallback radius to match, which
+ * the browser scales down to the same radius the worklet clamps a cap to.
+ * `s` and `e` turn into `l` and `r`, swapped under `:dir(rtl)`, so the
+ * worklet only ever sees a physical side. The swap is in `:where()`, so it
+ * keeps the bare utility's specificity, and a later side — `md:-t`,
+ * `hover:-e` — still replaces it under RTL. It matches what Tailwind's own
+ * `rtl:` does, `[dir="rtl"]` as well as `:dir(rtl)`, which browsers before
+ * Chrome 120 lack; `:where()` forgives a selector it doesn't know.
+ */
+export function pillSideCss(name: PillSideName): PillCss {
+  if (name === "s") return { ...capping("l"), [RTL]: capping("r") };
+  if (name === "e") return { ...capping("r"), [RTL]: capping("l") };
+  return capping(name);
+}
 
 /**
  * Where the pill's rules come from decides how its border and shadows are
@@ -102,6 +141,11 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
     [`@property ${PILL_CONTINUITY_VAR_NAME}`]: {
       syntax: '"<integer>"',
       "initial-value": String(DEFAULT_PILL_CONTINUITY),
+      inherits: "true",
+    },
+    [`@property ${PILL_SIDE_VAR_NAME}`]: {
+      syntax: '"auto | t | r | b | l"',
+      "initial-value": DEFAULT_PILL_SIDE,
       inherits: "true",
     },
     ...Object.fromEntries(
@@ -204,10 +248,14 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
   return {
     // A stadium on every branch: it is the whole fallback without the
     // worklet, and what an outline the pill doesn't draw itself — the
-    // browser's focus ring — follows with it.
-    "border-radius": FULL_RADIUS,
+    // browser's focus ring — follows with it. With Tailwind it sits at zero
+    // specificity, in `:where(&)`, which the utilities layer still lifts over
+    // any base style. The standalone sheet is in no layer, so it keeps the
+    // attribute's specificity here, or a plain `button { border-radius }`
+    // would beat it; its side rules match that and come later.
     ...(flavor === "standalone"
       ? {
+          "border-radius": FULL_RADIUS,
           "border-width": `var(${PILL_BORDER_WIDTH_VAR_NAME})`,
           "border-style": `var(${PILL_BORDER_STYLE_VAR_NAME}, ${PILL_BORDER_STYLE_FALLBACK})`,
           "border-color": `var(${PILL_BORDER_COLOR_VAR_NAME})`,
@@ -220,6 +268,12 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // Everything here inherits, so each pill also starts from none of it,
     // rather than drawing a decorated parent's border, rings or shadows.
     ":where(&)": {
+      // With Tailwind, the stadium is here, so a side utility's radius wins
+      // whatever the order; see below.
+      ...(flavor === "tailwind" ? { "border-radius": FULL_RADIUS } : {}),
+      // Every pill starts with both ends capped, rather than taking a side
+      // from a pill it is nested in.
+      [PILL_SIDE_VAR_NAME]: DEFAULT_PILL_SIDE,
       [PILL_BORDER_WIDTH_VAR_NAME]: "0px",
       [PILL_BORDER_COLOR_VAR_NAME]: "currentColor",
       [PILL_OUTLINE_WIDTH_VAR_NAME]: "0px",
@@ -345,5 +399,14 @@ export function renderPillCss(selector = `[${PILL_ATTRIBUTE}]`): string {
   }
 
   blocks.push(...renderRule(selector, pillCssObj("standalone")));
+  // `data-<namespace>-pill="t"` and friends: the side utilities' rules, on
+  // the attribute's value, which narrows an attribute selector and is added
+  // to any other.
+  for (const name of PILL_SIDE_NAMES) {
+    const valued = selector.endsWith(`[${PILL_ATTRIBUTE}]`)
+      ? `${selector.slice(0, -1)}="${name}"]`
+      : `${selector}[${PILL_ATTRIBUTE}="${name}"]`;
+    blocks.push(...renderRule(valued, pillSideCss(name)));
+  }
   return blocks.join("\n\n") + "\n";
 }

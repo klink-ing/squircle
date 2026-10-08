@@ -36,6 +36,7 @@ import {
   PILL_RING_OFFSET_WIDTH_VAR_NAME,
   PILL_RING_WIDTH_VAR_NAME,
   PILL_SHADOW_REACH_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -74,7 +75,7 @@ type Point = { x: number; y: number };
 type Drawn = {
   /** Every path traced, in order, with what was done with it. */
   paths: { points: Point[]; op?: "fill" | "stroke" | "clip"; rule?: string }[];
-  strokes: { color: string; width: number; dash: number[]; points: Point[] }[];
+  strokes: { color: string; width: number; dash: number[]; join: string; points: Point[] }[];
   shadows: { color: string; blur: number; x: number; y: number; points: Point[] }[];
 };
 
@@ -131,7 +132,13 @@ const record = (
     },
     stroke() {
       drawn.paths[drawn.paths.length - 1].op = "stroke";
-      drawn.strokes.push({ color: ctx.strokeStyle, width: ctx.lineWidth, dash, points: current });
+      drawn.strokes.push({
+        color: ctx.strokeStyle,
+        width: ctx.lineWidth,
+        dash,
+        join: ctx.lineJoin,
+        points: current,
+      });
     },
     clip(rule?: string) {
       const path = drawn.paths[drawn.paths.length - 1];
@@ -176,12 +183,14 @@ describe("pill-shape worklet contract", () => {
       PILL_AMT_VAR_NAME,
       PILL_EASE_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
+      PILL_SIDE_VAR_NAME,
       PILL_BACKGROUND_INSET_VAR_NAME,
     ]);
     expect(decorationInputs).toEqual([
       PILL_AMT_VAR_NAME,
       PILL_EASE_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
+      PILL_SIDE_VAR_NAME,
       PILL_REACH_VAR_NAME,
       PILL_BORDER_WIDTH_VAR_NAME,
       PILL_BORDER_COLOR_VAR_NAME,
@@ -205,9 +214,52 @@ describe("pill-shape worklet contract", () => {
   describe("against squircle-pill.css", () => {
     it("registers every shaping property the worklet reads", () => {
       const registered = registeredProperties(stylesheet);
-      for (const name of [PILL_AMT_VAR_NAME, PILL_EASE_VAR_NAME, PILL_CONTINUITY_VAR_NAME]) {
+      for (const name of [
+        PILL_AMT_VAR_NAME,
+        PILL_EASE_VAR_NAME,
+        PILL_CONTINUITY_VAR_NAME,
+        PILL_SIDE_VAR_NAME,
+      ]) {
         expect(registered, `${name} must be registered`).toContain(name);
       }
+    });
+
+    it("caps one end from the attribute's value", () => {
+      for (const [value, side] of [
+        ["t", "t"],
+        ["r", "r"],
+        ["b", "b"],
+        ["l", "l"],
+        ["s", "l"],
+        ["e", "r"],
+      ]) {
+        const rule = new RegExp(
+          `\\[${PILL_ATTRIBUTE}="${value}"\\] \\{[^}]*${PILL_SIDE_VAR_NAME}: ${side};`,
+        );
+        expect(stylesheet, value).toMatch(rule);
+      }
+      expect(stylesheet).toMatch(
+        new RegExp(
+          `\\[${PILL_ATTRIBUTE}="s"\\]:where\\(:dir\\(rtl\\), \\[dir="rtl"\\], \\[dir="rtl"\\] \\*\\) \\{[^}]*${PILL_SIDE_VAR_NAME}: r;`,
+        ),
+      );
+      // No axis values: they could only draw the automatic pill.
+      expect(stylesheet).not.toContain(`[${PILL_ATTRIBUTE}="x"]`);
+      expect(stylesheet).not.toContain(`[${PILL_ATTRIBUTE}="y"]`);
+    });
+
+    it("builds its side rules on any selector it is given", () => {
+      const css = renderPillCss(".pill");
+      expect(css).toMatch(
+        new RegExp(`\\.pill\\[${PILL_ATTRIBUTE}="t"\\] \\{[^}]*${PILL_SIDE_VAR_NAME}: t;`),
+      );
+      expect(css).not.toMatch(/\n\.pill \{[^}]*--squircle-pill-side: r;/);
+    });
+
+    it("starts a bare pill at auto, at zero specificity", () => {
+      expect(stylesheet).toMatch(
+        new RegExp(`:where\\(\\[${PILL_ATTRIBUTE}\\]\\) \\{[^}]*${PILL_SIDE_VAR_NAME}: auto;`),
+      );
     });
 
     it("registers nothing that is neither read nor fed into something read", () => {
@@ -313,7 +365,14 @@ describe("pill-shape worklet contract", () => {
       // pill doesn't draw follows with it. Never a percentage: `50%` is an
       // ellipse on any non-square element. Never a superellipse: on a pill
       // the cap is the whole shape, so reshaping it changes the silhouette.
+      // On the attribute itself: the sheet is in no layer, so at zero
+      // specificity a plain `button { border-radius: 6px }` would beat it.
+      // The side rules match the same specificity and come later, so they
+      // still win.
       expect(ruleBody(stylesheet, SHAPE)).toContain("border-radius: calc(infinity * 1px);");
+      expect(stylesheet.indexOf(`\n[${PILL_ATTRIBUTE}="t"] {`)).toBeGreaterThan(
+        stylesheet.indexOf(`\n${SHAPE} {`),
+      );
       expect(stylesheet).not.toContain("border-radius: 50%");
       expect(stylesheet).not.toContain("corner-shape");
     });
@@ -449,6 +508,16 @@ describe("pill-shape worklet contract", () => {
           [PILL_BOX_SHADOW_VAR_NAME]: "0 0 #0000, 0 4px 8px rgb(0 0 0 / 0)",
         }).paths,
       ).toEqual([]);
+    });
+
+    it("joins its bands with miters, so a side pill's square corners stay square", () => {
+      const drawn = record(decorationDef, {
+        [PILL_BORDER_WIDTH_VAR_NAME]: "4px",
+        [PILL_BORDER_COLOR_VAR_NAME]: "red",
+        [PILL_SIDE_VAR_NAME]: "l",
+      });
+      expect(drawn.strokes.length).toBeGreaterThan(0);
+      for (const stroke of drawn.strokes) expect(stroke.join).toBe("miter");
     });
 
     it("draws nothing for border-style none or hidden", () => {

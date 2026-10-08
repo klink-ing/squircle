@@ -32,6 +32,7 @@ import {
   PILL_RING_OFFSET_COLOR_VAR_NAME,
   PILL_RING_OFFSET_WIDTH_VAR_NAME,
   PILL_RING_WIDTH_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
 } from "./variants";
 
 type Point = { x: number; y: number };
@@ -114,6 +115,28 @@ describe("pill polyfill", () => {
       }
     });
 
+    it("traces a side pill exactly as the worklet does", () => {
+      for (const side of ["t", "r", "b", "l"]) {
+        for (const [width, height] of [
+          [200, 40],
+          [40, 200],
+          [40, 40],
+        ] as const) {
+          const label = `${side} ${width}x${height}`;
+          const ours = pillOutlinePoints(width, height, { side });
+          const theirs = workletVertices(width, height, { [PILL_SIDE_VAR_NAME]: side });
+          // The worklet closes its path by returning to the first point; ours
+          // leaves the close to the path's `Z`.
+          if (theirs.length === ours.length + 1) theirs.pop();
+          expect(ours.length, label).toBe(theirs.length);
+          ours.forEach((p, i) => {
+            expect(p.x, label).toBeCloseTo((theirs[i] as Point).x, 6);
+            expect(p.y, label).toBeCloseTo((theirs[i] as Point).y, 6);
+          });
+        }
+      }
+    });
+
     it("honours the shape properties the worklet reads", () => {
       const shape = { amt: "3", ease: "4", continuity: "2" };
       const ours = pillOutlinePoints(240, 60, shape);
@@ -153,6 +176,11 @@ describe("pill polyfill", () => {
       expect(pillClipPath(240, 60, shape)).toBe(`path("${pillOutlinePath(240, 60, shape)}")`);
     });
 
+    it("is still needed for a square with a side, which is an arch", () => {
+      expect(pillClipPath(40, 40, { side: "t" })).toMatch(/^path\("M/);
+      expect(pillClipPath(40, 40, { side: "auto" })).toBeNull();
+    });
+
     it("is not needed for a square, whose stadium is already its circle", () => {
       expect(pillClipPath(48, 48)).toBeNull();
       expect(pillClipPath(48, 47)).not.toBeNull();
@@ -169,6 +197,23 @@ describe("pill polyfill", () => {
       [...drawing.matchAll(/<path d="([^"]*)" fill="none"[^>]*style="stroke:([^"]*)"/g)].map(
         (m) => ({ points: parse(m[1] as string)[0] as Point[], color: m[2] as string }),
       );
+
+    it("joins its bands with miters, so a side pill's square corners stay square", () => {
+      const image = svg(
+        pillDecorationImage(
+          200,
+          40,
+          {
+            [PILL_BORDER_WIDTH_VAR_NAME]: "4px",
+            [PILL_BORDER_COLOR_VAR_NAME]: "red",
+            [PILL_BORDER_STYLE_VAR_NAME]: "dashed",
+          },
+          { side: "l" },
+        ),
+      );
+      expect(image).toContain('stroke-linejoin="miter"');
+      expect(image).not.toContain('stroke-linejoin="round"');
+    });
 
     it("draws nothing without a border, outline, ring or shadow", () => {
       expect(decorate({})).toBeNull();

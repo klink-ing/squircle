@@ -7,9 +7,11 @@ import {
   DEFAULT_PILL_AMT,
   DEFAULT_PILL_CONTINUITY,
   DEFAULT_PILL_EASE,
+  DEFAULT_PILL_SIDE,
   PILL_AMT_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EASE_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
@@ -17,7 +19,8 @@ export { PILL_WORKLET_ATTRIBUTE };
 
 /**
  * The pill's shape settings — the custom properties `squircle-pill-amt-*`,
- * `squircle-pill-ease-*` and `squircle-pill-g2`/`-g3` set — and the values
+ * `squircle-pill-ease-*`, `squircle-pill-g2`/`-g3` and the side utilities
+ * (`squircle-pill-t`, …) set — and the values
  * they start at, for scripts that set or show them: a settings panel, a
  * preview. The same constants the stylesheet's registrations and the
  * worklet's own fallbacks come from, so they never disagree.
@@ -26,6 +29,7 @@ export const PILL_SHAPE_PROPERTIES = {
   amt: { name: PILL_AMT_VAR_NAME, default: DEFAULT_PILL_AMT },
   ease: { name: PILL_EASE_VAR_NAME, default: DEFAULT_PILL_EASE },
   continuity: { name: PILL_CONTINUITY_VAR_NAME, default: DEFAULT_PILL_CONTINUITY },
+  side: { name: PILL_SIDE_VAR_NAME, default: DEFAULT_PILL_SIDE },
 } as const;
 
 /**

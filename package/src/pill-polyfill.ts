@@ -28,6 +28,7 @@ import {
   PILL_RING_OFFSET_COLOR_VAR_NAME,
   PILL_RING_OFFSET_WIDTH_VAR_NAME,
   PILL_RING_WIDTH_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
 } from "./variants";
 
 export { PILL_POLYFILL_ATTRIBUTE };
@@ -42,20 +43,12 @@ export interface PillShapeInput {
   amt?: string;
   ease?: string;
   continuity?: string;
+  side?: string;
 }
 
 interface PillGeometry {
-  resolveAngle(props: Lookup): number;
-  resolveExponent(props: Lookup): number;
-  resolveContinuity(props: Lookup): 2 | 3;
-  fittedQuadrant(
-    long: number,
-    short: number,
-    ease: number,
-    exponent: number,
-    continuity: 2 | 3,
-  ): Point[];
-  outline(long: number, short: number, quadrant: Point[]): Point[];
+  boxOutline(width: number, height: number, props: Lookup): Point[];
+  resolveSide(props: Lookup): string;
   offsetOutline(points: Point[], distance: number): Point[];
   resolveLength(props: Lookup, name: string): number;
   decorationOutset(props: Lookup): number;
@@ -80,9 +73,8 @@ const lookup = (values: Record<string, string | undefined>): Lookup => ({
 });
 
 /**
- * The pill's outline in box coordinates, in the order the worklet draws it:
- * clockwise from the leftmost point for a wide pill, and that mirrored —
- * anticlockwise from the topmost — for a tall one.
+ * The pill's outline in box coordinates, in the order the worklet draws it,
+ * which is the worklet's own `boxOutline`.
  */
 export function pillOutlinePoints(
   width: number,
@@ -94,22 +86,12 @@ export function pillOutlinePoints(
     [PILL_AMT_VAR_NAME]: shape.amt,
     [PILL_EASE_VAR_NAME]: shape.ease,
     [PILL_CONTINUITY_VAR_NAME]: shape.continuity,
+    [PILL_SIDE_VAR_NAME]: shape.side,
   });
-  const vertical = height > width;
-  const long = vertical ? height : width;
-  const short = vertical ? width : height;
-  const quadrant = geometry.fittedQuadrant(
-    long,
-    short,
-    geometry.resolveAngle(props),
-    geometry.resolveExponent(props),
-    geometry.resolveContinuity(props),
-  );
   const out: Point[] = [];
-  for (const p of geometry.outline(long, short, quadrant)) {
-    const q = vertical ? { x: p.y, y: p.x } : p;
-    // The mirrored quadrants meet at shared points; drop the repeats, which
-    // have no direction to offset along.
+  for (const q of geometry.boxOutline(width, height, props)) {
+    // The pieces of the outline meet at shared points; drop the repeats,
+    // which have no direction to offset along.
     const last = out[out.length - 1];
     if (!last || Math.abs(last.x - q.x) > 1e-6 || Math.abs(last.y - q.y) > 1e-6) out.push(q);
   }
@@ -153,9 +135,9 @@ export function pillOutlinePath(width: number, height: number, shape: PillShapeI
 
 /**
  * The `clip-path` for the copy of the element's background the pill shows:
- * the pill's outline, pulled in by `inset`. `null` for a square that needs no
- * pulling in, whose stadium `border-radius` is already the circle a square
- * pill has to be.
+ * the pill's outline, pulled in by `inset`. `null` for a square pill that
+ * needs no pulling in, whose stadium `border-radius` is already the circle it
+ * has to be; a square capped at one end is an arch, and needs its clip.
  */
 export function pillClipPath(
   width: number,
@@ -163,7 +145,9 @@ export function pillClipPath(
   shape?: PillShapeInput,
   inset = 0,
 ): string | null {
-  if (width <= 0 || height <= 0 || (width === height && inset <= 0)) return null;
+  // The worklet's own reading of the side, so a value it ignores is `auto` here too.
+  const auto = geometry.resolveSide(lookup({ [PILL_SIDE_VAR_NAME]: shape?.side })) === "auto";
+  if (width <= 0 || height <= 0 || (width === height && inset <= 0 && auto)) return null;
   if (inset <= 0) return `path("${pillOutlinePath(width, height, shape)}")`;
   return `path("${subpath(geometry.offsetOutline(pillOutlinePoints(width, height, shape), -inset))}")`;
 }
@@ -259,7 +243,7 @@ export function pillDecorationImage(
   for (const band of bands) {
     const d = subpath(geometry.offsetOutline(outline, (band.from + band.to) / 2));
     const dash = band.dash.length > 0 ? ` stroke-dasharray="${band.dash.join(" ")}"` : "";
-    body += `<path d="${d}" fill="none" stroke-width="${round(band.to - band.from)}" stroke-linejoin="round"${dash} style="stroke:${band.color}"/>`;
+    body += `<path d="${d}" fill="none" stroke-width="${round(band.to - band.from)}" stroke-linejoin="miter"${dash} style="stroke:${band.color}"/>`;
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${defs ? `<defs>${defs}</defs>` : ""}${body}</svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
@@ -470,6 +454,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
         ease: style.getPropertyValue(PILL_EASE_VAR_NAME),
         continuity: style.getPropertyValue(PILL_CONTINUITY_VAR_NAME),
+        side: style.getPropertyValue(PILL_SIDE_VAR_NAME),
       },
       decoration: decorated ? values : {},
       decorationKey: decorated ? Object.values(values).join("|") : "",
@@ -509,7 +494,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       if (!size) continue;
       const { width, height } = size;
       const { shape, decoration, decorationKey, inset } = read(el);
-      const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity}`;
+      const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity},${shape.side}`;
       const key = `${shapeKey},${inset},${decorationKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);

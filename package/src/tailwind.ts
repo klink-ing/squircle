@@ -4,6 +4,7 @@
  */
 
 import plugin from "tailwindcss/plugin";
+import { PILL_SIDE_NAMES } from "./pill-css";
 import {
   DEFAULT_AMOUNT_VAR_NAME,
   DEFAULT_R_VAR_NAME,
@@ -117,9 +118,10 @@ export default squircle;
 // it controls corner shape, not radius, so radius classes never cancel it.
 //
 // `squircle-pill` shapes all four corners, so it sits with the all-corners
-// utilities. Its `-amt-*`, `-ease-*` and `-g2`/`-g3` knobs each get a group of
-// their own; left out, the catch-all `squircle-*` group would take them for
-// radii and have them cancel the pill and each other.
+// utilities. Its `-amt-*`, `-ease-*`, `-g2`/`-g3` and side (`-t`, `-s`, …)
+// knobs each get a group of their own; left out, the catch-all `squircle-*`
+// group would take them for radii and have them cancel the pill and each
+// other.
 const SIDE_CORNERS = {
   t: ["tl", "tr"],
   r: ["tr", "br"],
@@ -138,8 +140,8 @@ const rd = (suffix: string) => (suffix ? `rounded-${suffix}` : "rounded");
 const PILL = "squircle-pill";
 
 const conflictingClassGroups: Record<string, string[]> = {
-  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL],
-  rounded: [...ALL_SUFFIXES.map(sq), PILL],
+  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL, `${PILL}-side`],
+  rounded: [...ALL_SUFFIXES.map(sq), PILL, `${PILL}-side`],
   [PILL]: [...ALL_SUFFIXES.map(sq), ...ALL_SUFFIXES.map(rd)],
 };
 for (const side of SIDES) {
@@ -167,6 +169,7 @@ const classGroups: Record<string, (string | Record<string, ((value: string) => b
   [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
   [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
   [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
+  [`${PILL}-side`]: PILL_SIDE_NAMES.map((side) => `${PILL}-${side}`),
 };
 
 export const squircleMergeConfig = {
