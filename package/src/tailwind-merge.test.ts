@@ -100,6 +100,13 @@ describe("squircleMergeConfig", () => {
       );
     });
 
+    it("never takes an unknown squircle-pill-* class for a radius", () => {
+      // The catch-all `squircle-*` group would otherwise claim it, and cancel
+      // the pill along with any radius.
+      expect(twMerge("squircle-pill squircle-pill-x")).toBe("squircle-pill squircle-pill-x");
+      expect(twMerge("squircle-md squircle-pill-foo")).toBe("squircle-md squircle-pill-foo");
+    });
+
     it("a later knob wins over an earlier one of the same kind", () => {
       expect(twMerge("squircle-pill-amt-2 squircle-pill-amt-3")).toBe("squircle-pill-amt-3");
       expect(twMerge("squircle-pill-ease-1 squircle-pill-ease-2")).toBe("squircle-pill-ease-2");

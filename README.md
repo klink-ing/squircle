@@ -1402,7 +1402,11 @@ export const squircleMergeConfig = {
   extend: {
     classGroups: {
       ...Object.fromEntries(
-        ALL_SUFFIXES.map((suffix) => [sq(suffix), [{ [sq(suffix)]: [() => true] }]]),
+        ALL_SUFFIXES.map((suffix) => [
+          sq(suffix),
+          // The bare group leaves `pill…` to the pill's own groups.
+          [{ [sq(suffix)]: [suffix ? () => true : (value) => !/^pill(-|$)/.test(value)] }],
+        ]),
       ),
       "squircle-amt": [{ "squircle-amt": [() => true] }],
       [PILL]: [PILL],

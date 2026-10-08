@@ -153,9 +153,14 @@ for (const corner of CORNERS) {
 }
 
 // String-keyed, so it reads as an extension of tailwind-merge's own groups.
-const classGroups: Record<string, (string | Record<string, (() => boolean)[]>)[]> = {
+// The bare `squircle-*` group takes any value, so it leaves `pill…` to the
+// pill's own groups; a pill class they don't know is then left alone rather
+// than taken for a radius, which would cancel the pill.
+const notPill = (value: string) => !/^pill(-|$)/.test(value);
+
+const classGroups: Record<string, (string | Record<string, ((value: string) => boolean)[]>)[]> = {
   ...Object.fromEntries(
-    ALL_SUFFIXES.map((suffix) => [sq(suffix), [{ [sq(suffix)]: [() => true] }]]),
+    ALL_SUFFIXES.map((suffix) => [sq(suffix), [{ [sq(suffix)]: [suffix ? () => true : notPill] }]]),
   ),
   "squircle-amt": [{ "squircle-amt": [() => true] }],
   [PILL]: [PILL],
