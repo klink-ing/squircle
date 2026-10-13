@@ -79,6 +79,51 @@ describe("squircleMergeConfig", () => {
       expect(twMerge("squircle-amt-2 squircle-amt-3")).toBe("squircle-amt-3");
     });
   });
+
+  describe("squircle-pill", () => {
+    it("is an all-corners utility", () => {
+      expect(twMerge("squircle-md squircle-pill")).toBe("squircle-pill");
+      expect(twMerge("rounded-lg squircle-pill")).toBe("squircle-pill");
+      expect(twMerge("squircle-t-lg rounded-tl-sm squircle-pill")).toBe("squircle-pill");
+      expect(twMerge("squircle-pill squircle-md")).toBe("squircle-md");
+      expect(twMerge("squircle-pill rounded-full")).toBe("rounded-full");
+      expect(twMerge("squircle-pill squircle-tl-sm")).toBe("squircle-pill squircle-tl-sm");
+    });
+
+    it("its knobs never cancel the pill or each other", () => {
+      expect(
+        twMerge("squircle-pill squircle-pill-amt-3 squircle-pill-ease-2 squircle-pill-g3"),
+      ).toBe("squircle-pill squircle-pill-amt-3 squircle-pill-ease-2 squircle-pill-g3");
+      expect(twMerge("squircle-pill-amt-3 squircle-md")).toBe("squircle-pill-amt-3 squircle-md");
+      expect(twMerge("squircle-amt-3 squircle-pill-amt-2")).toBe(
+        "squircle-amt-3 squircle-pill-amt-2",
+      );
+    });
+
+    it("never takes an unknown squircle-pill-* class for a radius", () => {
+      // The catch-all `squircle-*` group would otherwise claim it, and cancel
+      // the pill along with any radius.
+      expect(twMerge("squircle-pill squircle-pill-x")).toBe("squircle-pill squircle-pill-x");
+      expect(twMerge("squircle-md squircle-pill-foo")).toBe("squircle-md squircle-pill-foo");
+    });
+
+    it("its sides replace each other and nothing else", () => {
+      expect(twMerge("squircle-pill-t squircle-pill-l")).toBe("squircle-pill-l");
+      expect(twMerge("squircle-pill-b squircle-pill-s")).toBe("squircle-pill-s");
+      expect(twMerge("squircle-pill squircle-pill-e squircle-pill-amt-3")).toBe(
+        "squircle-pill squircle-pill-e squircle-pill-amt-3",
+      );
+      // A later all-corners radius replaces the pill, side and all.
+      expect(twMerge("squircle-pill squircle-pill-t rounded-lg")).toBe("rounded-lg");
+      expect(twMerge("squircle-pill-l squircle-md")).toBe("squircle-md");
+    });
+
+    it("a later knob wins over an earlier one of the same kind", () => {
+      expect(twMerge("squircle-pill-amt-2 squircle-pill-amt-3")).toBe("squircle-pill-amt-3");
+      expect(twMerge("squircle-pill-ease-1 squircle-pill-ease-2")).toBe("squircle-pill-ease-2");
+      expect(twMerge("squircle-pill-g2 squircle-pill-g3")).toBe("squircle-pill-g3");
+    });
+  });
 });
 
 /**
