@@ -69,6 +69,7 @@
     "@stylexjs/stylex": "^0.18.3",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^25.5.2",
+    "happy-dom": "catalog:",
     "oxlint": "^1.58.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",

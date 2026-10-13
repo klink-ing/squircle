@@ -88,7 +88,7 @@ const twMerge = extendTailwindMerge(squircleMergeConfig, {
 });
 ```
 
-The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners utility cancels earlier side/corner utilities (from either family), a side cancels its two corners, and a narrower utility refines a broader one instead of canceling it — `squircle-md squircle-tl-sm` keeps both. `squircle-amt-*` is independent of radius classes. `squircle-pill` counts as an all-corners utility, and its `-amt-*`, `-ease-*` and `-g2`/`-g3` modifiers each only cancel their own kind.
+The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners utility cancels earlier side/corner utilities (from either family), a side cancels its two corners, and a narrower utility refines a broader one instead of canceling it — `squircle-md squircle-tl-sm` keeps both. `squircle-amt-*` is independent of radius classes. `squircle-pill` counts as an all-corners utility, and its `-amt-*`, `-ease-*`, `-g2`/`-g3` and side modifiers each only cancel their own kind, except that a later all-corners radius cancels a side along with the pill.
 
 ### Utilities
 
@@ -492,14 +492,28 @@ registerPillWorklet(workletUrl);
 <div class="squircle-pill h-10 w-10 bg-zinc-200"></div>
 ```
 
-| Utility                | Effect                                                                                                                                                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `squircle-pill`        | The pill. Caps derived from the element's size.                                                                                                                                                          |
-| `squircle-pill-amt-*`  | How much of each cap is handed to the easing, in 30° steps. `1` is a bare semicircle; default `2`.                                                                                                       |
-| `squircle-pill-ease-*` | Stretches the easing further along the flat edge without spending more of the arc. `0` is a clothoid; default `2`.                                                                                       |
-| `squircle-pill-g2`     | Matches curvature only (G2), where the easing leaves the arc and where it meets the edge. `squircle-pill-g3`, the default, also matches the rate curvature changes (G3) at both, for any ease above `0`. |
+| Utility                             | Effect                                                                                                                                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `squircle-pill`                     | The pill. Caps derived from the element's size.                                                                                                                                                          |
+| `squircle-pill-t`, `-r`, `-b`, `-l` | Caps that end alone and squares the other. A cap is never larger than the box allows, so `squircle-pill-t` on a wide button is a tab whose top corners run its full height.                              |
+| `squircle-pill-s`, `-e`             | The inline-start or inline-end end: `-l`/`-r`, swapped under `dir="rtl"`.                                                                                                                                |
+| `squircle-pill-amt-*`               | How much of each cap is handed to the easing, in 30° steps. `1` is a bare semicircle; default `2`.                                                                                                       |
+| `squircle-pill-ease-*`              | Stretches the easing further along the flat edge without spending more of the arc. `0` is a clothoid; default `2`.                                                                                       |
+| `squircle-pill-g2`                  | Matches curvature only (G2), where the easing leaves the arc and where it meets the edge. `squircle-pill-g3`, the default, also matches the rate curvature changes (G3) at both, for any ease above `0`. |
 
 Both accept bare numbers (`squircle-pill-amt-3`, `squircle-pill-amt-1.5`) and arbitrary values (`squircle-pill-amt-[2.5]`), and reject anything else. They only set the custom property — `--squircle-pill-amt` and `--squircle-pill-ease`, and `--squircle-pill-continuity` (`2` or `3`) for the `-g2`/`-g3` utilities — which you can also set yourself, on the element or an ancestor; both are registered and animate. When an element is too narrow for what you asked for, both are eased down together so the join stays smooth; a square renders as a plain circle.
+
+A side is a modifier on the pill, one per pill; a later one replaces an earlier one. It's for button groups and segmented controls:
+
+```html
+<div class="flex gap-0.5">
+  <button class="squircle-pill squircle-pill-s bg-zinc-800 px-4 py-2">Day</button>
+  <button class="bg-zinc-800 px-4 py-2">Week</button>
+  <button class="squircle-pill squircle-pill-e bg-zinc-800 px-4 py-2">Month</button>
+</div>
+```
+
+The side sets `--squircle-pill-side` (`auto`, `t`, `r`, `b` or `l`) and the fallback's `border-radius`. The polyfill re-reads it when the pill's class changes, when an ancestor's `dir` or class changes, and once the viewport settles after a resize, so `dir="rtl"` and responsive sides like `sm:squircle-pill-s` follow.
 
 ### Borders, outlines and shadows
 
@@ -538,7 +552,7 @@ if (!(await registerPillWorklet())) {
 
 It runs the worklet's own geometry on the main thread: a `ResizeObserver` watches every pill, and on each new size the outline is set as a `clip-path: path()` for the copy of the background, and everything drawn around it — border, outline, rings, shadows — as an SVG image, on two custom properties the pill styles read. A clip rather than a mask image for the shape, because a mask image is decoded and rasterised again on every resize, which was over five times slower. The shapes are identical to the worklet's, borders, dashes and shadows included; a square needs no clip at all, its stadium already being the circle it has to be. Each pill shows its stadium until its clip is computed, so there is no flash of anything worse, and a resize too large for one frame spreads over the next few rather than dropping them. The element's own `clip-path` and masks are never touched, so they apply as they do with the worklet.
 
-It picks up pills added or removed later, and re-reads a pill when its `class` changes and when it gains or loses focus, hover or a press, so `focus-visible:` and `hover:` decorations work too. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a media query — need a `refresh()`:
+It picks up pills added or removed later, and re-reads a pill when its `class` changes, when an ancestor's `class` or `dir` changes, when it gains or loses focus, hover or a press, and once the viewport settles after a resize, so `focus-visible:`, `hover:`, `dark:`, `rtl:` and breakpoint variants work too. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a container query — need a `refresh()`:
 
 ```js
 const pills = polyfillPills();
@@ -561,6 +575,8 @@ The same rules, hung off an attribute:
 ```html
 <button data-squircle-pill style="--squircle-pill-border-width: 2px">Save</button>
 ```
+
+Give the attribute a value to cap one end: `data-squircle-pill="t"`, and `r`, `b`, `l`, `s` and `e`, as the utilities do.
 
 Register the worklet as above. Here the pill's own properties also drive a real border, so a bordered pill degrades to a bordered stadium without the worklet; `--squircle-pill-border-color` defaults to `currentColor` and `--squircle-pill-border-style` to `solid`. The stylesheet is generated from the same source as the Tailwind utility, so the two never disagree.
 
@@ -1384,8 +1400,8 @@ const rd = (suffix) => (suffix ? `rounded-${suffix}` : "rounded");
 const PILL = "squircle-pill";
 
 const conflictingClassGroups = {
-  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL],
-  rounded: [...ALL_SUFFIXES.map(sq), PILL],
+  squircle: [...ALL_SUFFIXES.slice(1).map(sq), ...ALL_SUFFIXES.map(rd), PILL, `${PILL}-side`],
+  rounded: [...ALL_SUFFIXES.map(sq), PILL, `${PILL}-side`],
   [PILL]: [...ALL_SUFFIXES.map(sq), ...ALL_SUFFIXES.map(rd)],
 };
 for (const side of SIDES) {
@@ -1413,6 +1429,7 @@ export const squircleMergeConfig = {
       [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
       [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
       [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
+      [`${PILL}-side`]: ["t", "r", "b", "l", "s", "e"].map((side) => `${PILL}-${side}`),
     },
     conflictingClassGroups,
   },

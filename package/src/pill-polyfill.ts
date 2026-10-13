@@ -28,6 +28,7 @@ import {
   PILL_RING_OFFSET_COLOR_VAR_NAME,
   PILL_RING_OFFSET_WIDTH_VAR_NAME,
   PILL_RING_WIDTH_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
 } from "./variants";
 
 export { PILL_POLYFILL_ATTRIBUTE };
@@ -42,20 +43,12 @@ export interface PillShapeInput {
   amt?: string;
   ease?: string;
   continuity?: string;
+  side?: string;
 }
 
 interface PillGeometry {
-  resolveAngle(props: Lookup): number;
-  resolveExponent(props: Lookup): number;
-  resolveContinuity(props: Lookup): 2 | 3;
-  fittedQuadrant(
-    long: number,
-    short: number,
-    ease: number,
-    exponent: number,
-    continuity: 2 | 3,
-  ): Point[];
-  outline(long: number, short: number, quadrant: Point[]): Point[];
+  boxOutline(width: number, height: number, props: Lookup): Point[];
+  resolveSide(props: Lookup): string;
   offsetOutline(points: Point[], distance: number): Point[];
   resolveLength(props: Lookup, name: string): number;
   decorationOutset(props: Lookup): number;
@@ -80,9 +73,8 @@ const lookup = (values: Record<string, string | undefined>): Lookup => ({
 });
 
 /**
- * The pill's outline in box coordinates, in the order the worklet draws it:
- * clockwise from the leftmost point for a wide pill, and that mirrored —
- * anticlockwise from the topmost — for a tall one.
+ * The pill's outline in box coordinates, in the order the worklet draws it,
+ * which is the worklet's own `boxOutline`.
  */
 export function pillOutlinePoints(
   width: number,
@@ -94,22 +86,12 @@ export function pillOutlinePoints(
     [PILL_AMT_VAR_NAME]: shape.amt,
     [PILL_EASE_VAR_NAME]: shape.ease,
     [PILL_CONTINUITY_VAR_NAME]: shape.continuity,
+    [PILL_SIDE_VAR_NAME]: shape.side,
   });
-  const vertical = height > width;
-  const long = vertical ? height : width;
-  const short = vertical ? width : height;
-  const quadrant = geometry.fittedQuadrant(
-    long,
-    short,
-    geometry.resolveAngle(props),
-    geometry.resolveExponent(props),
-    geometry.resolveContinuity(props),
-  );
   const out: Point[] = [];
-  for (const p of geometry.outline(long, short, quadrant)) {
-    const q = vertical ? { x: p.y, y: p.x } : p;
-    // The mirrored quadrants meet at shared points; drop the repeats, which
-    // have no direction to offset along.
+  for (const q of geometry.boxOutline(width, height, props)) {
+    // The pieces of the outline meet at shared points; drop the repeats,
+    // which have no direction to offset along.
     const last = out[out.length - 1];
     if (!last || Math.abs(last.x - q.x) > 1e-6 || Math.abs(last.y - q.y) > 1e-6) out.push(q);
   }
@@ -153,9 +135,9 @@ export function pillOutlinePath(width: number, height: number, shape: PillShapeI
 
 /**
  * The `clip-path` for the copy of the element's background the pill shows:
- * the pill's outline, pulled in by `inset`. `null` for a square that needs no
- * pulling in, whose stadium `border-radius` is already the circle a square
- * pill has to be.
+ * the pill's outline, pulled in by `inset`. `null` for a square pill that
+ * needs no pulling in, whose stadium `border-radius` is already the circle it
+ * has to be; a square capped at one end is an arch, and needs its clip.
  */
 export function pillClipPath(
   width: number,
@@ -163,7 +145,9 @@ export function pillClipPath(
   shape?: PillShapeInput,
   inset = 0,
 ): string | null {
-  if (width <= 0 || height <= 0 || (width === height && inset <= 0)) return null;
+  // The worklet's own reading of the side, so a value it ignores is `auto` here too.
+  const auto = geometry.resolveSide(lookup({ [PILL_SIDE_VAR_NAME]: shape?.side })) === "auto";
+  if (width <= 0 || height <= 0 || (width === height && inset <= 0 && auto)) return null;
   if (inset <= 0) return `path("${pillOutlinePath(width, height, shape)}")`;
   return `path("${subpath(geometry.offsetOutline(pillOutlinePoints(width, height, shape), -inset))}")`;
 }
@@ -259,7 +243,7 @@ export function pillDecorationImage(
   for (const band of bands) {
     const d = subpath(geometry.offsetOutline(outline, (band.from + band.to) / 2));
     const dash = band.dash.length > 0 ? ` stroke-dasharray="${band.dash.join(" ")}"` : "";
-    body += `<path d="${d}" fill="none" stroke-width="${round(band.to - band.from)}" stroke-linejoin="round"${dash} style="stroke:${band.color}"/>`;
+    body += `<path d="${d}" fill="none" stroke-width="${round(band.to - band.from)}" stroke-linejoin="miter"${dash} style="stroke:${band.color}"/>`;
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${defs ? `<defs>${defs}</defs>` : ""}${body}</svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
@@ -398,6 +382,9 @@ const cached = (key: string, make: () => string | null): string | null => {
   clipCache.set(key, value);
   return value;
 };
+/** How long the viewport has to stop resizing before pills are re-read. */
+const VIEWPORT_SETTLE_MS = 150;
+
 const drawingCache = new Map<string, PillDecorationDrawing | null>();
 const cachedDrawing = (
   key: string,
@@ -423,10 +410,11 @@ const cachedDrawing = (
  * background shows as a stadium.
  *
  * Shape and decoration properties are read when the polyfill first sees a
- * pill, whenever its `class` changes, and when it
- * gains or loses focus, hover or a press; call `refresh()` after anything
+ * pill, whenever its `class` changes or an ancestor's `class` or `dir` does,
+ * when it gains or loses focus, hover or a press, and once the viewport
+ * settles after a resize, for media queries; call `refresh()` after anything
  * else that changes them, such as an inline style, a stylesheet change or a
- * media query.
+ * container query.
  *
  * Returns `null` without doing anything where paint worklets are supported,
  * unless `force` is set.
@@ -436,17 +424,21 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
   if (supported && !options.force) return null;
 
   const root = options.root ?? document;
-  const doc = root instanceof Document ? root : root.ownerDocument;
+  // By node type, not `instanceof`, which fails for a document from another
+  // frame.
+  const isDocument = (node: Node): node is Document => node.nodeType === Node.DOCUMENT_NODE;
+  const doc = isDocument(root) ? root : (root.ownerDocument as Document);
   const selector = `.${options.prefix ?? "squircle-pill"}, [${PILL_ATTRIBUTE}]`;
   const lastKey = new WeakMap<Element, string>();
   const watched = new Set<Element>();
   const sizes = new WeakMap<Element, { width: number; height: number }>();
 
   /**
-   * Each pill's shape settings, read once and kept until its class changes or
-   * `refresh()` is called. A resize never changes them, and re-reading
-   * computed style for every pill on every frame of one costs more than the
-   * geometry does.
+   * Each pill's shape settings, read once and kept until its class, or an
+   * ancestor's class or `dir`, changes, the viewport settles after a resize,
+   * or `refresh()` is called. A pill's own resize never changes them, and
+   * re-reading computed style for every pill on every frame of one costs more
+   * than the geometry does.
    */
   interface Settings {
     shape: PillShapeInput;
@@ -470,6 +462,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
         ease: style.getPropertyValue(PILL_EASE_VAR_NAME),
         continuity: style.getPropertyValue(PILL_CONTINUITY_VAR_NAME),
+        side: style.getPropertyValue(PILL_SIDE_VAR_NAME),
       },
       decoration: decorated ? values : {},
       decorationKey: decorated ? Object.values(values).join("|") : "",
@@ -509,7 +502,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       if (!size) continue;
       const { width, height } = size;
       const { shape, decoration, decorationKey, inset } = read(el);
-      const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity}`;
+      const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity},${shape.side}`;
       const key = `${shapeKey},${inset},${decorationKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);
@@ -572,6 +565,11 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
           watch(el);
           changed.add(el);
         } else unwatch(el);
+        // An ancestor's `dir` flips `-s` and `-e`, and its class can restyle
+        // the pills inside it: `.dark` and a `dark:border-*`, say.
+        for (const inner of el.querySelectorAll(selector)) {
+          if (watched.has(inner)) changed.add(inner);
+        }
         continue;
       }
       for (const node of record.addedNodes) if (node instanceof Element) scan(node);
@@ -614,15 +612,32 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     root.addEventListener(type, reread, { capture: true, passive: true });
 
   doc.documentElement.setAttribute(PILL_POLYFILL_ATTRIBUTE, "");
-  scan(root instanceof Document ? root.documentElement : root);
+  scan(isDocument(root) ? root.documentElement : root);
   mutations.observe(root, {
     childList: true,
     subtree: true,
     attributes: true,
     // Not `style`: the clips are written there, so watching it would re-read
     // every pill after every write.
-    attributeFilter: ["class", PILL_ATTRIBUTE],
+    attributeFilter: ["class", "dir", PILL_ATTRIBUTE],
   });
+
+  /*
+   * A media query — `sm:squircle-pill-t`, `md:squircle-pill-amt-3` — changes
+   * what a pill's classes mean without changing them, and the viewport
+   * resizing is when one can. Every pill is re-read once it settles, not on
+   * each event of a drag.
+   */
+  const view = doc.defaultView;
+  let settling: ReturnType<typeof setTimeout> | undefined;
+  const resettle = () => {
+    clearTimeout(settling);
+    settling = setTimeout(() => {
+      for (const el of watched) settings.delete(el);
+      apply(watched);
+    }, VIEWPORT_SETTLE_MS);
+  };
+  view?.addEventListener("resize", resettle, { passive: true });
 
   return {
     refresh(element) {
@@ -635,6 +650,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     },
     disconnect() {
       pending.clear();
+      clearTimeout(settling);
+      view?.removeEventListener("resize", resettle);
       for (const type of STATE_EVENTS) root.removeEventListener(type, reread, { capture: true });
       mutations.disconnect();
       resizes.disconnect();

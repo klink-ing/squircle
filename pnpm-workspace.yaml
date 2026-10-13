@@ -9,6 +9,7 @@ catalog:
   "@semantic-release/release-notes-generator": ^14.0.3
   "@types/node": ^24
   conventional-changelog-conventionalcommits: ^9.3.1
+  happy-dom: ^20.14.5
   semantic-release: ^25.0.3
   tailwindcss: ^4.2.2
   typescript: ^5
@@ -19,17 +20,17 @@ catalog:
 catalogMode: prefer
 
 overrides:
-  vite: "catalog:"
-  vitest: "catalog:"
   "@vitest/browser": 5.0.3
   "@vitest/browser-preview": 5.0.3
+  "@vitest/expect": 5.0.3
   "@vitest/mocker": 5.0.3
   "@vitest/pretty-format": 5.0.3
   "@vitest/snapshot": 5.0.3
   "@vitest/spy": 5.0.3
   "@vitest/ui": 5.0.3
   "@vitest/utils": 5.0.3
-  "@vitest/expect": 5.0.3
+  vite: "catalog:"
+  vitest: "catalog:"
 
 peerDependencyRules:
   allowAny:
