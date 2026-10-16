@@ -78,6 +78,9 @@ export default defineConfig({
   },
   run: {
     tasks: {
+      typecheck: {
+        command: "vp exec tsc --noEmit -p ../tsconfig.json",
+      },
       "test:tailwind": {
         cache: { env: NAMESPACE_ENV },
         // Matches tailwind.test.ts and tailwind-merge.test.ts; the latter

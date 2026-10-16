@@ -309,7 +309,7 @@ describe("pill-shape worklet geometry", () => {
       let probes = 0;
       const junctionRatio = worklet.junctionRatio.bind(worklet);
       worklet.junctionRatio = (...args) => (probes++, junctionRatio(...args));
-      for (const c of [2, 3]) {
+      for (const c of [2, 3] as const) {
         expect(worklet.fitEasing(50, 50, Math.PI / 3, 6, c).beta).toBe(0);
       }
       expect(probes).toBe(0);
