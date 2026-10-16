@@ -150,9 +150,27 @@ interface FresnelTotals {
   totalSin: number;
 }
 
+/**
+ * The running integrals at each sample (see `SAMPLES`), and the integrands
+ * there, which are their slopes: what `hermite` needs to place a point at
+ * any node between them.
+ */
 interface Fresnel extends FresnelTotals {
-  cos: Float64Array;
-  sin: Float64Array;
+  cos: number[];
+  sin: number[];
+  dcos: number[];
+  dsin: number[];
+}
+
+/**
+ * The profile at the samples alone, which is all the integrals need:
+ * `remaining` there, its slope (for G3, where the nodes between are
+ * interpolated), and `lambda`.
+ */
+interface Samples {
+  remaining: number[];
+  slope: number[];
+  lambda: number;
 }
 
 /**
@@ -168,6 +186,7 @@ interface Fresnel extends FresnelTotals {
 interface Profile {
   remaining: Float64Array;
   lambda: number;
+  samples: Samples;
 }
 
 /**
@@ -187,7 +206,12 @@ interface Profile {
 type Continuity = 2 | 3;
 const DEFAULT_CONTINUITY: Continuity = 3;
 
-const QUADRANT_CACHE_SIZE = 64;
+/**
+ * Sized for a page full of pills: an entry is a few dozen points, and with
+ * fewer entries than distinct sizes on the page each is evicted before it is
+ * reused, so every repaint — a hover, say — works every shape out again.
+ */
+const QUADRANT_CACHE_SIZE = 1024;
 const quadrantCache = new Map<string, Point[]>();
 
 /**
@@ -198,7 +222,7 @@ const quadrantCache = new Map<string, Point[]>();
  */
 const fitsAsAskedCache = new Map<string, number>();
 /** Fitted easings for narrower pills, keyed by aspect ratio and request. */
-const FIT_CACHE_SIZE = 256;
+const FIT_CACHE_SIZE = 1024;
 /**
  * How closely the fit pins down the easing angle, relative to the request.
  * Whatever it settles on fits the box; this only decides how much of the
@@ -235,11 +259,15 @@ const fitTableCache = new Map<string, FitTable>();
  * requested easing shares one, and a new size only has to scale and sample it.
  */
 interface Transition {
-  profile: Profile;
+  samples: Samples;
   fresnel: Fresnel;
   radiusRatio: number;
 }
-const TRANSITION_CACHE_SIZE = 64;
+const TRANSITION_CACHE_SIZE = 1024;
+/** The curvature profile depends on the exponent alone, not on the angle or the size. */
+const PROFILE_CACHE_SIZE = 64;
+const profileCache = new Map<string, Profile>();
+const samplesCache = new Map<string, Samples>();
 const transitionCache = new Map<string, Transition>();
 
 const remember = <V>(cache: Map<string, V>, size: number, key: string, value: V): V => {
@@ -292,8 +320,22 @@ const CLOTHOID_EXPONENT = 2;
  */
 const MIN_EASE = -CLOTHOID_EXPONENT;
 
-/** Integration steps along one transition. Trapezoid error here is sub-pixel. */
+/**
+ * Nodes along one transition, where its vertices may land. Placement wants
+ * them this fine — the last vertex before the flat edge lands on one, and
+ * the angle it arrives at follows — but the integrals do not.
+ */
 const EASE_STEPS = 512;
+
+/**
+ * Intervals the integrals are taken over: every fourth node. Each is a
+ * running integral of a smooth function, sampled with a rule exact for
+ * cubics (`integrate`) and read between samples by cubic Hermite
+ * interpolation (`hermite`), both fourth order. That is more accurate than a
+ * trapezoid over every node, for a quarter of the `cos`, `sin` and `exp`.
+ */
+const SAMPLE_STRIDE = 4;
+const SAMPLES = EASE_STEPS / SAMPLE_STRIDE;
 
 /**
  * `log(1 - t)` and `log(1 - t^2)` at every integration node. Both profiles
@@ -312,6 +354,74 @@ for (let i = 0; i <= EASE_STEPS; i++) {
 /** `base ** power` from the base's logarithm, with `0 ** 0` kept at 1. */
 const powFromLog = (logBase: number, power: number): number =>
   power === 0 ? 1 : Math.exp(power * logBase);
+
+/**
+ * The integral of `f`, given at `SAMPLES + 1` evenly spaced points of
+ * `[0, 1]`, from 0 to each of them, into `out`; returns the whole. Each
+ * interval takes the cubic through its four nearest samples, one-sided at the
+ * ends.
+ */
+function integrate(f: number[], out: number[] | null): number {
+  const m = SAMPLES;
+  const h = 1 / (24 * m);
+  let total = 0;
+  if (out) out[0] = 0;
+  for (let j = 0; j < m; j++) {
+    const weighted =
+      j === 0
+        ? 9 * f[0] + 19 * f[1] - 5 * f[2] + f[3]
+        : j === m - 1
+          ? f[m - 3] - 5 * f[m - 2] + 19 * f[m - 1] + 9 * f[m]
+          : 13 * (f[j] + f[j + 1]) - f[j - 1] - f[j + 2];
+    total += weighted * h;
+    if (out) out[j + 1] = total;
+  }
+  return total;
+}
+
+/**
+ * A function given at the samples, with its slope there, at node `k` of the
+ * `EASE_STEPS`: the cubic Hermite interpolant, exact at the samples.
+ */
+function hermite(values: number[], slopes: number[], k: number): number {
+  const j = Math.min(Math.floor(k / SAMPLE_STRIDE), SAMPLES - 1);
+  const s = k / SAMPLE_STRIDE - j;
+  if (s === 0) return values[j];
+  const s2 = s * s;
+  const s3 = s2 * s;
+  const h = 1 / SAMPLES;
+  return (
+    (2 * s3 - 3 * s2 + 1) * values[j] +
+    (s3 - 2 * s2 + s) * h * slopes[j] +
+    (3 * s2 - 2 * s3) * values[j + 1] +
+    (s3 - s2) * h * slopes[j + 1]
+  );
+}
+
+/** The integrands at the samples, reused by every probe of the fit. */
+/**
+ * A plain array of `length` numbers, which is many times cheaper to allocate
+ * than a `Float64Array` of a few hundred: that gets a buffer of its own
+ * outside the heap, and every new shape allocates several. Filled with a
+ * fraction, so it holds doubles from the start rather than switching to them
+ * on the first write.
+ */
+const numbers = (length: number): number[] =>
+  // Sized up front: twice as fast as pushing, and this is the hot path.
+  // eslint-disable-next-line unicorn/no-new-array
+  new Array<number>(length).fill(0.5);
+const sampleArray = (): number[] => numbers(SAMPLES + 1);
+
+const scratchCos = sampleArray();
+const scratchSin = sampleArray();
+
+/** Running integrals and integrands, without their totals; see `Fresnel`. */
+type Integrals = Omit<Fresnel, keyof FresnelTotals>;
+const integralArrays = (): Integrals => {
+  return { cos: sampleArray(), sin: sampleArray(), dcos: sampleArray(), dsin: sampleArray() };
+};
+/** Two sets for the fit's probes, which take turns holding the best so far. */
+const probeArrays: [Integrals, Integrals] = [integralArrays(), integralArrays()];
 
 /**
  * How far the emitted polyline may sit from the true curve, in pixels.
@@ -380,27 +490,67 @@ export const paintDef = class PillShape implements PaintWorklet {
     return value === "t" || value === "r" || value === "b" || value === "l" ? value : "auto";
   }
 
-  /** The transition's curvature profile for exponent `q`; see `Profile`. */
+  /**
+   * The transition's curvature profile for exponent `q` at every node; see
+   * `Profile`. Only drawing needs every node, to place vertices; the fit makes
+   * do with `samples`.
+   */
   profile(q: number, continuity: Continuity): Profile {
-    const h = 1 / EASE_STEPS;
+    const key = `${q},${continuity}`;
+    const known = profileCache.get(key);
+    if (known) return known;
+    const samples = this.samples(q, continuity);
     const remaining = new Float64Array(EASE_STEPS + 1);
-    if (continuity === 2) {
-      for (let i = 0; i <= EASE_STEPS; i++) remaining[i] = powFromLog(LOG_ONE_MINUS_T[i], q);
-      return { remaining, lambda: q };
+    for (let k = 0; k <= EASE_STEPS; k++) {
+      remaining[k] = this.remainingAt(samples, q, continuity, k);
     }
+    return remember(profileCache, PROFILE_CACHE_SIZE, key, {
+      remaining,
+      lambda: samples.lambda,
+      samples,
+    });
+  }
 
-    // Curvature (1 - t^2)^e, integrated for the turn taken so far; the running
-    // total is kept in `remaining` and normalised in place.
-    const e = Math.max(q - 1, 1);
-    let k0 = 1;
-    for (let i = 1; i <= EASE_STEPS; i++) {
-      const k1 = powFromLog(LOG_ONE_MINUS_T2[i], e);
-      remaining[i] = remaining[i - 1] + ((k0 + k1) / 2) * h;
-      k0 = k1;
+  /**
+   * `remaining` at node `k`: the sample itself where there is one. Between
+   * them, G2's is in closed form and G3's interpolated, with the slope the
+   * curvature gives it; G2's slope diverges at the edge below an ease of -1,
+   * where interpolating would fail.
+   */
+  remainingAt(samples: Samples, q: number, continuity: Continuity, k: number): number {
+    if (k % SAMPLE_STRIDE === 0) return samples.remaining[k / SAMPLE_STRIDE];
+    return continuity === 2
+      ? powFromLog(LOG_ONE_MINUS_T[k], q)
+      : hermite(samples.remaining, samples.slope, k);
+  }
+
+  /** The profile at the samples; see `Samples`. */
+  samples(q: number, continuity: Continuity): Samples {
+    const key = `${q},${continuity}`;
+    const known = samplesCache.get(key);
+    if (known) return known;
+    const remaining = sampleArray();
+    const slope = sampleArray();
+    let lambda = q;
+    if (continuity === 2) {
+      for (let j = 0; j <= SAMPLES; j++) {
+        remaining[j] = powFromLog(LOG_ONE_MINUS_T[j * SAMPLE_STRIDE], q);
+      }
+    } else {
+      // Curvature (1 - t^2)^e, integrated for the turn taken so far, and
+      // normalised: the curvature, scaled by the same total, is the slope.
+      const e = Math.max(q - 1, 1);
+      for (let j = 0; j <= SAMPLES; j++) {
+        slope[j] = powFromLog(LOG_ONE_MINUS_T2[j * SAMPLE_STRIDE], e);
+      }
+      const total = integrate(slope, remaining);
+      for (let j = 0; j <= SAMPLES; j++) {
+        remaining[j] = 1 - remaining[j] / total;
+        slope[j] = -slope[j] / total;
+      }
+      lambda = 1 / total;
     }
-    const total = remaining[EASE_STEPS];
-    for (let i = 0; i <= EASE_STEPS; i++) remaining[i] = 1 - remaining[i] / total;
-    return { remaining, lambda: 1 / total };
+    return remember(samplesCache, PROFILE_CACHE_SIZE, key, { remaining, slope, lambda });
   }
 
   /**
@@ -412,88 +562,41 @@ export const paintDef = class PillShape implements PaintWorklet {
    * exponents keep both endpoint curvatures and just redistribute the fall. The
    * same quadrature sizes the cap and places the points, so the transition
    * lands exactly on the straight edge.
-   *
-   * Only the totals are needed to size a cap, so `fresnelTotals` runs the same
-   * quadrature without keeping the running values; the fit probes it many
-   * times over and would otherwise allocate two arrays per probe.
    */
-  fresnel(beta: number, { remaining }: Profile): Fresnel {
-    const cos = new Float64Array(EASE_STEPS + 1);
-    const sin = new Float64Array(EASE_STEPS + 1);
-    const h = 1 / EASE_STEPS;
-    let c = 0;
-    let s = 0;
-    // Each node's cosine and sine serve both segments it bounds.
-    let c0 = Math.cos(beta * remaining[0]);
-    let s0 = Math.sin(beta * remaining[0]);
-
-    for (let i = 1; i <= EASE_STEPS; i++) {
-      const c1 = Math.cos(beta * remaining[i]);
-      const s1 = Math.sin(beta * remaining[i]);
-      c += ((c0 + c1) / 2) * h;
-      s += ((s0 + s1) / 2) * h;
-      cos[i] = c;
-      sin[i] = s;
-      c0 = c1;
-      s0 = s1;
-    }
-
-    return { cos, sin, totalCos: c, totalSin: s };
+  fresnel(beta: number, samples: Samples): Fresnel {
+    const into = integralArrays();
+    const { totalCos, totalSin } = this.integrals(beta, samples, into);
+    return { ...into, totalCos, totalSin };
   }
 
-  fresnelTotals(beta: number, profile: Profile): FresnelTotals {
-    const { totalCos, totalSin } = this.fresnel(beta, profile);
-    return { totalCos, totalSin };
+  /**
+   * The totals of `fresnel`, and with `into` its running integrals and
+   * integrands too; the fit probes this many times over, and keeps nothing
+   * from most of them.
+   */
+  integrals(beta: number, { remaining }: Samples, into?: Integrals): FresnelTotals {
+    const dcos = into ? into.dcos : scratchCos;
+    const dsin = into ? into.dsin : scratchSin;
+    for (let j = 0; j <= SAMPLES; j++) {
+      const angle = beta * remaining[j];
+      dcos[j] = Math.cos(angle);
+      dsin[j] = Math.sin(angle);
+    }
+    return {
+      totalCos: integrate(dcos, into ? into.cos : null),
+      totalSin: integrate(dsin, into ? into.sin : null),
+    };
   }
 
   /**
    * Where the easing meets the flat edge, over the cap's half-height, for a
-   * cap easing through `beta` with exponent `q`. The fit evaluates this many
-   * times over, so it computes the profile and its quadrature in one pass,
-   * allocating nothing; it matches `capMetrics` over `profile` and `fresnel`.
+   * cap easing through `beta` with exponent `q`; `capMetrics` over the
+   * samples and their integrals, with `into` keeping the integrals.
    */
-  junctionRatio(beta: number, q: number, continuity: Continuity): number {
-    const h = 1 / EASE_STEPS;
-    let e = 0;
-    let lambda = q;
-    if (continuity === 3) {
-      // G3 needs the profile's total before it can be normalised.
-      e = Math.max(q - 1, 1);
-      let total = 0;
-      let k0 = 1;
-      for (let i = 1; i <= EASE_STEPS; i++) {
-        const k1 = powFromLog(LOG_ONE_MINUS_T2[i], e);
-        total += ((k0 + k1) / 2) * h;
-        k0 = k1;
-      }
-      lambda = 1 / total;
-    }
-
-    let c = 0;
-    let s = 0;
-    let taken = 0;
-    let k0 = 1;
-    let c0 = Math.cos(beta);
-    let s0 = Math.sin(beta);
-    for (let i = 1; i <= EASE_STEPS; i++) {
-      let remaining: number;
-      if (continuity === 2) {
-        remaining = powFromLog(LOG_ONE_MINUS_T[i], q);
-      } else {
-        const k1 = powFromLog(LOG_ONE_MINUS_T2[i], e);
-        taken += ((k0 + k1) / 2) * h;
-        k0 = k1;
-        remaining = 1 - taken * lambda;
-      }
-      const c1 = Math.cos(beta * remaining);
-      const s1 = Math.sin(beta * remaining);
-      c += ((c0 + c1) / 2) * h;
-      s += ((s0 + s1) / 2) * h;
-      c0 = c1;
-      s0 = s1;
-    }
-
-    return this.capMetrics(1, beta, lambda, { totalCos: c, totalSin: s }).junction;
+  junctionRatio(beta: number, q: number, continuity: Continuity, into?: Integrals): number {
+    const samples = this.samples(q, continuity);
+    const totals = this.integrals(beta, samples, into);
+    return this.capMetrics(1, beta, samples.lambda, totals).junction;
   }
 
   /**
@@ -575,7 +678,8 @@ export const paintDef = class PillShape implements PaintWorklet {
 
     // How far past the box's centre the easing lands, in half-heights. No
     // easing at all is a bare semicircle, which lands at 1 and fits any pill.
-    const reach = (beta: number): number => this.junctionRatio(beta, exponentFor(beta), continuity);
+    const reach = (beta: number, into?: Integrals): number =>
+      this.junctionRatio(beta, exponentFor(beta), continuity, into);
     // Where the exponent stops being held at the clothoid, the reach has a
     // kink that the table has to sample exactly.
     const kink = tradeable ? 1 / (2 * rate) : 0;
@@ -599,13 +703,19 @@ export const paintDef = class PillShape implements PaintWorklet {
     let fLow = (table.ratios[segment] as number) - ratio;
     let fHigh = (table.ratios[segment + 1] as number) - ratio;
     let next = guess - tolerance / 2;
+    // The probe that became `low` has just integrated the very transition the
+    // quadrant is about to draw, so its running integrals are kept for
+    // `transition` rather than worked out again.
+    let kept: Integrals | null = null;
+    let spare = probeArrays[0];
     for (let i = 0; i < 40; i++) {
       // Out of the bracket, or still searching after a few steps: bisect.
       if (!(next > low && next < high) || i > 3) next = (low + high) / 2;
-      const f = reach(next) - ratio;
+      const f = reach(next, spare) - ratio;
       if (f <= 0) {
         low = next;
         fLow = f;
+        [kept, spare] = [spare, kept ?? probeArrays[1]];
       } else {
         high = next;
         fHigh = f;
@@ -614,7 +724,34 @@ export const paintDef = class PillShape implements PaintWorklet {
       if (gap <= tolerance || high - low <= tolerance) break;
       next = low + gap - tolerance / 2;
     }
-    return remember(fitCache, FIT_CACHE_SIZE, key, { beta: low, exponent: exponentFor(low) });
+    const fitted = { beta: low, exponent: exponentFor(low) };
+    if (kept) this.keepTransition(fitted.beta, fitted.exponent, continuity, kept);
+    return remember(fitCache, FIT_CACHE_SIZE, key, fitted);
+  }
+
+  /** Files a transition whose integrals the fit has just computed; see `transition`. */
+  keepTransition(beta: number, q: number, continuity: Continuity, probed: Integrals): void {
+    const key = `${beta},${q},${continuity}`;
+    if (transitionCache.has(key)) return;
+    const samples = this.samples(q, continuity);
+    // The probe's arrays are the fit's to reuse; the transition keeps a copy.
+    const integrals = {
+      cos: probed.cos.slice(),
+      sin: probed.sin.slice(),
+      dcos: probed.dcos.slice(),
+      dsin: probed.dsin.slice(),
+    };
+    const fresnel = {
+      ...integrals,
+      totalCos: integrals.cos[SAMPLES] as number,
+      totalSin: integrals.sin[SAMPLES] as number,
+    };
+    const { radius } = this.capMetrics(1, beta, samples.lambda, fresnel);
+    remember(transitionCache, TRANSITION_CACHE_SIZE, key, {
+      samples,
+      fresnel,
+      radiusRatio: radius,
+    });
   }
 
   /**
@@ -734,31 +871,41 @@ export const paintDef = class PillShape implements PaintWorklet {
     }
 
     if (!eased) return points;
-    const { profile, fresnel } = eased;
+    const { samples, fresnel } = eased;
 
     // The lowest ease gives the transition no length at all: the arc alone
     // spans the height and meets the flat edge at a corner.
-    if (profile.lambda <= 0) return points;
+    if (samples.lambda <= 0) return points;
 
     // Curvature ramps from 1 / radius down to 0 across the transition, which
     // the profile makes lambda * beta * radius long. Vertices land where the
-    // chord would otherwise drift off the curve.
-    const length = profile.lambda * radius * beta;
+    // chord would otherwise drift off the curve: at the first node past the
+    // last vertex where it would drift too far.
+    const length = samples.lambda * radius * beta;
     const start = points[points.length - 1];
     const at = (k: number): Point => ({
-      x: start.x + length * fresnel.cos[k],
-      y: start.y - length * fresnel.sin[k],
+      x: start.x + length * hermite(fresnel.cos, fresnel.dcos, k),
+      y: start.y - length * hermite(fresnel.sin, fresnel.dsin, k),
     });
-    const turnTo = (k: number): number => beta * (1 - profile.remaining[k]);
+    const remainingAt = (k: number) => this.remainingAt(samples, q, continuity, k);
 
     let anchor = 0;
-    for (let k = 1; k < EASE_STEPS; k++) {
-      const span = length * ((k - anchor) / EASE_STEPS);
-      const turn = turnTo(k) - turnTo(anchor);
-      if (span * turn >= 8 * MAX_SAGITTA) {
-        points.push(at(k));
-        anchor = k;
-      }
+    let anchorRemaining = remainingAt(0);
+    // The drift only grows along the curve, so the first node where it is too
+    // much is found from the samples, where the profile is known for free,
+    // then among the nodes just before the first sample past it.
+    const drifts = (k: number) =>
+      length * ((k - anchor) / EASE_STEPS) * beta * (anchorRemaining - remainingAt(k)) >=
+      8 * MAX_SAGITTA;
+    for (;;) {
+      let past = (Math.floor(anchor / SAMPLE_STRIDE) + 1) * SAMPLE_STRIDE;
+      while (past < EASE_STEPS && !drifts(past)) past += SAMPLE_STRIDE;
+      let k = Math.max(anchor + 1, past - SAMPLE_STRIDE + 1);
+      while (k < past && !drifts(k)) k++;
+      if (k >= EASE_STEPS) break;
+      points.push(at(k));
+      anchor = k;
+      anchorRemaining = remainingAt(k);
     }
     points.push(at(EASE_STEPS));
 
@@ -778,6 +925,14 @@ export const paintDef = class PillShape implements PaintWorklet {
     ctx.beginPath();
     // Pulled in under a border; see the stylesheet's background inset.
     const inset = Math.max(this.resolveLength(props, BACKGROUND_INSET_VAR), 0);
+    if (inset <= 0 && this.resolveSide(props) === "auto") {
+      // Most pills: the outline is the quadrant four times over, traced as
+      // `boxOutline` would list it without building the list.
+      this.traceBox(ctx, width, height, props);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
     const outline =
       inset > 0
         ? this.offsetOutline(this.boxOutline(width, height, props), -inset)
@@ -796,11 +951,11 @@ export const paintDef = class PillShape implements PaintWorklet {
     const key = `${beta},${q},${continuity}`;
     const cached = transitionCache.get(key);
     if (cached) return cached;
-    const profile = this.profile(q, continuity);
-    const fresnel = this.fresnel(beta, profile);
-    const { radius } = this.capMetrics(1, beta, profile.lambda, fresnel);
+    const samples = this.samples(q, continuity);
+    const fresnel = this.fresnel(beta, samples);
+    const { radius } = this.capMetrics(1, beta, samples.lambda, fresnel);
     return remember(transitionCache, TRANSITION_CACHE_SIZE, key, {
-      profile,
+      samples,
       fresnel,
       radiusRatio: radius,
     });
@@ -812,7 +967,9 @@ export const paintDef = class PillShape implements PaintWorklet {
    * Memoised, because the same shape is painted at least twice — once as the
    * background's mask and once as its decoration — and again on every repaint that
    * changes nothing about it, such as a hover. The quadrant is the expensive
-   * part, and it depends only on these five values.
+   * part, and it depends only on the height and the fitted easing — not the
+   * length, so a pill long enough for its easing keeps one quadrant however
+   * it is resized.
    */
   fittedQuadrant(
     long: number,
@@ -821,12 +978,12 @@ export const paintDef = class PillShape implements PaintWorklet {
     exponent: number,
     continuity: Continuity = DEFAULT_CONTINUITY,
   ): Point[] {
-    const key = `${long},${short},${ease},${exponent},${continuity}`;
+    const r = short / 2;
+    const fitted = this.fitEasing(r, long / 2, ease, exponent, continuity);
+    const key = `${short},${fitted.beta},${fitted.exponent},${continuity}`;
     const cached = quadrantCache.get(key);
     if (cached) return cached;
 
-    const r = short / 2;
-    const fitted = this.fitEasing(r, long / 2, ease, exponent, continuity);
     const points = this.quadrant(r, fitted.beta, fitted.exponent, continuity);
 
     if (quadrantCache.size >= QUADRANT_CACHE_SIZE) {
@@ -859,6 +1016,38 @@ export const paintDef = class PillShape implements PaintWorklet {
       ),
     );
     return vertical ? outline.map((p) => ({ x: p.y, y: p.x })) : outline;
+  }
+
+  /**
+   * `boxOutline` for a pill capped at both ends, traced into `ctx` point for
+   * point, without the four mirrored copies of the quadrant it would build
+   * (and a fifth, transposed, for a tall pill) only to walk them once.
+   */
+  traceBox(ctx: CanvasRenderingContext2D, width: number, height: number, props?: PaintProperties) {
+    const vertical = height > width;
+    const long = vertical ? height : width;
+    const short = vertical ? width : height;
+    const quadrant = this.fittedQuadrant(
+      long,
+      short,
+      this.resolveAngle(props),
+      this.resolveExponent(props),
+      this.resolveContinuity(props),
+    );
+    const n = quadrant.length;
+    let first = true;
+    const to = (x: number, y: number) => {
+      const px = vertical ? y : x;
+      const py = vertical ? x : y;
+      if (first) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+      first = false;
+    };
+    // In `outline`'s order: the quadrant, then mirrored in x, in both, in y.
+    for (let i = 0; i < n; i++) to(quadrant[i].x, quadrant[i].y);
+    for (let i = n - 1; i >= 0; i--) to(long - quadrant[i].x, quadrant[i].y);
+    for (let i = 0; i < n; i++) to(long - quadrant[i].x, short - quadrant[i].y);
+    for (let i = n - 1; i >= 0; i--) to(quadrant[i].x, short - quadrant[i].y);
   }
 
   /**
@@ -937,27 +1126,34 @@ export const paintDef = class PillShape implements PaintWorklet {
     }
     const out = twiceArea > 0 ? distance : -distance;
     const n = ring.length;
-    return ring.map((p, i) => {
-      const prev = ring[(i - 1 + n) % n];
-      const next = ring[(i + 1) % n];
-      const normal = (a: Point, b: Point) => {
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const length = Math.hypot(dx, dy) || 1;
-        return { x: dy / length, y: -dx / length };
-      };
-      const a = normal(prev, p);
-      const b = normal(p, next);
-      const mx = a.x + b.x;
-      const my = a.y + b.y;
+    // Each edge's unit normal, once: a point uses the two edges that meet at it.
+    const nx = numbers(n);
+    const ny = numbers(n);
+    for (let i = 0; i < n; i++) {
+      const a = ring[i];
+      const b = ring[(i + 1) % n];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const length = Math.sqrt(dx * dx + dy * dy) || 1;
+      nx[i] = dy / length;
+      ny[i] = -dx / length;
+    }
+    const moved: Point[] = [];
+    for (let i = 0; i < n; i++) {
+      const before = (i - 1 + n) % n;
+      const mx = nx[before] + nx[i];
+      const my = ny[before] + ny[i];
       // Where the outline turns a real corner — a side pill's square end —
       // along the miter, so both edges move the full distance and the corner
       // stays square. Elsewhere the outline samples a curve, and the average
       // normal is the curve's own.
-      const cos = a.x * b.x + a.y * b.y;
-      const scale = cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.hypot(mx, my) || 1);
-      return { x: p.x + mx * scale, y: p.y + my * scale };
-    });
+      const cos = nx[before] * nx[i] + ny[before] * ny[i];
+      const scale =
+        cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.sqrt(mx * mx + my * my) || 1);
+      const p = ring[i];
+      moved.push({ x: p.x + mx * scale, y: p.y + my * scale });
+    }
+    return moved;
   }
 
   /** A length property in px, or 0 where it is unset or not a number. */

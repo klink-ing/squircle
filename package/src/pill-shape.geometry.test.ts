@@ -186,6 +186,31 @@ describe("pill-shape worklet geometry", () => {
       // Mirrored, so the edge is centred.
       expect(a.x + b.x).toBeCloseTo(WIDTH, 4);
     });
+
+    it("paints exactly the points boxOutline lists", () => {
+      // `paint` traces the quadrant straight into the canvas rather than
+      // building the outline, and has to land on the very same points.
+      const worklet = new (paintDef as unknown as new () => {
+        boxOutline(w: number, h: number, p: unknown): Point[];
+      })();
+      for (const [w, h] of [
+        [WIDTH, HEIGHT],
+        [60, 60],
+        [61, 60],
+        [37, 120],
+        [500, 20],
+      ]) {
+        for (const [amt, ease, continuity] of [
+          [2, 2, null],
+          [4, 0, 2],
+          [3, 6, 3],
+        ] as const) {
+          expect(paint(w, h, amt, ease, continuity).vertices, `${w}x${h}`).toEqual(
+            worklet.boxOutline(w, h, props(amt, ease, continuity)),
+          );
+        }
+      }
+    });
   });
 
   describe("caps stay round", () => {
