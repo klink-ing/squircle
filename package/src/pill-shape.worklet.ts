@@ -465,10 +465,15 @@ export const paintDef = class PillShape implements PaintWorklet {
    * Where the easing meets the flat edge, over the cap's half-height, for a
    * cap easing through `beta` with exponent `q`. The fit evaluates this many
    * times over, so it reads the cached profile and runs the quadrature in one
-   * pass, allocating nothing; it matches `capMetrics` over `profile` and
-   * `fresnel`.
+   * pass; it matches `capMetrics` over `profile` and `fresnel`. Given `into`
+   * it keeps the running integrals too, which are `fresnel`'s.
    */
-  junctionRatio(beta: number, q: number, continuity: Continuity): number {
+  junctionRatio(
+    beta: number,
+    q: number,
+    continuity: Continuity,
+    into?: { cos: Float64Array; sin: Float64Array },
+  ): number {
     // The profile is the same for every angle at one exponent, which is what
     // most of the fit's probes are; only the trigonometry depends on beta.
     const { remaining, lambda } = this.profile(q, continuity);
@@ -484,6 +489,10 @@ export const paintDef = class PillShape implements PaintWorklet {
       s += ((s0 + s1) / 2) * h;
       c0 = c1;
       s0 = s1;
+      if (into) {
+        into.cos[i] = c;
+        into.sin[i] = s;
+      }
     }
 
     return this.capMetrics(1, beta, lambda, { totalCos: c, totalSin: s }).junction;
@@ -568,7 +577,8 @@ export const paintDef = class PillShape implements PaintWorklet {
 
     // How far past the box's centre the easing lands, in half-heights. No
     // easing at all is a bare semicircle, which lands at 1 and fits any pill.
-    const reach = (beta: number): number => this.junctionRatio(beta, exponentFor(beta), continuity);
+    const reach = (beta: number, into?: { cos: Float64Array; sin: Float64Array }): number =>
+      this.junctionRatio(beta, exponentFor(beta), continuity, into);
     // Where the exponent stops being held at the clothoid, the reach has a
     // kink that the table has to sample exactly.
     const kink = tradeable ? 1 / (2 * rate) : 0;
@@ -592,13 +602,23 @@ export const paintDef = class PillShape implements PaintWorklet {
     let fLow = (table.ratios[segment] as number) - ratio;
     let fHigh = (table.ratios[segment + 1] as number) - ratio;
     let next = guess - tolerance / 2;
+    // The probe that became `low` has just integrated the very transition the
+    // quadrant is about to draw, so its running integrals are kept for
+    // `transition` rather than worked out again.
+    let kept: { cos: Float64Array; sin: Float64Array } | null = null;
+    let spare: { cos: Float64Array; sin: Float64Array } | null = null;
     for (let i = 0; i < 40; i++) {
       // Out of the bracket, or still searching after a few steps: bisect.
       if (!(next > low && next < high) || i > 3) next = (low + high) / 2;
-      const f = reach(next) - ratio;
+      spare ??= {
+        cos: new Float64Array(EASE_STEPS + 1),
+        sin: new Float64Array(EASE_STEPS + 1),
+      };
+      const f = reach(next, spare) - ratio;
       if (f <= 0) {
         low = next;
         fLow = f;
+        [kept, spare] = [spare, kept];
       } else {
         high = next;
         fHigh = f;
@@ -607,7 +627,33 @@ export const paintDef = class PillShape implements PaintWorklet {
       if (gap <= tolerance || high - low <= tolerance) break;
       next = low + gap - tolerance / 2;
     }
-    return remember(fitCache, FIT_CACHE_SIZE, key, { beta: low, exponent: exponentFor(low) });
+    const fitted = { beta: low, exponent: exponentFor(low) };
+    if (kept) this.keepTransition(fitted.beta, fitted.exponent, continuity, kept);
+    return remember(fitCache, FIT_CACHE_SIZE, key, fitted);
+  }
+
+  /** Files a transition whose integrals the fit has just computed; see `transition`. */
+  keepTransition(
+    beta: number,
+    q: number,
+    continuity: Continuity,
+    { cos, sin }: { cos: Float64Array; sin: Float64Array },
+  ): void {
+    const key = `${beta},${q},${continuity}`;
+    if (transitionCache.has(key)) return;
+    const profile = this.profile(q, continuity);
+    const fresnel = {
+      cos,
+      sin,
+      totalCos: cos[EASE_STEPS] as number,
+      totalSin: sin[EASE_STEPS] as number,
+    };
+    const { radius } = this.capMetrics(1, beta, profile.lambda, fresnel);
+    remember(transitionCache, TRANSITION_CACHE_SIZE, key, {
+      profile,
+      fresnel,
+      radiusRatio: radius,
+    });
   }
 
   /**
@@ -930,27 +976,33 @@ export const paintDef = class PillShape implements PaintWorklet {
     }
     const out = twiceArea > 0 ? distance : -distance;
     const n = ring.length;
-    return ring.map((p, i) => {
-      const prev = ring[(i - 1 + n) % n];
-      const next = ring[(i + 1) % n];
-      const normal = (a: Point, b: Point) => {
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const length = Math.hypot(dx, dy) || 1;
-        return { x: dy / length, y: -dx / length };
-      };
-      const a = normal(prev, p);
-      const b = normal(p, next);
-      const mx = a.x + b.x;
-      const my = a.y + b.y;
+    // Each edge's unit normal, once: a point uses the two edges that meet at it.
+    const nx = new Float64Array(n);
+    const ny = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = ring[i];
+      const b = ring[(i + 1) % n];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const length = Math.hypot(dx, dy) || 1;
+      nx[i] = dy / length;
+      ny[i] = -dx / length;
+    }
+    const moved: Point[] = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const before = (i - 1 + n) % n;
+      const mx = nx[before] + nx[i];
+      const my = ny[before] + ny[i];
       // Where the outline turns a real corner — a side pill's square end —
       // along the miter, so both edges move the full distance and the corner
       // stays square. Elsewhere the outline samples a curve, and the average
       // normal is the curve's own.
-      const cos = a.x * b.x + a.y * b.y;
+      const cos = nx[before] * nx[i] + ny[before] * ny[i];
       const scale = cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.hypot(mx, my) || 1);
-      return { x: p.x + mx * scale, y: p.y + my * scale };
-    });
+      const p = ring[i];
+      moved[i] = { x: p.x + mx * scale, y: p.y + my * scale };
+    }
+    return moved;
   }
 
   /** A length property in px, or 0 where it is unset or not a number. */
