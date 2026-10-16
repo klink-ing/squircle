@@ -1,0 +1,33 @@
+diff --git a/dist/composition.d.ts b/dist/composition.d.ts
+index 2f152489a00b88cc09c7c47bf5553135fdc59292..3966c578c44b79a7326728ba23116b7abc99bc59 100644
+--- a/dist/composition.d.ts
++++ b/dist/composition.d.ts
+@@ -224,3 +224,6 @@ export interface CompositionStyles {
+   layerStyles: LayerStyles
+   animationStyles: AnimationStyles
+ }
++
++// Keep internal helper types out of the barrel exports.
++export {}
+diff --git a/dist/pattern.d.ts b/dist/pattern.d.ts
+index 790adb87fca7e38e020a897229b968f1a5f6cd7b..974168ef7feb71d7f66be64d397582c91d861702 100644
+--- a/dist/pattern.d.ts
++++ b/dist/pattern.d.ts
+@@ -75,3 +75,6 @@ export interface PatternConfig<T extends PatternProperties = PatternProperties>
+    */
+   blocklist?: LiteralUnion<CssProperty>[]
+ }
++
++// Keep internal helper types out of the barrel exports.
++export {}
+diff --git a/dist/shared.d.ts b/dist/shared.d.ts
+index 35b6485839d414e56b556b0869256a0eb81137b9..6af361c78a75a457dddfc6369585ac4d582f60ec 100644
+--- a/dist/shared.d.ts
++++ b/dist/shared.d.ts
+@@ -37,3 +37,6 @@ type Paths<T, Prefix extends string = '', Depth extends number = 0> = {
+ export type PathIn<T, Key extends keyof T> = Key extends string ? Paths<T[Key], `${Key}.`, 1> : never
+ 
+ export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
++
++// Keep internal helper types out of the barrel exports.
++export {}

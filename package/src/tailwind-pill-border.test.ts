@@ -66,8 +66,74 @@ describe("tailwind-pill-border.ts", () => {
       // as well, the worklet would be handed a colour to parse as a length.
       const css = await compileBorder(["border-(--x)"]);
       expect(css).toContain("border-color: var(--x)");
+      expect(css).toContain(`${PILL_BORDER_COLOR_VAR_NAME}: var(--x)`);
       expect(css).not.toContain(PILL_BORDER_WIDTH_VAR_NAME);
     });
+  });
+
+  describe.each([
+    ["border", PILL_BORDER_COLOR_VAR_NAME, PILL_BORDER_WIDTH_VAR_NAME],
+    ["outline", PILL_OUTLINE_COLOR_VAR_NAME, PILL_OUTLINE_WIDTH_VAR_NAME],
+  ])("%s variable colours", (utility, colorVar, widthVar) => {
+    it.each(["(--x)", "[var(--x)]", "(color:--x)", "[color:var(--x)]"])(
+      "mirrors %s as a colour, including keyboard focus",
+      async (value) => {
+        for (const variant of ["", "focus-visible:"]) {
+          const css = await compileBorder([`${variant}${utility}-${value}`]);
+          expect(css).toContain(`${utility}-color: var(--x)`);
+          expect(css).toContain(`${colorVar}: var(--x)`);
+          expect(css).not.toContain(widthVar);
+          expect(css).not.toContain(`${PILL_DECORATED_VAR_NAME}: ""`);
+          expect(css).toContain(
+            `:where(:root[${PILL_WORKLET_ATTRIBUTE}], :root[${PILL_POLYFILL_ATTRIBUTE}])`,
+          );
+          expect(css).toContain(`${utility}-color: transparent;`);
+          if (variant) {
+            expect(css).toContain(":focus-visible");
+          }
+        }
+      },
+    );
+
+    it("does not carry a previous typed match into an untyped variable", async () => {
+      for (const value of ["", "-2", "-current", "-red-500", "-red-500/50", "-(length:--x)"]) {
+        const css = await compileBorder([`${utility}${value}`, `${utility}-[var(--x)]`]);
+        expect(css).toContain(`${colorVar}: var(--x);`);
+      }
+    });
+
+    it.each(["(length:--x)", "[length:var(--x)]"])(
+      "preserves %s as a width, including keyboard focus",
+      async (value) => {
+        for (const variant of ["", "focus-visible:"]) {
+          const css = await compileBorder([`${variant}${utility}-${value}`]);
+          expect(css).toContain(`${utility}-width: var(--x)`);
+          expect(css).toContain(`${widthVar}: var(--x)`);
+          expect(css).not.toContain(colorVar);
+        }
+      },
+    );
+
+    it.each([false, true])(
+      "keeps matches independent across utilities (reverse: %s)",
+      async (reverse) => {
+        const candidates = [
+          utility,
+          `${utility}-2`,
+          `${utility}-current`,
+          `${utility}-red-500/50`,
+          `${utility}-(color:--x)/50`,
+          `${utility}-(length:--x)`,
+          `${utility}-(--x)`,
+          `focus-visible:${utility}-[var(--f)]`,
+        ];
+        const css = await compileBorder(reverse ? candidates.reverse() : candidates);
+        expect(css).toContain(`${widthVar}: var(--x)`);
+        expect(css).toContain(`${colorVar}: var(--x);`);
+        expect(css).toContain(`${colorVar}: var(--f);`);
+        expect(css).toContain(`${colorVar}: color-mix(in oklab, var(--x) 50%, transparent)`);
+      },
+    );
   });
 
   describe("scoping", () => {
