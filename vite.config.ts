@@ -11,9 +11,12 @@ export default defineConfig({
       lint: {
         command: "vp lint",
       },
+      typecheck: {
+        command: "vp exec tsc --noEmit",
+      },
       ready: {
         command: "echo 'All checks passed'",
-        dependsOn: ["fmt", "lint", "@klinking/squircle#test", "website#build"],
+        dependsOn: ["fmt", "lint", "typecheck", "@klinking/squircle#test", "website#build"],
       },
       "sync-readme": {
         command: "bash scripts/sync-readme.sh && vp fmt README.md",

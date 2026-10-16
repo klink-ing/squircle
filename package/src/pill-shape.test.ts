@@ -45,13 +45,13 @@ import {
 const stylesheet = renderPillCss();
 
 const registeredProperties = (css: string): string[] =>
-  [...css.matchAll(/@property\s+(--[\w-]+)/g)].map((m) => m[1]);
+  [...css.matchAll(/@property\s+(--[\w-]+)/g)].map((m) => m[1]!);
 
 const registration = (css: string, name: string): string | undefined =>
   new RegExp(`@property\\s+${name}\\s*\\{([^}]*)\\}`).exec(css)?.[1];
 
 const initialValueOf = (css: string, name: string): string | undefined =>
-  new RegExp(`@property\\s+${name}\\s*\\{[^}]*initial-value:\\s*([^;]+);`).exec(css)?.[1].trim();
+  new RegExp(`@property\\s+${name}\\s*\\{[^}]*initial-value:\\s*([^;]+);`).exec(css)?.[1]?.trim();
 
 /** The declarations of the first rule whose selector is exactly `selector`. */
 const ruleBody = (css: string, selector: string): string | undefined => {
@@ -74,7 +74,7 @@ const POLYFILL = `:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) ${SHAPE}`;
 type Point = { x: number; y: number };
 type Drawn = {
   /** Every path traced, in order, with what was done with it. */
-  paths: { points: Point[]; op?: "fill" | "stroke" | "clip"; rule?: string }[];
+  paths: { points: Point[]; op?: "fill" | "stroke" | "clip"; rule?: string | undefined }[];
   strokes: { color: string; width: number; dash: number[]; join: string; points: Point[] }[];
   shadows: { color: string; blur: number; x: number; y: number; points: Point[] }[];
 };
@@ -117,7 +117,7 @@ const record = (
       dash = d;
     },
     fill() {
-      drawn.paths[drawn.paths.length - 1].op = "fill";
+      drawn.paths[drawn.paths.length - 1]!.op = "fill";
       if (ctx.shadowColor) {
         drawn.shadows.push({
           color: ctx.shadowColor,
@@ -131,7 +131,7 @@ const record = (
       }
     },
     stroke() {
-      drawn.paths[drawn.paths.length - 1].op = "stroke";
+      drawn.paths[drawn.paths.length - 1]!.op = "stroke";
       drawn.strokes.push({
         color: ctx.strokeStyle,
         width: ctx.lineWidth,
@@ -141,7 +141,7 @@ const record = (
       });
     },
     clip(rule?: string) {
-      const path = drawn.paths[drawn.paths.length - 1];
+      const path = drawn.paths[drawn.paths.length - 1]!;
       path.op = "clip";
       path.rule = rule;
     },
@@ -232,7 +232,7 @@ describe("pill-shape worklet contract", () => {
         ["l", "l"],
         ["s", "l"],
         ["e", "r"],
-      ]) {
+      ] as const) {
         const rule = new RegExp(
           `\\[${PILL_ATTRIBUTE}="${value}"\\] \\{[^}]*${PILL_SIDE_VAR_NAME}: ${side};`,
         );
@@ -265,7 +265,7 @@ describe("pill-shape worklet contract", () => {
     it("registers nothing that is neither read nor fed into something read", () => {
       // Registrations for properties nothing consumes are dead plumbing: they
       // read as configuration but change nothing.
-      const referenced = new Set([...stylesheet.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]));
+      const referenced = new Set([...stylesheet.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]!));
       for (const name of registeredProperties(stylesheet)) {
         const consumed = customInputs.includes(name) || referenced.has(name);
         expect(consumed, `${name} is registered but never consumed`).toBe(true);
@@ -337,7 +337,7 @@ describe("pill-shape worklet contract", () => {
       // pill's background the moment the worklet failed to load.
       expect(stylesheet).not.toContain("@supports");
       const painted = [...stylesheet.matchAll(/^([^\n{]+)\{[^}]*paint\(/gm)].map((m) =>
-        m[1].trim(),
+        m[1]!.trim(),
       );
       expect(painted.length).toBe(2);
       for (const selector of painted) {
@@ -437,8 +437,8 @@ describe("pill-shape worklet contract", () => {
       // function that once consumed them. A property is legitimate if the
       // worklet reads it, or if the sheet itself feeds it into one that is
       // read.
-      const assigned = [...stylesheet.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1]);
-      const referenced = new Set([...stylesheet.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]));
+      const assigned = [...stylesheet.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1]!);
+      const referenced = new Set([...stylesheet.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]!));
       for (const name of assigned) {
         const consumed = customInputs.includes(name) || referenced.has(name);
         expect(consumed, `${name} is assigned but nothing consumes it`).toBe(true);
@@ -463,9 +463,9 @@ describe("pill-shape worklet contract", () => {
         [PILL_BOX_SHADOW_VAR_NAME]: "0 4px 8px black",
       });
       expect(drawn.paths).toHaveLength(1);
-      expect(drawn.paths[0].op).toBe("fill");
+      expect(drawn.paths[0]!.op).toBe("fill");
       expect(drawn.strokes).toEqual([]);
-      const b = bounds(drawn.paths[0].points);
+      const b = bounds(drawn.paths[0]!.points);
       expect(b.left).toBeCloseTo(0, 9);
       expect(b.right).toBeCloseTo(240, 9);
       expect(b.top).toBeCloseTo(0, 9);
@@ -474,7 +474,7 @@ describe("pill-shape worklet contract", () => {
 
     it("pulls in by the background inset, to clear a border's anti-aliased edge", () => {
       const drawn = record(paintDef, { [PILL_BACKGROUND_INSET_VAR_NAME]: "0.5px" });
-      const b = bounds(drawn.paths[0].points);
+      const b = bounds(drawn.paths[0]!.points);
       expect(b.left).toBeCloseTo(0.5, 5);
       expect(b.top).toBeCloseTo(0.5, 5);
       expect(b.right).toBeCloseTo(239.5, 5);
@@ -537,7 +537,7 @@ describe("pill-shape worklet contract", () => {
         [PILL_BORDER_COLOR_VAR_NAME]: "red",
       });
       expect(drawn.strokes).toHaveLength(1);
-      const [border] = drawn.strokes;
+      const border = drawn.strokes[0]!;
       expect(border.color).toBe("red");
       expect(border.width).toBe(4);
       expect(border.dash).toEqual([]);
@@ -574,7 +574,7 @@ describe("pill-shape worklet contract", () => {
           [PILL_BORDER_WIDTH_VAR_NAME]: "2px",
           [PILL_BORDER_COLOR_VAR_NAME]: "red",
           [PILL_BORDER_STYLE_VAR_NAME]: style,
-        }).strokes[0].dash;
+        }).strokes[0]!.dash;
       expect(dash("dashed")).toEqual([6, 4]);
       expect(dash("dotted")).toEqual([2, 4]);
     });
@@ -613,7 +613,7 @@ describe("pill-shape worklet contract", () => {
       // `reach` in from the edge of the grown box.
       const tops = drawn.strokes.map((s) => bounds(s.points).top);
       const expected = [-0.5, -2, 1.25, 3.25, 1.5].map((d) => reach - d);
-      tops.forEach((top, i) => expect(top).toBeCloseTo(expected[i], 5));
+      tops.forEach((top, i) => expect(top).toBeCloseTo(expected[i]!, 5));
     });
 
     it("closes seams: a lower band runs on under the band that meets it", () => {
@@ -662,7 +662,7 @@ describe("pill-shape worklet contract", () => {
         60,
         240,
       );
-      const b = bounds(drawn.strokes[0].points);
+      const b = bounds(drawn.strokes[0]!.points);
       expect(b.left).toBeCloseTo(2, 5);
       expect(b.top).toBeCloseTo(2, 5);
     });
@@ -684,7 +684,8 @@ describe("pill-shape worklet contract", () => {
       expect(clip?.rule).toBe("evenodd");
       // The inset one is the copy of the background's to paint.
       expect(drawn.shadows.map((s) => s.color)).toEqual(["rgb(0 0 0 / 0.6)", "blue"]);
-      const [soft, solid] = drawn.shadows;
+      const soft = drawn.shadows[0]!;
+      const solid = drawn.shadows[1]!;
       expect(soft.blur).toBe(8);
       expect(soft.y).toBe(4);
       // Thrown back exactly onto the canvas: the shape grown by its spread,
@@ -704,8 +705,8 @@ describe("pill-shape worklet contract", () => {
         280,
         100,
       );
-      expect(drawn.shadows[0].y).toBe(4);
-      expect(drawn.shadows[0].blur).toBe(16);
+      expect(drawn.shadows[0]!.y).toBe(4);
+      expect(drawn.shadows[0]!.blur).toBe(16);
     });
   });
 

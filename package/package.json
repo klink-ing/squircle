@@ -68,6 +68,7 @@
     "@stylexjs/babel-plugin": "^0.18.3",
     "@stylexjs/stylex": "^0.18.3",
     "@tailwindcss/vite": "^4.2.2",
+    "@types/babel__core": "catalog:",
     "@types/node": "^25.5.2",
     "happy-dom": "catalog:",
     "oxlint": "^1.58.0",

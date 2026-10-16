@@ -105,8 +105,8 @@ const junctionIndex = (ctx: RecordingContext): number => {
   let longest = 0;
   for (let i = 1; i < ctx.vertices.length; i++) {
     const d = Math.hypot(
-      ctx.vertices[i].x - ctx.vertices[i - 1].x,
-      ctx.vertices[i].y - ctx.vertices[i - 1].y,
+      ctx.vertices[i]!.x - ctx.vertices[i - 1]!.x,
+      ctx.vertices[i]!.y - ctx.vertices[i - 1]!.y,
     );
     if (d > longest) {
       longest = d;
@@ -125,9 +125,9 @@ const curvatureGradient = (ctx: RecordingContext, r: number): number => {
   const v = ctx.vertices;
   let worst = 0;
   for (let i = 2; i < j; i++) {
-    const before = curvature(v[i - 2], v[i - 1], v[i]);
-    const after = curvature(v[i - 1], v[i], v[i + 1]);
-    const ds = Math.hypot(v[i].x - v[i - 1].x, v[i].y - v[i - 1].y);
+    const before = curvature(v[i - 2]!, v[i - 1]!, v[i]!);
+    const after = curvature(v[i - 1]!, v[i]!, v[i + 1]!);
+    const ds = Math.hypot(v[i]!.x - v[i - 1]!.x, v[i]!.y - v[i - 1]!.y);
     if (ds > 1e-9) worst = Math.max(worst, Math.abs(after - before) / ds);
   }
   return worst * r * r;
@@ -141,8 +141,8 @@ const curvatureGradient = (ctx: RecordingContext, r: number): number => {
  */
 const arrivalAngle = (ctx: RecordingContext): number => {
   const j = junctionIndex(ctx);
-  const dx = ctx.vertices[j].x - ctx.vertices[j - 1].x;
-  const dy = ctx.vertices[j].y - ctx.vertices[j - 1].y;
+  const dx = ctx.vertices[j]!.x - ctx.vertices[j - 1]!.x;
+  const dy = ctx.vertices[j]!.y - ctx.vertices[j - 1]!.y;
   return Math.abs((Math.atan2(dy, dx) * 180) / Math.PI);
 };
 
@@ -151,7 +151,7 @@ const capCurvature = (ctx: RecordingContext): number[] => {
   const j = junctionIndex(ctx);
   const out: number[] = [];
   for (let i = 1; i < j; i++) {
-    out.push(curvature(ctx.vertices[i - 1], ctx.vertices[i], ctx.vertices[i + 1]));
+    out.push(curvature(ctx.vertices[i - 1]!, ctx.vertices[i]!, ctx.vertices[i + 1]!));
   }
   return out;
 };
@@ -177,8 +177,8 @@ describe("pill-shape worklet geometry", () => {
     it("keeps flat top and bottom edges between the caps", () => {
       const ctx = paint(WIDTH, HEIGHT);
       const j = junctionIndex(ctx);
-      const a = ctx.vertices[j];
-      const b = ctx.vertices[j + 1];
+      const a = ctx.vertices[j]!;
+      const b = ctx.vertices[j + 1]!;
 
       expect(a.y).toBeCloseTo(0, 6);
       expect(b.y).toBeCloseTo(0, 6);
@@ -199,7 +199,7 @@ describe("pill-shape worklet geometry", () => {
         [61, 60],
         [37, 120],
         [500, 20],
-      ]) {
+      ] as const) {
         for (const [amt, ease, continuity] of [
           [2, 2, null],
           [4, 0, 2],
@@ -219,7 +219,7 @@ describe("pill-shape worklet geometry", () => {
       // Derive the circle from three arc samples rather than assuming where
       // its centre is — the easing pulls the centre inward.
       const arc = ctx.vertices.slice(0, 13);
-      const [a, b, c] = [arc[0], arc[6], arc[12]];
+      const [a, b, c] = [arc[0]!, arc[6]!, arc[12]!] as const;
       const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
       const sq = (p: Point) => p.x * p.x + p.y * p.y;
       const centre = {
@@ -229,7 +229,7 @@ describe("pill-shape worklet geometry", () => {
       const radii = arc.map((p) => Math.hypot(p.x - centre.x, p.y - centre.y));
 
       // Every arc sample lies on that one circle...
-      for (const radius of radii) expect(radius).toBeCloseTo(radii[0], 4);
+      for (const radius of radii) expect(radius).toBeCloseTo(radii[0]!, 4);
       // ...centred on the pill's axis, at a radius near a true semicircle.
       expect(centre.y).toBeCloseTo(R, 4);
       expect(radii[0]).toBeGreaterThan(0.9 * R);
@@ -239,7 +239,7 @@ describe("pill-shape worklet geometry", () => {
     it("holds constant curvature through the arc, unlike a superellipse", () => {
       const profile = capCurvature(paint(WIDTH, HEIGHT));
       const arcPart = profile.slice(0, 10);
-      for (const k of arcPart) expect(k).toBeCloseTo(arcPart[0], 3);
+      for (const k of arcPart) expect(k).toBeCloseTo(arcPart[0]!, 3);
       expect(arcPart[0]).toBeGreaterThan(0.9 / R);
     });
   });
@@ -261,7 +261,7 @@ describe("pill-shape worklet geometry", () => {
       const eased = capCurvature(paint(WIDTH, HEIGHT));
       const peak = eased.indexOf(Math.max(...eased));
       for (let i = peak + 2; i < eased.length; i++) {
-        expect(eased[i]).toBeLessThanOrEqual(eased[i - 1] + 1e-9);
+        expect(eased[i]).toBeLessThanOrEqual(eased[i - 1]! + 1e-9);
       }
     });
 
@@ -282,10 +282,10 @@ describe("pill-shape worklet geometry", () => {
       const softness = [1, 2, 3].map((amt) => {
         const ctx = paint(WIDTH, HEIGHT, amt);
         // Where the flat edge begins: a softer ease starts turning sooner.
-        return ctx.vertices[junctionIndex(ctx)].x;
+        return ctx.vertices[junctionIndex(ctx)]!.x;
       });
-      expect(softness[1]).toBeGreaterThan(softness[0]);
-      expect(softness[2]).toBeGreaterThan(softness[1]);
+      expect(softness[1]).toBeGreaterThan(softness[0]!);
+      expect(softness[2]).toBeGreaterThan(softness[1]!);
     });
   });
 
@@ -296,7 +296,7 @@ describe("pill-shape worklet geometry", () => {
       const easeSpan = (ctx: RecordingContext) => {
         const j = junctionIndex(ctx);
         // Angular span handed to the easing, via where the arc stops.
-        return ctx.vertices[j].x;
+        return ctx.vertices[j]!.x;
       };
       expect(easeSpan(stubby)).toBeLessThan(easeSpan(roomy));
     });
@@ -309,7 +309,7 @@ describe("pill-shape worklet geometry", () => {
       let probes = 0;
       const junctionRatio = worklet.junctionRatio.bind(worklet);
       worklet.junctionRatio = (...args) => (probes++, junctionRatio(...args));
-      for (const c of [2, 3] as const) {
+      for (const c of [2, 3]) {
         expect(worklet.fitEasing(50, 50, Math.PI / 3, 6, c).beta).toBe(0);
       }
       expect(probes).toBe(0);
@@ -363,7 +363,7 @@ describe("pill-shape worklet geometry", () => {
           [60, 60],
           [60, 240],
           [61, 60],
-        ]) {
+        ] as const) {
           for (const p of paint(w, h, amt).vertices) {
             expect(p.x, `amt ${amt} @ ${w}x${h}`).toBeGreaterThanOrEqual(-1e-6);
             expect(p.x, `amt ${amt} @ ${w}x${h}`).toBeLessThanOrEqual(w + 1e-6);
@@ -377,13 +377,13 @@ describe("pill-shape worklet geometry", () => {
 
   describe("the ease property", () => {
     const arcOf = (ctx: RecordingContext) =>
-      circleThrough(ctx.vertices[0], ctx.vertices[6], ctx.vertices[12]);
-    const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)].x;
+      circleThrough(ctx.vertices[0]!, ctx.vertices[6]!, ctx.vertices[12]!);
+    const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)]!.x;
 
     it("stretches the transition along the flat edge", () => {
       const reach = [0, 1, 2, 4].map((q) => flatEdgeStart(paint(WIDTH, HEIGHT, 2, q)));
       for (let i = 1; i < reach.length; i++) {
-        expect(reach[i]).toBeGreaterThan(reach[i - 1]);
+        expect(reach[i]).toBeGreaterThan(reach[i - 1]!);
       }
     });
 
@@ -395,7 +395,7 @@ describe("pill-shape worklet geometry", () => {
         // Radius barely moves, and stays close to a true semicircle...
         expect(cap.r).toBeGreaterThan(0.9 * R);
       }
-      expect(Math.abs(caps[caps.length - 1].r - caps[0].r)).toBeLessThan(0.05 * R);
+      expect(Math.abs(caps[caps.length - 1]!.r - caps[0]!.r)).toBeLessThan(0.05 * R);
     });
 
     it("reaches further than a high amount while keeping rounder ends", () => {
@@ -438,7 +438,7 @@ describe("pill-shape worklet geometry", () => {
       // Ugly, but it renders rather than being silently clamped away.
       const angles = [-2, -1.5, -1, -0.5, 0].map((q) => arrivalAngle(paint(WIDTH, HEIGHT, 4, q)));
       for (let i = 1; i < angles.length; i++) {
-        expect(angles[i], `ease step ${i}`).toBeLessThan(angles[i - 1]);
+        expect(angles[i], `ease step ${i}`).toBeLessThan(angles[i - 1]!);
       }
       // The lowest ease is a genuine corner, not an easing.
       expect(angles[0]).toBeGreaterThan(30);
@@ -451,7 +451,7 @@ describe("pill-shape worklet geometry", () => {
           [140, 60],
           [60, 60],
           [60, 600],
-        ]) {
+        ] as const) {
           const v = paint(w, h, 4, q).vertices;
           expect(v.length, `ease ${q} @ ${w}x${h}`).toBeGreaterThan(3);
           for (const p of v) {
@@ -472,7 +472,7 @@ describe("pill-shape worklet geometry", () => {
           [240, 60],
           [70, 60],
           [60, 240],
-        ]) {
+        ] as const) {
           for (const p of paint(w, h, 3, q).vertices) {
             expect(p.x, `ease ${q} @ ${w}x${h}`).toBeGreaterThanOrEqual(-1e-6);
             expect(p.x, `ease ${q} @ ${w}x${h}`).toBeLessThanOrEqual(w + 1e-6);
@@ -495,7 +495,7 @@ describe("pill-shape worklet geometry", () => {
 
     it("holds the curvature rate steady as the pill narrows", () => {
       const rates = WIDTHS.map((w) => curvatureGradient(paint(w, HEIGHT, 4, 4), R));
-      const widest = rates[0];
+      const widest = rates[0]!;
       for (let i = 0; i < rates.length; i++) {
         expect(rates[i], `width ${WIDTHS[i]}`).toBeLessThan(1.3 * widest);
       }
@@ -507,8 +507,8 @@ describe("pill-shape worklet geometry", () => {
       const tight = paint(180, HEIGHT, 4, 4);
 
       const capOf = (ctx: RecordingContext) =>
-        circleThrough(ctx.vertices[0], ctx.vertices[3], ctx.vertices[6]);
-      const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)].x;
+        circleThrough(ctx.vertices[0]!, ctx.vertices[3]!, ctx.vertices[6]!);
+      const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)]!.x;
 
       // The tight pill still eases — it has not collapsed to a stadium...
       expect(flatEdgeStart(tight)).toBeGreaterThan(capOf(tight).r * 1.2);
@@ -546,7 +546,7 @@ describe("pill-shape worklet geometry", () => {
         [4, 4],
         [3, 6],
         [2, 8],
-      ]) {
+      ] as const) {
         for (const [w, h] of [
           [600, 60],
           [140, 60],
@@ -554,7 +554,7 @@ describe("pill-shape worklet geometry", () => {
           [61, 60],
           [60, 60],
           [60, 600],
-        ]) {
+        ] as const) {
           for (const p of paint(w, h, amt, ease).vertices) {
             const tag = `amt ${amt} ease ${ease} @ ${w}x${h}`;
             expect(p.x, tag).toBeGreaterThanOrEqual(-1e-6);
@@ -576,13 +576,13 @@ describe("pill-shape worklet geometry", () => {
         [240, 60, 4, 4],
         [1200, 200, 4, 4],
         [600, 60, 2, 0],
-      ]) {
+      ] as const) {
         const ctx = paint(w, h, amt, ease);
         const v = ctx.vertices;
         const cap = junctionIndex(ctx);
         for (let i = 1; i < cap; i++) {
-          const d1 = { x: v[i].x - v[i - 1].x, y: v[i].y - v[i - 1].y };
-          const d2 = { x: v[i + 1].x - v[i].x, y: v[i + 1].y - v[i].y };
+          const d1 = { x: v[i]!.x - v[i - 1]!.x, y: v[i]!.y - v[i - 1]!.y };
+          const d2 = { x: v[i + 1]!.x - v[i]!.x, y: v[i + 1]!.y - v[i]!.y };
           const l1 = Math.hypot(d1.x, d1.y);
           if (l1 < 1e-9 || Math.hypot(d2.x, d2.y) < 1e-9) continue;
           const turn = Math.abs(Math.atan2(d1.x * d2.y - d1.y * d2.x, d1.x * d2.x + d1.y * d2.y));
@@ -604,7 +604,7 @@ describe("pill-shape worklet geometry", () => {
       expect(Math.max(...ys)).toBeCloseTo(240, 4);
 
       const j = junctionIndex(ctx);
-      expect(Math.abs(ctx.vertices[j].x - ctx.vertices[j + 1].x)).toBeLessThan(1e-6);
+      expect(Math.abs(ctx.vertices[j]!.x - ctx.vertices[j + 1]!.x)).toBeLessThan(1e-6);
     });
   });
 
@@ -621,7 +621,7 @@ describe("pill-shape worklet geometry", () => {
       })();
       const { remaining } = worklet.profile(ease + 2, continuity);
       const n = remaining.length - 1;
-      const d = (i: number) => remaining[i] - remaining[i + 1];
+      const d = (i: number) => remaining[i]! - remaining[i + 1]!;
       return {
         leaving: (Math.abs(d(0) - d(1)) / d(0)) * n,
         arriving: (Math.abs(d(n - 2) - d(n - 1)) / d(0)) * n,
@@ -655,7 +655,7 @@ describe("pill-shape worklet geometry", () => {
       const eased = capCurvature(ctx);
       const peak = eased.indexOf(Math.max(...eased));
       for (let i = peak + 2; i < eased.length; i++) {
-        expect(eased[i]).toBeLessThanOrEqual(eased[i - 1] + 1e-9);
+        expect(eased[i]).toBeLessThanOrEqual(eased[i - 1]! + 1e-9);
       }
     });
 
@@ -664,13 +664,13 @@ describe("pill-shape worklet geometry", () => {
         [2, 1],
         [4, 4],
         [3, -2],
-      ]) {
+      ] as const) {
         for (const [w, h] of [
           [600, 60],
           [140, 60],
           [70, 60],
           [60, 600],
-        ]) {
+        ] as const) {
           for (const p of paint(w, h, amt, ease, 3).vertices) {
             const tag = `G3 amt ${amt} ease ${ease} @ ${w}x${h}`;
             expect(Number.isFinite(p.x) && Number.isFinite(p.y), tag).toBe(true);

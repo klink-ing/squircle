@@ -30,7 +30,7 @@ declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
 export const CSS_NAMESPACE: string =
   typeof __SQUIRCLE_CSS_NAMESPACE__ === "string"
     ? __SQUIRCLE_CSS_NAMESPACE__
-    : (globalThis.process?.env?.SQUIRCLE_CSS_NAMESPACE ?? "squircle");
+    : (globalThis.process?.env?.["SQUIRCLE_CSS_NAMESPACE"] ?? "squircle");
 
 /** `--<namespace>-<name>`, e.g. `--squircle-amt`. */
 const coreVar = (name: string) => `--${CSS_NAMESPACE}-${name}`;

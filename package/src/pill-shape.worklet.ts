@@ -137,6 +137,11 @@ interface PaintProperties {
   get(name: string): { toString(): string } | undefined;
 }
 
+/** The paint callback contract; the DOM library does not define paint worklets. */
+interface PaintWorklet {
+  paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void;
+}
+
 interface Point {
   x: number;
   y: number;
@@ -362,6 +367,7 @@ const powFromLog = (logBase: number, power: number): number =>
  * ends.
  */
 function integrate(f: number[], out: number[] | null): number {
+  // Callers fill SAMPLES + 1 entries; the one-sided formulas stay in those bounds.
   const m = SAMPLES;
   const h = 1 / (24 * m);
   let total = 0;
@@ -369,10 +375,10 @@ function integrate(f: number[], out: number[] | null): number {
   for (let j = 0; j < m; j++) {
     const weighted =
       j === 0
-        ? 9 * f[0] + 19 * f[1] - 5 * f[2] + f[3]
+        ? 9 * f[0]! + 19 * f[1]! - 5 * f[2]! + f[3]!
         : j === m - 1
-          ? f[m - 3] - 5 * f[m - 2] + 19 * f[m - 1] + 9 * f[m]
-          : 13 * (f[j] + f[j + 1]) - f[j - 1] - f[j + 2];
+          ? f[m - 3]! - 5 * f[m - 2]! + 19 * f[m - 1]! + 9 * f[m]!
+          : 13 * (f[j]! + f[j + 1]!) - f[j - 1]! - f[j + 2]!;
     total += weighted * h;
     if (out) out[j + 1] = total;
   }
@@ -384,17 +390,18 @@ function integrate(f: number[], out: number[] | null): number {
  * `EASE_STEPS`: the cubic Hermite interpolant, exact at the samples.
  */
 function hermite(values: number[], slopes: number[], k: number): number {
+  // k is in [0, EASE_STEPS], so j and j + 1 address the populated samples.
   const j = Math.min(Math.floor(k / SAMPLE_STRIDE), SAMPLES - 1);
   const s = k / SAMPLE_STRIDE - j;
-  if (s === 0) return values[j];
+  if (s === 0) return values[j]!;
   const s2 = s * s;
   const s3 = s2 * s;
   const h = 1 / SAMPLES;
   return (
-    (2 * s3 - 3 * s2 + 1) * values[j] +
-    (s3 - 2 * s2 + s) * h * slopes[j] +
-    (3 * s2 - 2 * s3) * values[j + 1] +
-    (s3 - s2) * h * slopes[j + 1]
+    (2 * s3 - 3 * s2 + 1) * values[j]! +
+    (s3 - 2 * s2 + s) * h * slopes[j]! +
+    (3 * s2 - 2 * s3) * values[j + 1]! +
+    (s3 - s2) * h * slopes[j + 1]!
   );
 }
 
@@ -518,9 +525,9 @@ export const paintDef = class PillShape implements PaintWorklet {
    * where interpolating would fail.
    */
   remainingAt(samples: Samples, q: number, continuity: Continuity, k: number): number {
-    if (k % SAMPLE_STRIDE === 0) return samples.remaining[k / SAMPLE_STRIDE];
+    if (k % SAMPLE_STRIDE === 0) return samples.remaining[k / SAMPLE_STRIDE]!;
     return continuity === 2
-      ? powFromLog(LOG_ONE_MINUS_T[k], q)
+      ? powFromLog(LOG_ONE_MINUS_T[k]!, q)
       : hermite(samples.remaining, samples.slope, k);
   }
 
@@ -534,19 +541,19 @@ export const paintDef = class PillShape implements PaintWorklet {
     let lambda = q;
     if (continuity === 2) {
       for (let j = 0; j <= SAMPLES; j++) {
-        remaining[j] = powFromLog(LOG_ONE_MINUS_T[j * SAMPLE_STRIDE], q);
+        remaining[j] = powFromLog(LOG_ONE_MINUS_T[j * SAMPLE_STRIDE]!, q);
       }
     } else {
       // Curvature (1 - t^2)^e, integrated for the turn taken so far, and
       // normalised: the curvature, scaled by the same total, is the slope.
       const e = Math.max(q - 1, 1);
       for (let j = 0; j <= SAMPLES; j++) {
-        slope[j] = powFromLog(LOG_ONE_MINUS_T2[j * SAMPLE_STRIDE], e);
+        slope[j] = powFromLog(LOG_ONE_MINUS_T2[j * SAMPLE_STRIDE]!, e);
       }
       const total = integrate(slope, remaining);
       for (let j = 0; j <= SAMPLES; j++) {
-        remaining[j] = 1 - remaining[j] / total;
-        slope[j] = -slope[j] / total;
+        remaining[j] = 1 - remaining[j]! / total;
+        slope[j] = -slope[j]! / total;
       }
       lambda = 1 / total;
     }
@@ -578,7 +585,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     const dcos = into ? into.dcos : scratchCos;
     const dsin = into ? into.dsin : scratchSin;
     for (let j = 0; j <= SAMPLES; j++) {
-      const angle = beta * remaining[j];
+      const angle = beta * remaining[j]!;
       dcos[j] = Math.cos(angle);
       dsin[j] = Math.sin(angle);
     }
@@ -882,7 +889,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     // chord would otherwise drift off the curve: at the first node past the
     // last vertex where it would drift too far.
     const length = samples.lambda * radius * beta;
-    const start = points[points.length - 1];
+    const start = points[points.length - 1]!;
     const at = (k: number): Point => ({
       x: start.x + length * hermite(fresnel.cos, fresnel.dcos, k),
       y: start.y - length * hermite(fresnel.sin, fresnel.dsin, k),
@@ -938,7 +945,7 @@ export const paintDef = class PillShape implements PaintWorklet {
         ? this.offsetOutline(this.boxOutline(width, height, props), -inset)
         : this.boxOutline(width, height, props);
     for (let i = 0; i < outline.length; i++) {
-      const p = outline[i];
+      const p = outline[i]!;
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -1044,10 +1051,10 @@ export const paintDef = class PillShape implements PaintWorklet {
       first = false;
     };
     // In `outline`'s order: the quadrant, then mirrored in x, in both, in y.
-    for (let i = 0; i < n; i++) to(quadrant[i].x, quadrant[i].y);
-    for (let i = n - 1; i >= 0; i--) to(long - quadrant[i].x, quadrant[i].y);
-    for (let i = 0; i < n; i++) to(long - quadrant[i].x, short - quadrant[i].y);
-    for (let i = n - 1; i >= 0; i--) to(quadrant[i].x, short - quadrant[i].y);
+    for (let i = 0; i < n; i++) to(quadrant[i]!.x, quadrant[i]!.y);
+    for (let i = n - 1; i >= 0; i--) to(long - quadrant[i]!.x, quadrant[i]!.y);
+    for (let i = 0; i < n; i++) to(long - quadrant[i]!.x, short - quadrant[i]!.y);
+    for (let i = n - 1; i >= 0; i--) to(quadrant[i]!.x, short - quadrant[i]!.y);
   }
 
   /**
@@ -1112,7 +1119,13 @@ export const paintDef = class PillShape implements PaintWorklet {
     }
     const first = ring[0];
     const end = ring[ring.length - 1];
-    if (ring.length > 1 && Math.abs(first.x - end.x) < 1e-6 && Math.abs(first.y - end.y) < 1e-6) {
+    if (
+      first &&
+      end &&
+      ring.length > 1 &&
+      Math.abs(first.x - end.x) < 1e-6 &&
+      Math.abs(first.y - end.y) < 1e-6
+    ) {
       ring.pop();
     }
     if (distance === 0) return ring;
@@ -1120,8 +1133,8 @@ export const paintDef = class PillShape implements PaintWorklet {
     // (dy, -dx); anticlockwise, its opposite.
     let twiceArea = 0;
     for (let i = 0; i < ring.length; i++) {
-      const p = ring[i];
-      const q = ring[(i + 1) % ring.length];
+      const p = ring[i]!;
+      const q = ring[(i + 1) % ring.length]!;
       twiceArea += p.x * q.y - q.x * p.y;
     }
     const out = twiceArea > 0 ? distance : -distance;
@@ -1130,8 +1143,8 @@ export const paintDef = class PillShape implements PaintWorklet {
     const nx = numbers(n);
     const ny = numbers(n);
     for (let i = 0; i < n; i++) {
-      const a = ring[i];
-      const b = ring[(i + 1) % n];
+      const a = ring[i]!;
+      const b = ring[(i + 1) % n]!;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const length = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1141,16 +1154,16 @@ export const paintDef = class PillShape implements PaintWorklet {
     const moved: Point[] = [];
     for (let i = 0; i < n; i++) {
       const before = (i - 1 + n) % n;
-      const mx = nx[before] + nx[i];
-      const my = ny[before] + ny[i];
+      const mx = nx[before]! + nx[i]!;
+      const my = ny[before]! + ny[i]!;
       // Where the outline turns a real corner — a side pill's square end —
       // along the miter, so both edges move the full distance and the corner
       // stays square. Elsewhere the outline samples a curve, and the average
       // normal is the curve's own.
-      const cos = nx[before] * nx[i] + ny[before] * ny[i];
+      const cos = nx[before]! * nx[i]! + ny[before]! * ny[i]!;
       const scale =
         cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.sqrt(mx * mx + my * my) || 1);
-      const p = ring[i];
+      const p = ring[i]!;
       moved.push({ x: p.x + mx * scale, y: p.y + my * scale });
     }
     return moved;
