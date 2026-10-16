@@ -1,5 +1,6 @@
 // Pins the namespace before src/ modules are evaluated; keep it first.
 import { CSS_NAMESPACE } from "./scripts/load-namespace";
+import { minifySync } from "vite/rolldown/utils";
 import { defineConfig } from "vite-plus";
 
 /**
@@ -45,11 +46,35 @@ export default defineConfig({
       "pill-shape.worklet": "./src/pill-shape.worklet.ts",
     },
     format: "esm",
-    // The paint worklet is loaded by URL, so no consumer's bundler ever
-    // minifies it; the rest is minified anyway, at no cost with source maps.
-    // Legal comments (`/*!`) are kept.
-    minify: true,
     dts: true,
+    plugins: [
+      {
+        /*
+         * The paint worklet alone is minified. It is loaded by URL, so it
+         * reaches browsers exactly as published, with no bundler of the
+         * consumer's in between. Everything else is imported into a bundle
+         * that minifies it anyway, and some of it has to stay as written:
+         * StyleX compiles `stylex/index.mjs` statically, and the README
+         * shows it.
+         */
+        name: "minify-paint-worklet",
+        renderChunk: {
+          // Rolldown prints every chunk once more after this, so whitespace
+          // comes back however it is minified here; the renaming and
+          // folding are what stay, most of the saving.
+          order: "post",
+          handler(code, chunk) {
+            if (chunk.fileName !== "pill-shape.worklet.mjs") return null;
+            const { code: minified, map } = minifySync(chunk.fileName, code, {
+              module: true,
+              sourcemap: true,
+              codegen: { legalComments: "inline" },
+            });
+            return { code: minified, map };
+          },
+        },
+      },
+    ],
   },
   run: {
     tasks: {
