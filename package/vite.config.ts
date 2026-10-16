@@ -1,6 +1,17 @@
 // Pins the namespace before src/ modules are evaluated; keep it first.
 import { CSS_NAMESPACE } from "./scripts/load-namespace";
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite-plus";
+
+/**
+ * The pill shape's numeric kernels, compiled from wasm/src/lib.rs by
+ * `vp run build:wasm` and committed, so the package builds without Rust.
+ * Inlined into the paint worklet, which is one script with nothing to fetch
+ * the module from.
+ */
+const PILL_WASM = readFileSync(new URL("./wasm/pill-shape-kernel.wasm", import.meta.url)).toString(
+  "base64",
+);
 
 /**
  * Prefix for every custom property this package owns, resolved once in
@@ -24,6 +35,7 @@ export default defineConfig({
   // build, which does not inherit this one.
   define: {
     __SQUIRCLE_CSS_NAMESPACE__: JSON.stringify(CSS_NAMESPACE),
+    __SQUIRCLE_PILL_WASM__: JSON.stringify(PILL_WASM),
   },
   test: {
     include: ["src/**/*.test.ts"],
@@ -31,6 +43,7 @@ export default defineConfig({
   pack: {
     define: {
       __SQUIRCLE_CSS_NAMESPACE__: JSON.stringify(CSS_NAMESPACE),
+      __SQUIRCLE_PILL_WASM__: JSON.stringify(PILL_WASM),
     },
     entry: {
       "tailwind/index": "./src/tailwind.ts",
@@ -86,6 +99,11 @@ export default defineConfig({
           "test:stylex",
           "test:pill",
         ],
+      },
+      // Needs Rust with the wasm32-unknown-unknown target; the result is
+      // committed, so nothing else does.
+      "build:wasm": {
+        command: "tsx scripts/build-wasm.ts",
       },
       "generate:stylex": {
         command: "tsx scripts/generate-stylex.ts",

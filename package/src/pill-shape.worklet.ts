@@ -14,6 +14,13 @@
  */
 declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
 
+/**
+ * The compiled kernels, base64, inlined at build time from
+ * wasm/pill-shape-kernel.wasm for the same reason as the namespace.
+ */
+declare const __SQUIRCLE_PILL_WASM__: string | undefined;
+const PILL_SHAPE_WASM = typeof __SQUIRCLE_PILL_WASM__ === "string" ? __SQUIRCLE_PILL_WASM__ : "";
+
 const NS = `--${typeof __SQUIRCLE_CSS_NAMESPACE__ === "string" ? __SQUIRCLE_CSS_NAMESPACE__ : "squircle"}-pill`;
 const AMT_VAR = `${NS}-amt`;
 const EASE_VAR = `${NS}-ease`;
@@ -35,6 +42,100 @@ const INSET_RING_COLOR_VAR = `${NS}-inset-ring-color`;
 const BOX_SHADOW_VAR = `${NS}-box-shadow`;
 const REACH_VAR = `${NS}-reach`;
 const BACKGROUND_INSET_VAR = `${NS}-background-inset`;
+/**
+ * The numeric kernels — the profile and the two integrals, which spend their
+ * time in `exp`, `cos` and `sin` — compiled from wasm/src/lib.rs. They are
+ * about a third faster than the same loops in script, and the loops below stay
+ * as the reference and as the fallback where the module cannot be built:
+ * `WebAssembly` is missing from the global scope, or compiling is not allowed
+ * there.
+ */
+interface Kernels {
+  /** Fills `remaining`, and returns lambda. */
+  profile(q: number, continuity: number): number;
+  fresnel(beta: number): void;
+  junctionRatio(beta: number, lambda: number, keep: boolean): number;
+  /** The arrays the kernels read and write, in the module's memory. */
+  remaining: Float64Array;
+  cos: Float64Array;
+  sin: Float64Array;
+  /** The profile `remaining` currently holds a copy of. */
+  loaded: Float64Array | null;
+}
+
+/** Base64 to bytes by hand: a worklet scope has no `atob`. */
+function decodeBase64(text: string): Uint8Array {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const lookup = new Uint8Array(128);
+  for (let i = 0; i < alphabet.length; i++) lookup[alphabet.charCodeAt(i)] = i;
+  const padding = text.endsWith("==") ? 2 : text.endsWith("=") ? 1 : 0;
+  const bytes = new Uint8Array((text.length / 4) * 3 - padding);
+  let out = 0;
+  for (let i = 0; i < text.length; i += 4) {
+    const n =
+      (lookup[text.charCodeAt(i)] << 18) |
+      (lookup[text.charCodeAt(i + 1)] << 12) |
+      (lookup[text.charCodeAt(i + 2)] << 6) |
+      lookup[text.charCodeAt(i + 3)];
+    if (out < bytes.length) bytes[out++] = n >> 16;
+    if (out < bytes.length) bytes[out++] = (n >> 8) & 255;
+    if (out < bytes.length) bytes[out++] = n & 255;
+  }
+  return bytes;
+}
+
+/** The compiled kernels, or `null` where they cannot be had. */
+function loadKernels(): Kernels | null {
+  try {
+    const { exports } = new WebAssembly.Instance(
+      new WebAssembly.Module(decodeBase64(PILL_SHAPE_WASM) as BufferSource),
+    );
+    const k = exports as unknown as {
+      memory: WebAssembly.Memory;
+      init(): void;
+      remaining_ptr(): number;
+      cos_ptr(): number;
+      sin_ptr(): number;
+      profile(q: number, continuity: number): number;
+      fresnel(beta: number): void;
+      junction_ratio(beta: number, lambda: number, keep: number): number;
+    };
+    k.init();
+    const view = (ptr: number) => new Float64Array(k.memory.buffer, ptr, 513);
+    return {
+      profile: k.profile,
+      fresnel: k.fresnel,
+      junctionRatio: (beta, lambda, keep) => k.junction_ratio(beta, lambda, keep ? 1 : 0),
+      remaining: view(k.remaining_ptr()),
+      cos: view(k.cos_ptr()),
+      sin: view(k.sin_ptr()),
+      loaded: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+let kernels = loadKernels();
+
+/**
+ * Swaps the kernels, or with `null` runs the script loops; for the tests that
+ * hold the two together. Everything cached was worked out by the old ones.
+ */
+function useKernels(next: Kernels | null): void {
+  kernels = next;
+  for (const cache of [
+    quadrantCache,
+    fitsAsAskedCache,
+    fitCache,
+    fitTableCache,
+    transitionCache,
+    profileCache,
+  ]) {
+    cache.clear();
+  }
+}
+
 /** What decides the decoration; see `decorationBands` and `decorationShadows`. */
 const DECORATION_INPUTS = [
   REACH_VAR,
@@ -335,6 +436,9 @@ const MIN_SEGMENTS = 4;
 const MAX_SEGMENTS = 256;
 
 export const paintDef = class PillShape implements PaintWorklet {
+  /** The kernels, and the means to swap them; for the tests. See `useKernels`. */
+  static readonly kernels = { load: loadKernels, use: useKernels };
+
   /*
    * As few as it can do with: every input is gathered for every pill on every
    * resize, which adds up over hundreds of them.
@@ -397,6 +501,12 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   buildProfile(q: number, continuity: Continuity): Profile {
+    if (kernels) {
+      const lambda = kernels.profile(q, continuity);
+      const remaining = kernels.remaining.slice();
+      kernels.loaded = remaining;
+      return { remaining, lambda };
+    }
     const h = 1 / EASE_STEPS;
     const remaining = new Float64Array(EASE_STEPS + 1);
     if (continuity === 2) {
@@ -433,6 +543,13 @@ export const paintDef = class PillShape implements PaintWorklet {
    * times over and would otherwise allocate two arrays per probe.
    */
   fresnel(beta: number, { remaining }: Profile): Fresnel {
+    if (kernels) {
+      this.load(remaining);
+      kernels.fresnel(beta);
+      const cos = kernels.cos.slice();
+      const sin = kernels.sin.slice();
+      return { cos, sin, totalCos: cos[EASE_STEPS], totalSin: sin[EASE_STEPS] };
+    }
     const cos = new Float64Array(EASE_STEPS + 1);
     const sin = new Float64Array(EASE_STEPS + 1);
     const h = 1 / EASE_STEPS;
@@ -456,6 +573,13 @@ export const paintDef = class PillShape implements PaintWorklet {
     return { cos, sin, totalCos: c, totalSin: s };
   }
 
+  /** Puts a profile where the kernels read it, unless it is already there. */
+  load(remaining: Float64Array): void {
+    if (!kernels || kernels.loaded === remaining) return;
+    kernels.remaining.set(remaining);
+    kernels.loaded = remaining;
+  }
+
   fresnelTotals(beta: number, profile: Profile): FresnelTotals {
     const { totalCos, totalSin } = this.fresnel(beta, profile);
     return { totalCos, totalSin };
@@ -477,6 +601,15 @@ export const paintDef = class PillShape implements PaintWorklet {
     // The profile is the same for every angle at one exponent, which is what
     // most of the fit's probes are; only the trigonometry depends on beta.
     const { remaining, lambda } = this.profile(q, continuity);
+    if (kernels) {
+      this.load(remaining);
+      const junction = kernels.junctionRatio(beta, lambda, !!into);
+      if (into) {
+        into.cos.set(kernels.cos);
+        into.sin.set(kernels.sin);
+      }
+      return junction;
+    }
     const h = 1 / EASE_STEPS;
     let c = 0;
     let s = 0;
@@ -988,7 +1121,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       nx[i] = dy / length;
       ny[i] = -dx / length;
     }
-    const moved: Point[] = new Array(n);
+    const moved: Point[] = [];
     for (let i = 0; i < n; i++) {
       const before = (i - 1 + n) % n;
       const mx = nx[before] + nx[i];
@@ -1001,7 +1134,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       const scale =
         cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.sqrt(mx * mx + my * my) || 1);
       const p = ring[i];
-      moved[i] = { x: p.x + mx * scale, y: p.y + my * scale };
+      moved.push({ x: p.x + mx * scale, y: p.y + my * scale });
     }
     return moved;
   }
