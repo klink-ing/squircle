@@ -984,7 +984,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       const b = ring[(i + 1) % n];
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const length = Math.hypot(dx, dy) || 1;
+      const length = Math.sqrt(dx * dx + dy * dy) || 1;
       nx[i] = dy / length;
       ny[i] = -dx / length;
     }
@@ -998,7 +998,8 @@ export const paintDef = class PillShape implements PaintWorklet {
       // stays square. Elsewhere the outline samples a curve, and the average
       // normal is the curve's own.
       const cos = nx[before] * nx[i] + ny[before] * ny[i];
-      const scale = cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.hypot(mx, my) || 1);
+      const scale =
+        cos < Math.SQRT1_2 ? out / (1 + cos) : out / (Math.sqrt(mx * mx + my * my) || 1);
       const p = ring[i];
       moved[i] = { x: p.x + mx * scale, y: p.y + my * scale };
     }
