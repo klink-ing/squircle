@@ -45,6 +45,10 @@ export default defineConfig({
       "pill-shape.worklet": "./src/pill-shape.worklet.ts",
     },
     format: "esm",
+    // The paint worklet is loaded by URL, so no consumer's bundler ever
+    // minifies it; the rest is minified anyway, at no cost with source maps.
+    // Legal comments (`/*!`) are kept.
+    minify: true,
     dts: true,
   },
   run: {
