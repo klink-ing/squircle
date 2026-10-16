@@ -187,7 +187,12 @@ interface Profile {
 type Continuity = 2 | 3;
 const DEFAULT_CONTINUITY: Continuity = 3;
 
-const QUADRANT_CACHE_SIZE = 64;
+/**
+ * Sized for a page full of pills: an entry is a few dozen points, and with
+ * fewer entries than distinct sizes on the page each is evicted before it is
+ * reused, so every repaint — a hover, say — works every shape out again.
+ */
+const QUADRANT_CACHE_SIZE = 1024;
 const quadrantCache = new Map<string, Point[]>();
 
 /**
@@ -198,7 +203,7 @@ const quadrantCache = new Map<string, Point[]>();
  */
 const fitsAsAskedCache = new Map<string, number>();
 /** Fitted easings for narrower pills, keyed by aspect ratio and request. */
-const FIT_CACHE_SIZE = 256;
+const FIT_CACHE_SIZE = 1024;
 /**
  * How closely the fit pins down the easing angle, relative to the request.
  * Whatever it settles on fits the box; this only decides how much of the
@@ -239,7 +244,10 @@ interface Transition {
   fresnel: Fresnel;
   radiusRatio: number;
 }
-const TRANSITION_CACHE_SIZE = 64;
+const TRANSITION_CACHE_SIZE = 1024;
+/** The curvature profile depends on the exponent alone, not on the angle or the size. */
+const PROFILE_CACHE_SIZE = 64;
+const profileCache = new Map<string, Profile>();
 const transitionCache = new Map<string, Transition>();
 
 const remember = <V>(cache: Map<string, V>, size: number, key: string, value: V): V => {
@@ -382,6 +390,13 @@ export const paintDef = class PillShape implements PaintWorklet {
 
   /** The transition's curvature profile for exponent `q`; see `Profile`. */
   profile(q: number, continuity: Continuity): Profile {
+    const key = `${q},${continuity}`;
+    const known = profileCache.get(key);
+    if (known) return known;
+    return remember(profileCache, PROFILE_CACHE_SIZE, key, this.buildProfile(q, continuity));
+  }
+
+  buildProfile(q: number, continuity: Continuity): Profile {
     const h = 1 / EASE_STEPS;
     const remaining = new Float64Array(EASE_STEPS + 1);
     if (continuity === 2) {
@@ -449,44 +464,22 @@ export const paintDef = class PillShape implements PaintWorklet {
   /**
    * Where the easing meets the flat edge, over the cap's half-height, for a
    * cap easing through `beta` with exponent `q`. The fit evaluates this many
-   * times over, so it computes the profile and its quadrature in one pass,
-   * allocating nothing; it matches `capMetrics` over `profile` and `fresnel`.
+   * times over, so it reads the cached profile and runs the quadrature in one
+   * pass, allocating nothing; it matches `capMetrics` over `profile` and
+   * `fresnel`.
    */
   junctionRatio(beta: number, q: number, continuity: Continuity): number {
+    // The profile is the same for every angle at one exponent, which is what
+    // most of the fit's probes are; only the trigonometry depends on beta.
+    const { remaining, lambda } = this.profile(q, continuity);
     const h = 1 / EASE_STEPS;
-    let e = 0;
-    let lambda = q;
-    if (continuity === 3) {
-      // G3 needs the profile's total before it can be normalised.
-      e = Math.max(q - 1, 1);
-      let total = 0;
-      let k0 = 1;
-      for (let i = 1; i <= EASE_STEPS; i++) {
-        const k1 = powFromLog(LOG_ONE_MINUS_T2[i], e);
-        total += ((k0 + k1) / 2) * h;
-        k0 = k1;
-      }
-      lambda = 1 / total;
-    }
-
     let c = 0;
     let s = 0;
-    let taken = 0;
-    let k0 = 1;
     let c0 = Math.cos(beta);
     let s0 = Math.sin(beta);
     for (let i = 1; i <= EASE_STEPS; i++) {
-      let remaining: number;
-      if (continuity === 2) {
-        remaining = powFromLog(LOG_ONE_MINUS_T[i], q);
-      } else {
-        const k1 = powFromLog(LOG_ONE_MINUS_T2[i], e);
-        taken += ((k0 + k1) / 2) * h;
-        k0 = k1;
-        remaining = 1 - taken * lambda;
-      }
-      const c1 = Math.cos(beta * remaining);
-      const s1 = Math.sin(beta * remaining);
+      const c1 = Math.cos(beta * remaining[i]);
+      const s1 = Math.sin(beta * remaining[i]);
       c += ((c0 + c1) / 2) * h;
       s += ((s0 + s1) / 2) * h;
       c0 = c1;
