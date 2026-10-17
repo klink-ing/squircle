@@ -10,7 +10,7 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     // WebKit covers the native fallback and polyfill, without the Paint API.
-    { name: "webkit", use: { browserName: "webkit" }, grepInvert: /\bworklet shadows\b/ },
+    { name: "webkit", use: { browserName: "webkit" }, grepInvert: /\bworklet\b/ },
   ],
   webServer: {
     cwd: new URL("..", import.meta.url).pathname,

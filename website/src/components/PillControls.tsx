@@ -2,22 +2,22 @@ import { PILL_SHAPE_PROPERTIES as SHAPE } from "@klinking/squircle/pill-worklet"
 
 /** The pill's shape settings, as the controls hold them. */
 export interface PillShapeSettings {
-  amt: number;
-  ease: number;
+  arcSetback: number;
+  edgeSetback: number;
   continuity: number;
 }
 
 /** The package's own defaults, so every preview opens on the pill you get. */
 export const DEFAULT_SHAPE: PillShapeSettings = {
-  amt: SHAPE.amt.default,
-  ease: SHAPE.ease.default,
+  arcSetback: SHAPE.arcSetback.default,
+  edgeSetback: SHAPE.edgeSetback.default,
   continuity: SHAPE.continuity.default,
 };
 
 /** The settings as the custom properties a pill reads, for a `style`. */
-export const shapeStyle = (shape: PillShapeSettings): Record<string, number> => ({
-  [SHAPE.amt.name]: shape.amt,
-  [SHAPE.ease.name]: shape.ease,
+export const shapeStyle = (shape: PillShapeSettings): Record<string, string | number> => ({
+  [SHAPE.arcSetback.name]: `${shape.arcSetback}deg`,
+  [SHAPE.edgeSetback.name]: shape.edgeSetback,
   [SHAPE.continuity.name]: shape.continuity,
 });
 
@@ -37,6 +37,7 @@ export function Slider({
   step,
   format,
   onChange,
+  clampedValue,
 }: {
   id: string;
   label: string;
@@ -46,6 +47,7 @@ export function Slider({
   step: number;
   format: (v: number) => string;
   onChange: (v: number) => void;
+  clampedValue?: number;
 }) {
   return (
     <>
@@ -63,13 +65,26 @@ export function Slider({
         className="slider-filled min-w-0"
       />
       <code className="text-right text-zinc-300">{format(value)}</code>
+      {clampedValue !== undefined && (
+        <>
+          <span className="col-span-2 text-right text-[10px] text-zinc-400">clamped</span>
+          <output
+            id={`${id}-clamped`}
+            htmlFor={id}
+            aria-label="Clamped edge setback"
+            className="text-right font-mono text-[10px] text-indigo-300"
+          >
+            {format(clampedValue)}
+          </output>
+        </>
+      )}
     </>
   );
 }
 
 /**
- * The three things a pill's shape can be told: how much of each cap is
- * eased, how far the easing runs along the edge, and its continuity. The
+ * The three things a pill's shape can be told: where each cap leaves its arc,
+ * how far the transition runs along the edge, and its continuity. The
  * labels are the utilities that set them, and each control marks the
  * package's default.
  */
@@ -77,14 +92,16 @@ export function PillShapeControls({
   shape,
   onChange,
   idPrefix = "pill",
+  clampedEdgeSetback,
 }: {
   shape: PillShapeSettings;
   onChange: (shape: PillShapeSettings) => void;
   idPrefix?: string;
+  clampedEdgeSetback?: number;
 }) {
   const isDefault =
-    shape.amt === DEFAULT_SHAPE.amt &&
-    shape.ease === DEFAULT_SHAPE.ease &&
+    shape.arcSetback === DEFAULT_SHAPE.arcSetback &&
+    shape.edgeSetback === DEFAULT_SHAPE.edgeSetback &&
     shape.continuity === DEFAULT_SHAPE.continuity;
   const defaultLabel = (value: number) => (value === DEFAULT_SHAPE.continuity ? " (default)" : "");
   return (
@@ -110,24 +127,25 @@ export function PillShapeControls({
         reset
       </button>
       <Slider
-        id={`${idPrefix}-amt`}
-        label="squircle-pill-amt"
-        value={shape.amt}
-        min={1}
+        id={`${idPrefix}-arcSetback`}
+        label="arc setback°"
+        value={shape.arcSetback}
+        min={0}
+        max={90}
+        step={1}
+        format={(v) => `${v.toFixed(0)}°`}
+        onChange={(arcSetback) => onChange({ ...shape, arcSetback })}
+      />
+      <Slider
+        id={`${idPrefix}-edgeSetback`}
+        label="edge setback ×r"
+        value={shape.edgeSetback}
+        min={0}
         max={4}
         step={0.05}
         format={(v) => v.toFixed(2)}
-        onChange={(amt) => onChange({ ...shape, amt })}
-      />
-      <Slider
-        id={`${idPrefix}-ease`}
-        label="squircle-pill-ease"
-        value={shape.ease}
-        min={0}
-        max={8}
-        step={0.05}
-        format={(v) => v.toFixed(2)}
-        onChange={(ease) => onChange({ ...shape, ease })}
+        onChange={(edgeSetback) => onChange({ ...shape, edgeSetback })}
+        clampedValue={clampedEdgeSetback}
       />
     </div>
   );

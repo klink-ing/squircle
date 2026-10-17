@@ -6,7 +6,7 @@
 import { observePillShadows, pillStyleInputs } from "./pill-shadows";
 import { paintDef } from "./pill-shape.worklet";
 import {
-  PILL_AMT_VAR_NAME,
+  PILL_ARC_SETBACK_VAR_NAME,
   PILL_ATTRIBUTE,
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_STYLE_VAR_NAME,
@@ -17,7 +17,7 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_EASE_VAR_NAME,
+  PILL_EDGE_SETBACK_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
@@ -44,8 +44,10 @@ interface Point {
 
 /** The custom-property values that shape one pill, as computed strings. */
 export interface PillShapeInput {
-  amt?: string;
-  ease?: string;
+  /** A computed CSS angle, for example "30deg". */
+  arcSetback?: string;
+  /** A computed number in multiples of the cap's half-height. */
+  edgeSetback?: string;
   continuity?: string;
   side?: string;
 }
@@ -56,7 +58,7 @@ interface PillGeometry {
   fittedQuadrant(
     long: number,
     short: number,
-    ease: number,
+    angle: number,
     exponent: number,
     continuity: number,
   ): Point[];
@@ -99,8 +101,8 @@ export function pillOutlinePoints(
 ): Point[] {
   if (width <= 0 || height <= 0) return [];
   const props = lookup({
-    [PILL_AMT_VAR_NAME]: shape.amt,
-    [PILL_EASE_VAR_NAME]: shape.ease,
+    [PILL_ARC_SETBACK_VAR_NAME]: shape.arcSetback,
+    [PILL_EDGE_SETBACK_VAR_NAME]: shape.edgeSetback,
     [PILL_CONTINUITY_VAR_NAME]: shape.continuity,
     [PILL_SIDE_VAR_NAME]: shape.side,
   });
@@ -216,8 +218,8 @@ function pillPath(
 ): string | null {
   if (width <= 0 || height <= 0) return null;
   const props = lookup({
-    [PILL_AMT_VAR_NAME]: shape.amt,
-    [PILL_EASE_VAR_NAME]: shape.ease,
+    [PILL_ARC_SETBACK_VAR_NAME]: shape.arcSetback,
+    [PILL_EDGE_SETBACK_VAR_NAME]: shape.edgeSetback,
     [PILL_CONTINUITY_VAR_NAME]: shape.continuity,
     [PILL_SIDE_VAR_NAME]: shape.side,
   });
@@ -695,8 +697,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     values[PILL_REACH_VAR_NAME] = `${reach}px`;
     const fresh: Settings = {
       shape: {
-        amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
-        ease: style.getPropertyValue(PILL_EASE_VAR_NAME),
+        arcSetback: style.getPropertyValue(PILL_ARC_SETBACK_VAR_NAME),
+        edgeSetback: style.getPropertyValue(PILL_EDGE_SETBACK_VAR_NAME),
         continuity: style.getPropertyValue(PILL_CONTINUITY_VAR_NAME),
         side: style.getPropertyValue(PILL_SIDE_VAR_NAME),
       },
@@ -741,7 +743,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       if (!size) continue;
       const { width, height } = size;
       const { shape, decoration, decorationKey, inset, border, reach } = read(el);
-      const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity},${shape.side}`;
+      const shapeKey = `${width},${height},${shape.arcSetback},${shape.edgeSetback},${shape.continuity},${shape.side}`;
       const key = `${shapeKey},${inset},${border},${reach},${decorationKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);
@@ -872,7 +874,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
   });
 
   /*
-   * A media query — `sm:squircle-pill-t`, `md:squircle-pill-amt-3` — changes
+   * A media query — `sm:squircle-pill-t`, `md:squircle-pill-arc-setback-3` — changes
    * what a pill's classes mean without changing them, and the viewport
    * resizing is when one can. Every pill is re-read once it settles, not on
    * each event of a drag.
