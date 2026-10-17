@@ -41,26 +41,27 @@ export default function PillTailwindDemo() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Easing amount and ease</h2>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-300">Arc and edge setbacks</h2>
         <p className="mb-4 text-sm text-zinc-500">
-          <code className="text-zinc-300">squircle-pill-amt-*</code> sets how much of each cap is
-          handed to the curvature easing — <code className="text-zinc-300">1</code> is a bare
-          semicircle. <code className="text-zinc-300">squircle-pill-ease-*</code> stretches the join
-          further along the flat edge without spending more of the arc.
+          <code className="text-zinc-300">squircle-pill-arc-setback-*</code> selects how many
+          degrees of the circular cap the transition replaces.{" "}
+          <code className="text-zinc-300">squircle-pill-edge-setback-*</code>
+          selects how far past the arc's top it finishes, in multiples of half the pill's height. G3
+          is the default; <code>squircle-pill-g2</code> remains available.
         </p>
         <div className="flex flex-wrap gap-6">
           <PillBox
-            label="squircle-pill-amt-1"
-            className="squircle-pill bg-demo-amount squircle-pill-amt-1"
+            label="arc-setback-0 (stadium)"
+            className="squircle-pill bg-demo-amount squircle-pill-arc-setback-0"
           />
-          <PillBox label="(default: amt 2, ease 2, G3)" className="squircle-pill bg-demo-amount" />
+          <PillBox label="default: 45°, edge 0.75r, G3" className="squircle-pill bg-demo-amount" />
           <PillBox
-            label="squircle-pill-amt-3"
-            className="squircle-pill bg-demo-amount squircle-pill-amt-3"
+            label="arc-setback-60 edge-setback-1"
+            className="squircle-pill bg-demo-amount squircle-pill-arc-setback-60 squircle-pill-edge-setback-1"
           />
           <PillBox
-            label="squircle-pill-amt-1.5 squircle-pill-ease-4"
-            className="squircle-pill bg-demo-amount squircle-pill-amt-1.5 squircle-pill-ease-4"
+            label="arc-setback-30 edge-setback-2 G2"
+            className="squircle-pill bg-demo-amount squircle-pill-arc-setback-30 squircle-pill-edge-setback-2 squircle-pill-g2"
           />
         </div>
       </section>

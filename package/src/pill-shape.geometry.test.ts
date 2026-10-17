@@ -5,7 +5,20 @@
 
 import { describe, expect, it } from "vitest";
 import { paintDef } from "./pill-shape.worklet";
-import { PILL_AMT_VAR_NAME, PILL_CONTINUITY_VAR_NAME, PILL_EASE_VAR_NAME } from "./variants";
+import { PILL_CONTINUITY_VAR_NAME } from "./variants";
+
+// Exercise the curve family directly, independently of its public setback solver.
+const TEST_AMOUNT = "test-angle-steps";
+const TEST_EASE = "test-exponent-offset";
+class ProfileGeometry extends paintDef {
+  override resolveAngle(p?: Parameters<InstanceType<typeof paintDef>["resolveAngle"]>[0]) {
+    const v = Number.parseFloat(p?.get(TEST_AMOUNT)?.toString() ?? "2");
+    return Math.min((Math.max(v - 1, 0) * Math.PI) / 6, Math.PI / 3);
+  }
+  override resolveExponent(p?: Parameters<InstanceType<typeof paintDef>["resolveExponent"]>[0]) {
+    return Math.max(Number.parseFloat(p?.get(TEST_EASE)?.toString() ?? "2"), -2) + 2;
+  }
+}
 
 interface Point {
   x: number;
@@ -50,10 +63,10 @@ const props = (amt?: number, ease?: number, continuity?: number | null) => ({
     if (name === PILL_CONTINUITY_VAR_NAME && continuity != null) {
       return { toString: () => String(continuity) };
     }
-    if (name === PILL_AMT_VAR_NAME && amt !== undefined) {
+    if (name === TEST_AMOUNT && amt !== undefined) {
       return { toString: () => String(amt) };
     }
-    if (name === PILL_EASE_VAR_NAME && ease !== undefined) {
+    if (name === TEST_EASE && ease !== undefined) {
       return { toString: () => String(ease) };
     }
     return undefined;
@@ -73,7 +86,7 @@ const paint = (
   continuity: number | null = 2,
 ): RecordingContext => {
   const ctx = new RecordingContext();
-  const instance = new (paintDef as new () => {
+  const instance = new (ProfileGeometry as new () => {
     paint(c: unknown, s: { width: number; height: number }, p: unknown): void;
   })();
   instance.paint(ctx, { width, height }, props(amt, ease, continuity));
@@ -190,7 +203,7 @@ describe("pill-shape worklet geometry", () => {
     it("paints exactly the points boxOutline lists", () => {
       // `paint` traces the quadrant straight into the canvas rather than
       // building the outline, and has to land on the very same points.
-      const worklet = new (paintDef as unknown as new () => {
+      const worklet = new (ProfileGeometry as unknown as new () => {
         boxOutline(w: number, h: number, p: unknown): Point[];
       })();
       for (const [w, h] of [
@@ -290,35 +303,50 @@ describe("pill-shape worklet geometry", () => {
   });
 
   describe("fitting the easing to the box", () => {
-    it("eases harder when the pill is too stubby for the request", () => {
+    it("reduces the transition reach when the pill is too stubby for the request", () => {
       const roomy = paint(400, 60);
       const stubby = paint(80, 60);
       const easeSpan = (ctx: RecordingContext) => {
         const j = junctionIndex(ctx);
-        // Angular span handed to the easing, via where the arc stops.
+        // Where the transition reaches the top flat edge.
         return ctx.vertices[j]!.x;
       };
       expect(easeSpan(stubby)).toBeLessThan(easeSpan(roomy));
     });
 
     it("draws a square as a circle without searching for an easing", () => {
-      const worklet = new (paintDef as unknown as new () => {
+      const worklet = new (ProfileGeometry as unknown as new () => {
         junctionRatio(...args: unknown[]): number;
-        fitEasing(r: number, half: number, beta: number, q: number, c: 2 | 3): { beta: number };
+        fitEasing(
+          r: number,
+          half: number,
+          beta: number,
+          q: number,
+          c: 2 | 3,
+        ): { beta: number; exponent: number };
       })();
       let probes = 0;
       const junctionRatio = worklet.junctionRatio.bind(worklet);
       worklet.junctionRatio = (...args) => (probes++, junctionRatio(...args));
       for (const c of [2, 3] as const) {
-        expect(worklet.fitEasing(50, 50, Math.PI / 3, 6, c).beta).toBe(0);
+        expect(worklet.fitEasing(50, 50, Math.PI / 3, 6, c)).toEqual({
+          beta: Math.PI / 3,
+          exponent: 1,
+        });
       }
       expect(probes).toBe(0);
     });
 
     it("settles narrow pills in a couple of exact evaluations, from a table built once", () => {
-      const worklet = new (paintDef as unknown as new () => {
+      const worklet = new (ProfileGeometry as unknown as new () => {
         junctionRatio(...args: unknown[]): number;
-        fitEasing(r: number, half: number, beta: number, q: number, c: 2 | 3): { beta: number };
+        fitEasing(
+          r: number,
+          half: number,
+          beta: number,
+          q: number,
+          c: 2 | 3,
+        ): { beta: number; exponent: number };
       })();
       let probes = 0;
       const junctionRatio = worklet.junctionRatio.bind(worklet);
@@ -335,13 +363,11 @@ describe("pill-shape worklet geometry", () => {
         const fits = 200;
         for (let i = 1; i <= fits; i++) {
           const ratio = 1 + (i / fits) * 0.6;
-          const { beta } = worklet.fitEasing(1, ratio, wanted, q, c);
-          // Fits, and gives up no more than the tolerance to do it.
-          const exponent = (b: number) =>
-            Math.min(Math.max(1 / (1 - ((q - 1) / (q * wanted)) * b), 2), q);
-          expect(junctionRatio(beta, exponent(beta), c)).toBeLessThanOrEqual(ratio + 1e-12);
-          const past = beta + 1e-4 * wanted;
-          expect(junctionRatio(past, exponent(past), c)).toBeGreaterThan(ratio);
+          const { beta, exponent } = worklet.fitEasing(1, ratio, wanted, q, c);
+          expect(beta).toBe(wanted);
+          expect(junctionRatio(beta, exponent, c)).toBeLessThanOrEqual(ratio + 1e-12);
+          const past = exponent + 1e-4 * (q - 1);
+          expect(junctionRatio(beta, past, c)).toBeGreaterThan(ratio);
         }
         expect(probes / fits, `G${c}`).toBeLessThan(2);
       }
@@ -375,7 +401,7 @@ describe("pill-shape worklet geometry", () => {
     });
   });
 
-  describe("the ease property", () => {
+  describe("the curvature exponent", () => {
     const arcOf = (ctx: RecordingContext) =>
       circleThrough(ctx.vertices[0]!, ctx.vertices[6]!, ctx.vertices[12]!);
     const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)]!.x;
@@ -420,13 +446,13 @@ describe("pill-shape worklet geometry", () => {
       }
     });
 
-    it("defaults to two steps above the clothoid", () => {
+    it("uses the reference exponent offset when unspecified", () => {
       expect(paint(WIDTH, HEIGHT, 2).vertices).toEqual(paint(WIDTH, HEIGHT, 2, 2).vertices);
       // ...which is a real easing, not the clothoid itself.
       expect(paint(WIDTH, HEIGHT, 2).vertices).not.toEqual(paint(WIDTH, HEIGHT, 2, 0).vertices);
     });
 
-    it("defaults the amount to 2", () => {
+    it("uses the reference angle when unspecified", () => {
       const ctx = paint(WIDTH, HEIGHT);
       expect(ctx.vertices).toEqual(paint(WIDTH, HEIGHT, 2, 2).vertices);
       expect(ctx.vertices).not.toEqual(paint(WIDTH, HEIGHT, 1, 2).vertices);
@@ -487,61 +513,8 @@ describe("pill-shape worklet geometry", () => {
     });
   });
 
-  describe("fitting both controls together", () => {
-    // A pill too narrow for the requested easing has to give something up.
-    // Surrendering the amount alone drives the curvature rate up like 1 / beta,
-    // which is what makes a narrow pill look abruptly cornered.
-    const WIDTHS = [600, 300, 240, 180, 140, 110];
-
-    it("holds the curvature rate steady as the pill narrows", () => {
-      const rates = WIDTHS.map((w) => curvatureGradient(paint(w, HEIGHT, 4, 4), R));
-      const widest = rates[0]!;
-      for (let i = 0; i < rates.length; i++) {
-        expect(rates[i], `width ${WIDTHS[i]}`).toBeLessThan(1.3 * widest);
-      }
-    });
-
-    it("gives up ease as well as amount", () => {
-      // At 180 the requested easing does not fit, so both must come down.
-      const roomy = paint(600, HEIGHT, 4, 4);
-      const tight = paint(180, HEIGHT, 4, 4);
-
-      const capOf = (ctx: RecordingContext) =>
-        circleThrough(ctx.vertices[0]!, ctx.vertices[3]!, ctx.vertices[6]!);
-      const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)]!.x;
-
-      // The tight pill still eases — it has not collapsed to a stadium...
-      expect(flatEdgeStart(tight)).toBeGreaterThan(capOf(tight).r * 1.2);
-      // ...and it eases over less room than the roomy one.
-      expect(flatEdgeStart(tight)).toBeLessThan(flatEdgeStart(roomy));
-    });
-
-    it("keeps more of the amount than backing off the amount alone would", () => {
-      // Trading ease for amount is the whole point: the cap should stay
-      // meaningfully eased rather than snapping back to a bare semicircle.
-      const tight = paint(140, HEIGHT, 4, 4);
-      const profile = capCurvature(tight);
-      const peak = Math.max(...profile);
-
-      // A real ramp, not a cliff, at a width where beta-only fitting collapses.
-      expect(peak).toBeGreaterThan(0);
-      expect(arrivalAngle(tight)).toBeLessThan(3);
-      expect(profile.length).toBeGreaterThan(8);
-    });
-
-    it("leaves a clothoid alone", () => {
-      // With the ease already at the clothoid there is nothing to trade,
-      // so narrowing may only reduce the amount.
-      for (const w of [600, 240, 140, 90]) {
-        const ctx = paint(w, HEIGHT, 4, 0);
-        for (const p of ctx.vertices) {
-          expect(p.x, `width ${w}`).toBeGreaterThanOrEqual(-1e-6);
-          expect(p.x, `width ${w}`).toBeLessThanOrEqual(w + 1e-6);
-        }
-      }
-    });
-
-    it("still fits the box while trading the two off", () => {
+  describe("fitting edge setback with a fixed arc setback", () => {
+    it("fits the box while keeping the arc angle", () => {
       for (const [amt, ease] of [
         [4, 4],
         [3, 6],
@@ -616,7 +589,7 @@ describe("pill-shape worklet geometry", () => {
      * differences are proportional to curvature, and their change to dk/ds.
      */
     const endRates = (ease: number, continuity: 2 | 3) => {
-      const worklet = new (paintDef as unknown as new () => {
+      const worklet = new (ProfileGeometry as unknown as new () => {
         profile(q: number, c: 2 | 3): { remaining: number[] };
       })();
       const { remaining } = worklet.profile(ease + 2, continuity);
@@ -628,7 +601,7 @@ describe("pill-shape worklet geometry", () => {
       };
     };
 
-    it("defaults to G3, at amount 2 and ease 2", () => {
+    it("defaults the reference curve to G3", () => {
       const unset = paint(WIDTH, HEIGHT, undefined, undefined, null).vertices;
       expect(unset).toEqual(paint(WIDTH, HEIGHT, 2, 2, 3).vertices);
       expect(unset).not.toEqual(paint(WIDTH, HEIGHT, 2, 2, 2).vertices);
