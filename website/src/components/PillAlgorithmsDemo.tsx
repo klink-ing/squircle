@@ -145,6 +145,9 @@ function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant
  * folded back above it.
  */
 function bezierCurvature(controls: Point[], t: number): number {
+  // Both setbacks at zero produce a bare arc and no blend control points.
+  // Constant and straight-line curves also have zero curvature.
+  if (controls.length < 3) return 0;
   const derive = (pts: Point[]) =>
     pts.slice(1).map((p, i) => ({
       x: (pts.length - 1) * (p.x - pts[i].x),
