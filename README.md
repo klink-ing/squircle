@@ -476,6 +476,16 @@ registerPillWorklet();
 
 The helper loads the worklet shipped next to it and, once it is in, marks `<html>` with `data-squircle-pill-worklet`. That mark is what switches pills from their `rounded-full` fallback to the drawn shape — `@supports (mask-image: paint(pill-shape))` is true whether or not a worklet by that name ever loaded, so gating on it alone would erase every pill the moment the file failed to load. Where paint worklets are unsupported it resolves to `false` and nothing changes; a load that fails rejects, so the error shows up in the console rather than as blank buttons. The same module exports `PILL_SHAPE_PROPERTIES`, each shape setting's custom property name and default, for scripts that set or show them.
 
+`registerPillWorklet()` also starts shadow tracking automatically; existing calls need no changes and the polyfill stays opt-in. Shadows such as `shadow-(--button-shadow)` use the browser's resolved dimensions, including nested variables, fallbacks, CSS math and relative units. Tracking covers new pills, hover/focus, ancestor attributes and inline variables, viewport changes and the system colour scheme. It schedules work on changes and does not poll idle pills.
+
+If you configured a custom class prefix, pass the same prefix when registering:
+
+```js
+registerPillWorklet(workletUrl, document, { prefix: "my-pill" });
+```
+
+After changes made only through the CSSOM (such as `sheet.insertRule()` or replacing `adoptedStyleSheets`), call `refreshPillShadows()` from the same module. If you load the worklet directly with `CSS.paintWorklet.addModule()`, start `observePillShadows({ prefix, root })` after enabling the worklet attribute; its returned controller has `refresh()` and `disconnect()`. Prefer `registerPillWorklet()` for automatic setup.
+
 The default locates the worklet with `new URL("./pill-shape.worklet.mjs", import.meta.url)`, which Vite, webpack 5 and Parcel all turn into an emitted asset. If your bundler doesn't, or you serve the file yourself, pass its URL:
 
 ```js
@@ -527,7 +537,7 @@ The element itself is left unshaped. Its background is hidden and painted again 
 - `inset-ring-*`: a band inside the border.
 - `shadow-*`: cast by the outline, with the same offsets, blur and spread. Inner shadows (`shadow-inner`, `inset-shadow-*`) are painted by the copy of the background, inside the pill.
 
-The two pseudo-elements are the pill's own. Variants work as anywhere else, so `focus-visible:ring-2` draws a focus ring along the pill and `hover:shadow-lg` lifts it. On any element that isn't a pill, the utilities keep behaving normally. Without the plugin, set the pill's own properties: `--squircle-pill-border-width`, `-border-color` and `-border-style`, `--squircle-pill-outline-width`, `-outline-offset`, `-outline-color` and `-outline-style`, `--squircle-pill-ring-width`, `-ring-color`, `-ring-offset-width` and `-ring-offset-color`, `--squircle-pill-inset-ring-width` and `-inset-ring-color`, and `--squircle-pill-box-shadow`, with `--squircle-pill-shadow-reach` set to how far its shadows reach past the pill — offset plus blur plus spread.
+The two pseudo-elements are the pill's own. Variants work as anywhere else, so `focus-visible:ring-2` draws a focus ring along the pill and `hover:shadow-lg` lifts it. On any element that isn't a pill, the utilities keep behaving normally. Without the plugin, set the pill's own properties: `--squircle-pill-border-width`, `-border-color` and `-border-style`, `--squircle-pill-outline-width`, `-outline-offset`, `-outline-color` and `-outline-style`, `--squircle-pill-ring-width`, `-ring-color`, `-ring-offset-width` and `-ring-offset-color`, `--squircle-pill-inset-ring-width` and `-inset-ring-color`, and `--squircle-pill-box-shadow`. Initialization resolves shadow dimensions and reserves painting space automatically.
 
 **Everything else is left to the browser**, and follows the pill by itself: a `drop-shadow-*` or any other `filter` sees the pill-shaped background, and Tailwind's `mask-*` utilities and any `clip-path` apply to the whole pill as they would to any element — `squircle-pill mask-b-from-20%` is a pill that fades out towards the bottom, its border and shadow with it. The browser's own focus ring, set by no utility, follows the stadium.
 
@@ -552,7 +562,7 @@ if (!(await registerPillWorklet())) {
 
 It runs the worklet's own geometry on the main thread: a `ResizeObserver` watches every pill, and on each new size the outline is set as a `clip-path: path()` for the copy of the background, and everything drawn around it — border, outline, rings, shadows — as an SVG image, on two custom properties the pill styles read. A clip rather than a mask image for the shape, because a mask image is decoded and rasterised again on every resize, which was over five times slower. The shapes are identical to the worklet's, borders, dashes and shadows included; a square needs no clip at all, its stadium already being the circle it has to be. Each pill shows its stadium until its clip is computed, so there is no flash of anything worse, and a resize too large for one frame spreads over the next few rather than dropping them. The element's own `clip-path` and masks are never touched, so they apply as they do with the worklet.
 
-It picks up pills added or removed later, and re-reads a pill when its `class` changes, when an ancestor's `class` or `dir` changes, when it gains or loses focus, hover or a press, and once the viewport settles after a resize, so `focus-visible:`, `hover:`, `dark:`, `rtl:` and breakpoint variants work too. Changes it can't see — an inline `style` setting a pill property or a clip, a stylesheet swap, a container query — need a `refresh()`:
+It picks up pills added or removed later, and re-reads a pill when its `class` changes, when an ancestor's `class` or `dir` changes, when it gains or loses focus, hover or a press, and once the viewport settles after a resize, so `focus-visible:`, `hover:`, `dark:`, `rtl:` and breakpoint variants work too. Inline styles, including inherited shadow variables, are tracked automatically too. Changes it can't see — a CSSOM edit or a container query that changes styles without resizing a pill — need a `refresh()`:
 
 ```js
 const pills = polyfillPills();

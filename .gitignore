@@ -6,3 +6,7 @@ dist/
 .DS_Store
 .playwright-mcp
 .superpowers/.netlify/
+
+# Browser regression output
+test-results/
+playwright-report/

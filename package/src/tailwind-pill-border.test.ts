@@ -254,10 +254,10 @@ describe("tailwind-pill-border.ts", () => {
   describe("shadows", () => {
     it("tells the decoration how far a shadow reaches, and gives the pill one", async () => {
       const css = await compileBorder(["shadow-lg", "shadow-none", "shadow-[0_0_0_3px_red]"]);
-      // 0 10px 15px -3px, 0 4px 6px -4px: 10 + 15 - 3.
+      // 0 10px 15px -3px, 0 4px 6px -4px: ceil(10 + 1.5 * 15 - 3).
       expect(css).toMatch(
         new RegExp(
-          `\\.shadow-lg \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_SHADOW_REACH_VAR_NAME}: 22px;\\s*${PILL_DECORATED_VAR_NAME}: "";`,
+          `\\.shadow-lg \\{\\s*&:is\\(\\.squircle-pill\\) \\{\\s*${PILL_SHADOW_REACH_VAR_NAME}: 30px;\\s*${PILL_DECORATED_VAR_NAME}: "";`,
         ),
       );
       expect(css).toMatch(
@@ -287,10 +287,10 @@ describe("tailwind-pill-border.ts", () => {
   });
 
   it("measures shadow reach from offset, blur and spread, ignoring inset ones", () => {
-    expect(shadowReach("0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)")).toBe(4);
-    expect(shadowReach("-8px 2px 4px 2px red")).toBe(14);
+    expect(shadowReach("0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)")).toBe(6);
+    expect(shadowReach("-8px 2px 4px 2px red")).toBe(16);
     expect(shadowReach("inset 0 2px 4px black")).toBe(0);
-    expect(shadowReach("0 0 0 0.25rem var(--c, rgb(0 0 0))")).toBe(4);
+    expect(shadowReach("0 0 0 4px var(--c, rgb(0 0 0))")).toBe(4);
     expect(shadowReach("0 0 #0000")).toBe(0);
   });
 });

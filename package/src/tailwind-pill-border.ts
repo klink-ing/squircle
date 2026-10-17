@@ -18,37 +18,8 @@ import {
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
 
-/**
- * How far a `box-shadow` list reaches past the box it is cast by: offset,
- * blur and spread together, for the furthest outer shadow. Inset shadows,
- * and lengths it can't read, count for nothing.
- */
-export function shadowReach(value: string): number {
-  let reach = 0;
-  let depth = 0;
-  let layer = "";
-  const layers: string[] = [];
-  for (const ch of value) {
-    if (ch === "(") depth++;
-    else if (ch === ")") depth--;
-    if (ch === "," && depth === 0) {
-      layers.push(layer);
-      layer = "";
-    } else layer += ch;
-  }
-  layers.push(layer);
-  for (const shadow of layers) {
-    if (/\binset\b/.test(shadow)) continue;
-    // Lengths outside any colour function, in order: x, y, blur, spread.
-    const bare = shadow.replace(/[a-z-]+\([^()]*(?:\([^()]*\)[^()]*)*\)/gi, " ");
-    const lengths = [...bare.matchAll(/(^|\s)(-?(?:\d+\.?\d*|\.\d+))(px|rem|em)?(?=\s|$)/g)].map(
-      (m) => Number(m[2]) * (m[3] === "rem" || m[3] === "em" ? 16 : 1),
-    );
-    const [x = 0, y = 0, blur = 0, spread = 0] = lengths;
-    reach = Math.max(reach, Math.max(Math.abs(x), Math.abs(y)) + Math.max(blur, 0) + spread);
-  }
-  return Math.ceil(Math.max(reach, 0));
-}
+import { shadowReach } from "./shadow-reach";
+export { shadowReach } from "./shadow-reach";
 
 export interface SquirclePillBorderPluginOptions {
   /** Class name of the pill utility these borders apply to (default: "squircle-pill") */
@@ -91,9 +62,9 @@ export interface SquirclePillBorderPluginOptions {
  * utility, is left as it is.
  *
  * Box shadows are drawn by the pill too, cast by its own outline, from the
- * shadow list Tailwind's utilities build, which the pill utility reads. The
- * one thing it can't read from CSS is how far a shadow reaches, which the box
- * it is drawn on has to grow by; `shadow-*` says. Drop shadows need nothing:
+ * shadow list Tailwind's utilities build, which the pill utility reads. This
+ * plugin estimates reach for px literals; initialization resolves the actual
+ * list and painting space in the browser. Drop shadows need nothing:
  * a filter on a pill already follows its shape.
  *
  * Every pill draws its border, outline, rings and shadows on `::after`, which
@@ -215,7 +186,7 @@ const squirclePillBorder: ReturnType<typeof plugin.withOptions<SquirclePillBorde
         );
 
         // The shadow list itself reaches the pill through Tailwind's own
-        // variables; only its reach has to be worked out here.
+        // variables; its literal reach is an estimate until initialization resolves it.
         matchUtilities(
           {
             shadow: (value: string) => ({

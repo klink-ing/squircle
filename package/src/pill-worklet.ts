@@ -3,6 +3,11 @@
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 
+import { observePillShadows, type PillShadowOptions, type PillShadows } from "./pill-shadows";
+export { observePillShadows, type PillShadowOptions, type PillShadows } from "./pill-shadows";
+
+const shadowObservers = new WeakMap<Document, PillShadows>();
+
 import {
   DEFAULT_PILL_AMT,
   DEFAULT_PILL_CONTINUITY,
@@ -44,7 +49,9 @@ export const PILL_SHAPE_PROPERTIES = {
  * stays a plain stadium until the shape is really there to draw.
  *
  * Resolves to `false` where paint worklets are unsupported, and the pills keep
- * their fallback. A load that fails — a wrong URL, a CSP that blocks it —
+ * their fallback. Once loaded, starts event-driven shadow resolution, without
+ * enabling the polyfill. Pass a custom utility prefix in the third argument.
+ * A load that fails — a wrong URL, a CSP that blocks it —
  * rejects, so it surfaces in the console as the error it is; the pills still
  * keep their fallback.
  *
@@ -57,10 +64,18 @@ export const PILL_SHAPE_PROPERTIES = {
 export async function registerPillWorklet(
   moduleUrl: string | URL = new URL("./pill-shape.worklet.mjs", import.meta.url),
   root: Document = document,
+  options: Omit<PillShadowOptions, "root"> = {},
 ): Promise<boolean> {
   const paintWorklet = (globalThis.CSS as { paintWorklet?: Worklet } | undefined)?.paintWorklet;
   if (!paintWorklet) return false;
   await paintWorklet.addModule(String(moduleUrl));
   root.documentElement.setAttribute(PILL_WORKLET_ATTRIBUTE, "");
+  shadowObservers.get(root)?.disconnect();
+  shadowObservers.set(root, observePillShadows({ ...options, root }));
   return true;
+}
+
+/** Re-read shadows after CSSOM edits without a DOM event. */
+export function refreshPillShadows(root: Document = document): void {
+  shadowObservers.get(root)?.refresh();
 }

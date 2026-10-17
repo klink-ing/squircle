@@ -389,7 +389,7 @@ describe("pill polyfill", () => {
       expect(distanceTo(ring, outline)).toBeCloseTo(4, 1);
     });
 
-    it("casts outer shadows outside the outline only, blurred as CSS blurs them", () => {
+    it("overlaps the fill edge without changing shadow spread, offset or stacking", () => {
       const drawing = svg(
         decorate({
           [PILL_REACH_VAR_NAME]: "20px",
@@ -398,8 +398,13 @@ describe("pill polyfill", () => {
         }),
       );
       expect(drawing).toContain('width="280" height="100"');
-      // The box with the outline cut out of it.
+      // Only half a pixel inside the outline is covered; the interior stays clear.
       expect(drawing).toMatch(/<clipPath id="o"><path clip-rule="evenodd" d="M0 0H280V100H0Z/);
+      const cutout = parse(/<clipPath id="o"><path[^>]*d="([^"]*)"/.exec(drawing)![1]!)[1]!;
+      expect(Math.min(...cutout.map((p) => p.x))).toBeCloseTo(20.5, 1);
+      expect(Math.min(...cutout.map((p) => p.y))).toBeCloseTo(20.5, 1);
+      expect(Math.max(...cutout.map((p) => p.x))).toBeCloseTo(259.5, 1);
+      expect(Math.max(...cutout.map((p) => p.y))).toBeCloseTo(79.5, 1);
       // Last first; the inset one is left to the copy of the background.
       const fills = [...drawing.matchAll(/style="fill:([^"]*)"/g)].map((m) => m[1]);
       expect(fills).toEqual(["rgb(0 0 0 / 0.6)", "blue"]);
