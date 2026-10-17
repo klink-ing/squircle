@@ -5,6 +5,7 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:5174",
     viewport: { width: 1280, height: 1000 },
+    screenshot: "only-on-failure",
   },
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },

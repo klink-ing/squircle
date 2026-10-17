@@ -59,7 +59,9 @@ for (const mode of ["worklet", "polyfill", "native"]) {
       test.skip(mode === "worklet" && browserName !== "chromium", "Paint API requires Chromium");
       await page.goto(`/tests/shadows.html?mode=${mode}&zoom=${zoom}`);
       await page.getByRole("button", { name: "Run shadow regressions" }).click();
-      await expect(page.locator("#result")).toContainText("checks passed");
+      // This runs the whole dynamic-change sequence, including frame waits.
+      // A cold WebKit process on a shared CI runner can take over five seconds.
+      await expect(page.locator("#result")).toContainText("checks passed", { timeout: 15_000 });
       if (mode === "native") return;
       // Literal, variable and deliberately oversized reference canvases.
       for (const [index, row] of (await page.locator(".row").all()).entries()) {
