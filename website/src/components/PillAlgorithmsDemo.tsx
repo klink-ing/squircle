@@ -334,7 +334,13 @@ function Stats({ values }: { values: Record<string, string> }) {
 export default function PillAlgorithmsDemo() {
   const [ratio, setRatio] = useState(4);
   const height = W / ratio;
-  const buttonSize: React.CSSProperties = { width: W, maxWidth: "100%", aspectRatio: ratio };
+  const buttonSize: React.CSSProperties = {
+    width: W,
+    maxWidth: "100%",
+    aspectRatio: ratio,
+    fontSize: Math.min(14, height * 0.6),
+  };
+  const buttonLabel = "flex items-center justify-center whitespace-nowrap font-medium leading-none";
   const [shape, setShape] = useState<PillShapeSettings>(DEFAULT_SHAPE);
   const [continuity, setContinuity] = useState(2);
   const [fit, setFit] = useState(true);
@@ -518,16 +524,27 @@ export default function PillAlgorithmsDemo() {
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
         <div className="min-w-0 space-y-2">
-          <div className="rounded-full bg-white" style={buttonSize} title="Native rounded-full" />
+          <div className={`${buttonLabel} rounded-full bg-white text-zinc-950`} style={buttonSize}>
+            rounded-full
+          </div>
           <div
             ref={spiralPill}
-            className="squircle-pill bg-demo-squircle"
+            className={`${buttonLabel} squircle-pill bg-demo-squircle text-white`}
             style={{ ...(shapeStyle(shape) as React.CSSProperties), ...buttonSize }}
-          />
+          >
+            squircle-pill · G{shape.continuity}
+          </div>
         </div>
         <div className="min-w-0 space-y-2">
-          <div className="rounded-full bg-white" style={buttonSize} title="Native rounded-full" />
-          <div className="pill-fillet bg-demo-plain" style={{ ...filletStyle, ...buttonSize }} />
+          <div className={`${buttonLabel} rounded-full bg-white text-zinc-950`} style={buttonSize}>
+            rounded-full
+          </div>
+          <div
+            className={`${buttonLabel} pill-fillet bg-demo-plain text-white`}
+            style={{ ...filletStyle, ...buttonSize }}
+          >
+            Hermite blend · G{continuity}
+          </div>
         </div>
 
         <Comb q={spiral} colour="#db2777" />
