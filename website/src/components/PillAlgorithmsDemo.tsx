@@ -264,6 +264,7 @@ function Comb({ q, colour }: { q: Quadrant; colour: string }) {
         fill="none"
         stroke="#f4f4f5"
         strokeWidth={1.2}
+        opacity={0.5}
       />
       <circle cx={j.x} cy={j.y} r={1.8} fill={colour} />
       <circle cx={j.x} cy={H - j.y} r={1.8} fill={colour} />
@@ -333,6 +334,7 @@ function Stats({ values }: { values: Record<string, string> }) {
 export default function PillAlgorithmsDemo() {
   const [ratio, setRatio] = useState(4);
   const height = W / ratio;
+  const buttonSize: React.CSSProperties = { width: W, maxWidth: "100%", aspectRatio: ratio };
   const [shape, setShape] = useState<PillShapeSettings>(DEFAULT_SHAPE);
   const [continuity, setContinuity] = useState(2);
   const [fit, setFit] = useState(true);
@@ -515,20 +517,18 @@ export default function PillAlgorithmsDemo() {
       </div>
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
-        <div
-          ref={spiralPill}
-          className="squircle-pill bg-demo-squircle"
-          style={{
-            ...(shapeStyle(shape) as React.CSSProperties),
-            width: W,
-            maxWidth: "100%",
-            aspectRatio: ratio,
-          }}
-        />
-        <div
-          className="pill-fillet bg-demo-plain"
-          style={{ ...filletStyle, width: W, maxWidth: "100%", aspectRatio: ratio }}
-        />
+        <div className="min-w-0 space-y-2">
+          <div className="rounded-full bg-white" style={buttonSize} title="Native rounded-full" />
+          <div
+            ref={spiralPill}
+            className="squircle-pill bg-demo-squircle"
+            style={{ ...(shapeStyle(shape) as React.CSSProperties), ...buttonSize }}
+          />
+        </div>
+        <div className="min-w-0 space-y-2">
+          <div className="rounded-full bg-white" style={buttonSize} title="Native rounded-full" />
+          <div className="pill-fillet bg-demo-plain" style={{ ...filletStyle, ...buttonSize }} />
+        </div>
 
         <Comb q={spiral} colour="#db2777" />
         <Comb q={hermite} colour="#818cf8" />
