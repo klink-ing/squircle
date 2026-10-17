@@ -33,6 +33,8 @@ const RING_OFFSET_COLOR_VAR = `${NS}-ring-offset-color`;
 const INSET_RING_WIDTH_VAR = `${NS}-inset-ring-width`;
 const INSET_RING_COLOR_VAR = `${NS}-inset-ring-color`;
 const BOX_SHADOW_VAR = `${NS}-box-shadow`;
+const RESOLVED_SHADOW_VAR = `${NS}-resolved-shadow`;
+const PAINT_ZOOM_VAR = `${NS}-paint-zoom`;
 const REACH_VAR = `${NS}-reach`;
 const BACKGROUND_INSET_VAR = `${NS}-background-inset`;
 /** What decides the decoration; see `decorationBands` and `decorationShadows`. */
@@ -52,12 +54,14 @@ const DECORATION_INPUTS = [
   INSET_RING_WIDTH_VAR,
   INSET_RING_COLOR_VAR,
   BOX_SHADOW_VAR,
+  RESOLVED_SHADOW_VAR,
+  PAINT_ZOOM_VAR,
   // What `currentColor` stands for: a registered colour keeps the keyword as
   // its computed value, which a canvas has no element to resolve against.
   "color",
 ];
 
-/** How far a band runs on to close a seam; see `closeSeams`. */
+/** Overlap at independently antialiased edges; see `closeSeams` and `shadowCutout`. */
 const SEAM = 0.5;
 
 /** One band of a decoration; see `decorationBands`. */
@@ -1103,6 +1107,14 @@ export const paintDef = class PillShape implements PaintWorklet {
     return left.map((p) => ({ x: p.y, y: w - p.x }));
   }
 
+  /** The shadow's inner cutout, with a small overlap at the background edge. */
+  shadowCutout(points: Point[]): Point[] {
+    // A cutout exactly on the background mask's edge leaves both partially
+    // transparent there. Move only the cutout inward, keeping the caster and
+    // its blur/spread unchanged and the rest of a transparent pill clear.
+    return this.offsetOutline(points, -SEAM);
+  }
+
   /**
    * The outline moved `distance` outwards (inwards where negative): each
    * point of a curve along the average of its two edges' outward normals, and
@@ -1190,7 +1202,10 @@ export const paintDef = class PillShape implements PaintWorklet {
    * paints them itself; invisible ones are dropped.
    */
   decorationShadows(props?: PaintProperties): Shadow[] {
-    const value = props?.get(BOX_SHADOW_VAR)?.toString().trim() ?? "";
+    const value =
+      (props?.get(RESOLVED_SHADOW_VAR)?.toString().trim() ||
+        props?.get(BOX_SHADOW_VAR)?.toString().trim()) ??
+      "";
     if (value === "" || value === "none") return [];
     const shadows: Shadow[] = [];
     for (const layer of splitTopLevel(value, ",")) {
@@ -1312,8 +1327,8 @@ declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
  * Each band is a stroke along the outline moved out to the band's middle, as
  * wide as the band: the outline is convex, so that is exactly the region
  * between the band's two edges. The shadows are cast by the outline itself,
- * grown by their spread, and drawn only outside it, as CSS draws a box
- * shadow only outside the box.
+ * grown by their spread. The inner cutout overlaps the background edge by
+ * half a CSS pixel so independently antialiased edges cannot leave a seam.
  */
 export const decorationDef = class PillDecoration extends paintDef {
   static override get inputProperties() {
@@ -1342,17 +1357,33 @@ export const decorationDef = class PillDecoration extends paintDef {
 
     if (shadows.length > 0) {
       ctx.save();
-      // Only outside the outline.
+      // Outside the outline, with a small overlap at the background's edge.
       ctx.beginPath();
       ctx.rect(0, 0, size.width, size.height);
-      outline.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      this.shadowCutout(outline).forEach((p, i) =>
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y),
+      );
       ctx.closePath();
       ctx.clip("evenodd");
-      // The shape itself is drawn far off the canvas, its shadow thrown back
-      // onto it, so only the shadow lands. Last first, as CSS stacks them.
+      // Last first, as CSS stacks them. Blur the shifted caster directly
+      // where canvas filters are available. Canvas filter lengths need the
+      // effective CSS zoom, while path coordinates are scaled by the browser.
       const away = size.width + size.height + 1000;
-      ctx.fillStyle = "#000";
+      const filters = typeof ctx.filter === "string";
+      const zoom = this.resolveLength(props, PAINT_ZOOM_VAR) || 1;
       for (const shadow of [...shadows].reverse()) {
+        if (shadow.blur === 0 || filters) {
+          if (filters)
+            ctx.filter = shadow.blur > 0 ? `blur(${(shadow.blur * zoom) / 2}px)` : "none";
+          ctx.shadowColor = "transparent";
+          ctx.fillStyle = shadow.color;
+          trace(this.offsetOutline(outline, shadow.spread), shadow.x, shadow.y);
+          ctx.fill();
+          continue;
+        }
+        // Older contexts without filters: cast an off-canvas source back
+        // onto the canvas so only its shadow lands.
+        ctx.fillStyle = "#000";
         ctx.shadowColor = shadow.color;
         ctx.shadowBlur = shadow.blur;
         ctx.shadowOffsetX = shadow.x + away;

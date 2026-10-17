@@ -3,6 +3,7 @@
  * https://squircle.klink.ing/ · https://github.com/klink-ing/squircle
  */
 
+import { observePillShadows, pillStyleInputs } from "./pill-shadows";
 import { paintDef } from "./pill-shape.worklet";
 import {
   PILL_AMT_VAR_NAME,
@@ -11,6 +12,7 @@ import {
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_BOX_SHADOW_VAR_NAME,
+  PILL_RESOLVED_SHADOW_VAR_NAME,
   PILL_CLIP_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
@@ -63,6 +65,7 @@ interface PillGeometry {
   resolveContinuity(props: Lookup): number;
   resolveSide(props: Lookup): string;
   offsetOutline(points: Point[], distance: number): Point[];
+  shadowCutout(points: Point[]): Point[];
   resolveLength(props: Lookup, name: string): number;
   decorationOutset(props: Lookup): number;
   decorationBands(props: Lookup): { from: number; to: number; color: string; dash: number[] }[];
@@ -391,6 +394,7 @@ export const PILL_DECORATION_PROPERTIES: readonly string[] = [
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_BOX_SHADOW_VAR_NAME,
+  PILL_RESOLVED_SHADOW_VAR_NAME,
   // What `currentColor` in any of them stands for.
   "color",
 ];
@@ -402,7 +406,7 @@ export const PILL_DECORATION_PROPERTIES: readonly string[] = [
  * `null` where there is nothing to draw. The same bands and shadows the
  * worklet draws, from the same geometry: each band a stroke along the
  * outline moved out to its middle, each shadow the outline grown by its
- * spread, blurred, offset, and drawn only outside the outline. An image
+ * spread, blurred and offset, with a half-pixel overlap at the outline. An image
  * rather than a clip because they come in several colours; it is only
  * rebuilt when the pill changes size or decoration.
  */
@@ -424,10 +428,10 @@ export function pillDecorationImage(
   }));
   const w = round(width + 2 * outset);
   const h = round(height + 2 * outset);
-  const pill = subpath(outline);
   let defs = "";
   let body = "";
   if (shadows.length > 0) {
+    const pill = subpath(geometry.shadowCutout(outline));
     defs += `<clipPath id="o"><path clip-rule="evenodd" d="M0 0H${w}V${h}H0Z${pill}"/></clipPath>`;
     let layers = "";
     // Last first, as CSS stacks them.
@@ -630,7 +634,7 @@ const cachedDrawing = (
  * pill, whenever its `class` changes or an ancestor's `class` or `dir` does,
  * when it gains or loses focus, hover or a press, and once the viewport
  * settles after a resize, for media queries; call `refresh()` after anything
- * else that changes them, such as an inline style, a stylesheet change or a
+ * else that changes them, such as a CSSOM stylesheet change or a
  * container query.
  *
  * Returns `null` without doing anything where paint worklets are supported,
@@ -684,7 +688,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       geometry.decorationOutset(props),
       ...bands.map((band) => band.to),
       ...shadows.map(
-        (shadow) => Math.max(Math.abs(shadow.x), Math.abs(shadow.y)) + shadow.blur + shadow.spread,
+        (shadow) =>
+          Math.max(Math.abs(shadow.x), Math.abs(shadow.y)) + 1.5 * shadow.blur + shadow.spread,
       ),
     );
     values[PILL_REACH_VAR_NAME] = `${reach}px`;
@@ -798,7 +803,12 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     const changed = new Set<Element>();
     for (const record of records) {
       if (record.type === "attributes") {
-        const el = record.target as Element;
+        const el = record.target as HTMLElement;
+        if (
+          record.attributeName === "style" &&
+          pillStyleInputs(doc, record.oldValue ?? "") === pillStyleInputs(doc, el.style.cssText)
+        )
+          continue;
         if (el.matches(selector)) {
           watch(el);
           changed.add(el);
@@ -855,9 +865,10 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     childList: true,
     subtree: true,
     attributes: true,
-    // Not `style`: the clips are written there, so watching it would re-read
-    // every pill after every write.
-    attributeFilter: ["class", "dir", PILL_ATTRIBUTE],
+    // Style changes count only when the consumer inputs change; output-only
+    // writes are filtered above to avoid observing our own drawings.
+    attributeOldValue: true,
+    attributeFilter: ["class", "dir", "style", PILL_ATTRIBUTE],
   });
 
   /*
@@ -877,8 +888,14 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
   };
   view?.addEventListener("resize", resettle, { passive: true });
 
+  const shadows = observePillShadows({ ...options, root }, (el) => {
+    settings.delete(el);
+    apply([el]);
+  });
+
   return {
     refresh(element) {
+      shadows.refresh();
       const targets = element ? [element] : [...watched];
       for (const el of targets) {
         lastKey.delete(el);
@@ -887,6 +904,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       apply(targets);
     },
     disconnect() {
+      shadows.disconnect();
       pending.clear();
       clearTimeout(settling);
       view?.removeEventListener("resize", resettle);

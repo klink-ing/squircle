@@ -95,8 +95,8 @@ function arcPoints(r: number, rho: number, beta: number): Point[] {
 
 /**
  * The shipped easing, rebuilt from the worklet's own fit, profile and
- * quadrature, at every one of its integration steps rather than the sparser
- * vertices it draws.
+ * quadrature, at its integration samples rather than the sparser vertices
+ * it draws. The dense curvature profile has a different sample count.
  */
 function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant {
   const worklet = new PillShape();
@@ -113,7 +113,7 @@ function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant
     worklet.resolveExponent(props),
     c,
   );
-  const prof = worklet.profile(fitted.exponent, c);
+  const prof = worklet.samples(fitted.exponent, c);
   const fresnel = worklet.fresnel(fitted.beta, prof);
   const { radius } = worklet.capMetrics(R, fitted.beta, prof.lambda, fresnel);
 
@@ -260,12 +260,17 @@ function Plot({ q, colour }: { q: Quadrant; colour: string }) {
   const total = s[s.length - 1] || 1;
   const PW = 320;
   const PH = 90;
-  const pad = 6;
-  const x = (v: number) => pad + ((PW - 2 * pad) * v) / total;
+  const padX = 6;
+  const padTop = 16;
+  const padBottom = 18;
+  const x = (v: number) => padX + ((PW - 2 * padX) * v) / total;
   // A little room below zero, where a blend that reverses its bend dips.
+  // Values here are dimensionless κ·R, including the reference lines.
   const y = (v: number) =>
-    PH - pad - ((PH - 2 * pad) * (Math.min(Math.max(v * R, -0.15), 1.15) + 0.15)) / 1.3;
-  const pts = s.map((v, i) => ({ x: x(v), y: y(k[i]) }));
+    PH -
+    padBottom -
+    ((PH - padTop - padBottom) * (Math.min(Math.max(v, -0.15), 1.15) + 0.15)) / 1.3;
+  const pts = s.map((v, i) => ({ x: x(v), y: y(k[i] * R) }));
   return (
     <svg
       className="block h-auto w-full"
@@ -283,10 +288,10 @@ function Plot({ q, colour }: { q: Quadrant; colour: string }) {
         strokeDasharray="2 2"
       />
       <polyline points={polyline(pts)} fill="none" stroke={colour} strokeWidth={1.5} />
-      <text x={x(0) + 2} y={y(1) - 2} fontSize={8} fill="#a1a1aa">
+      <text x={x(0) + 2} y={y(1) - 4} fontSize={8} fill="#a1a1aa">
         κ·R = 1 (the arc)
       </text>
-      <text x={x(total) - 2} y={y(0) - 2} fontSize={8} fill="#a1a1aa" textAnchor="end">
+      <text x={x(total) - 2} y={PH - 3} fontSize={8} fill="#a1a1aa" textAnchor="end">
         arc length → 0 = flat edge
       </text>
     </svg>
