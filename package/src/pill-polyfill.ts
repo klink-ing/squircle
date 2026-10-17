@@ -23,6 +23,8 @@ import {
   PILL_OUTLINE_STYLE_VAR_NAME,
   PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
+  PILL_POLYFILL_BORDER_VAR_NAME,
+  PILL_POLYFILL_REACH_VAR_NAME,
   PILL_REACH_VAR_NAME,
   PILL_RING_COLOR_VAR_NAME,
   PILL_RING_OFFSET_COLOR_VAR_NAME,
@@ -445,6 +447,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     decoration: PillDecorationInput;
     decorationKey: string;
     inset: number;
+    border: number;
+    reach: number;
   }
   const settings = new WeakMap<Element, Settings>();
   const read = (el: Element): Settings => {
@@ -455,8 +459,20 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     for (const name of PILL_DECORATION_PROPERTIES) values[name] = style.getPropertyValue(name);
     // Most pills have none, and are spared working it out on every resize.
     const props = lookup(values);
-    const decorated =
-      geometry.decorationBands(props).length > 0 || geometry.decorationShadows(props).length > 0;
+    const bands = geometry.decorationBands(props);
+    const shadows = geometry.decorationShadows(props);
+    const decorated = bands.length > 0 || shadows.length > 0;
+    // Safari can scale the derived, registered reach when its length inputs
+    // are substituted. Keep the CSS box and drawing on the same pixel value,
+    // with enough room for every band and shadow even when zooming out.
+    const reach = Math.max(
+      geometry.decorationOutset(props),
+      ...bands.map((band) => band.to),
+      ...shadows.map(
+        (shadow) => Math.max(Math.abs(shadow.x), Math.abs(shadow.y)) + shadow.blur + shadow.spread,
+      ),
+    );
+    values[PILL_REACH_VAR_NAME] = `${reach}px`;
     const fresh: Settings = {
       shape: {
         amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
@@ -467,6 +483,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       decoration: decorated ? values : {},
       decorationKey: decorated ? Object.values(values).join("|") : "",
       inset: pillBackgroundInset(values),
+      border: Math.max(geometry.resolveLength(props, PILL_BORDER_WIDTH_VAR_NAME), 0),
+      reach,
     };
     settings.set(el, fresh);
     return fresh;
@@ -494,16 +512,17 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     const deadline = performance.now() + FRAME_BUDGET_MS;
     // All reads first, then all writes, so no read forces a style recalc
     // that an earlier write invalidated.
-    const updates: [HTMLElement, string | null, PillDecorationDrawing | null][] = [];
+    const updates: [HTMLElement, string | null, PillDecorationDrawing | null, number, number][] =
+      [];
     for (const el of pending) {
       if (performance.now() > deadline && updates.length > 0) break;
       pending.delete(el);
       const size = sizes.get(el);
       if (!size) continue;
       const { width, height } = size;
-      const { shape, decoration, decorationKey, inset } = read(el);
+      const { shape, decoration, decorationKey, inset, border, reach } = read(el);
       const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity},${shape.side}`;
-      const key = `${shapeKey},${inset},${decorationKey}`;
+      const key = `${shapeKey},${inset},${border},${reach},${decorationKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);
       updates.push([
@@ -512,9 +531,13 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         decorationKey
           ? cachedDrawing(`d:${key}`, () => pillDecoration(width, height, decoration, shape))
           : null,
+        border,
+        reach,
       ]);
     }
-    for (const [el, clip, decorated] of updates) {
+    for (const [el, clip, decorated, border, reach] of updates) {
+      el.style.setProperty(PILL_POLYFILL_BORDER_VAR_NAME, `${border}px`);
+      el.style.setProperty(PILL_POLYFILL_REACH_VAR_NAME, `${reach}px`);
       if (clip) el.style.setProperty(PILL_CLIP_VAR_NAME, clip);
       else el.style.removeProperty(PILL_CLIP_VAR_NAME);
       if (decorated) el.style.setProperty(PILL_DECORATION_VAR_NAME, decorated.image);
@@ -659,6 +682,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         (el as HTMLElement).style.removeProperty(PILL_CLIP_VAR_NAME);
         (el as HTMLElement).style.removeProperty(PILL_DECORATION_VAR_NAME);
         (el as HTMLElement).style.removeProperty(PILL_DECORATION_CLIP_VAR_NAME);
+        (el as HTMLElement).style.removeProperty(PILL_POLYFILL_BORDER_VAR_NAME);
+        (el as HTMLElement).style.removeProperty(PILL_POLYFILL_REACH_VAR_NAME);
       }
       watched.clear();
       doc.documentElement.removeAttribute(PILL_POLYFILL_ATTRIBUTE);

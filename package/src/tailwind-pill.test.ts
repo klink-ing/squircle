@@ -18,6 +18,8 @@ import {
   PILL_DECORATION_VAR_NAME,
   PILL_EASE_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
+  PILL_POLYFILL_BORDER_VAR_NAME,
+  PILL_POLYFILL_REACH_VAR_NAME,
   PILL_REACH_VAR_NAME,
   PILL_RING_COLOR_VAR_NAME,
   PILL_SIDE_VAR_NAME,
@@ -138,6 +140,22 @@ describe("tailwind-pill.ts utilities", () => {
       `clip-path: var(${PILL_CLIP_VAR_NAME}, none)`,
     );
     expect(branch).toContain(`background-image: var(${PILL_DECORATION_VAR_NAME}, none)`);
+  });
+
+  it("lays out the polyfill with untyped lengths so Safari page zoom cannot scale them twice", async () => {
+    const css = await compilePillAll(["squircle-pill"]);
+    const branch = css.slice(css.indexOf(`:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) & {`));
+    expect(branch).toContain(`border-width: var(${PILL_POLYFILL_BORDER_VAR_NAME}, 0px)`);
+    expect(branch).toContain(`inset: calc(-1 * var(${PILL_POLYFILL_BORDER_VAR_NAME}))`);
+    expect(branch).toContain(`border: var(${PILL_POLYFILL_BORDER_VAR_NAME}) solid transparent`);
+    expect(branch).toContain(
+      `inset: calc(-1 * (var(${PILL_POLYFILL_BORDER_VAR_NAME}) + var(${PILL_POLYFILL_REACH_VAR_NAME})))`,
+    );
+    for (const name of [PILL_POLYFILL_BORDER_VAR_NAME, PILL_POLYFILL_REACH_VAR_NAME]) {
+      expect(css).not.toContain(`@property ${name}`);
+      // A nested pill starts from its own layout lengths.
+      expect(css).toContain(`${name}: 0px`);
+    }
   });
 
   describe("the stadium underneath", () => {
