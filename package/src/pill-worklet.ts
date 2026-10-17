@@ -9,13 +9,13 @@ export { observePillShadows, type PillShadowOptions, type PillShadows } from "./
 const shadowObservers = new WeakMap<Document, PillShadows>();
 
 import {
-  DEFAULT_PILL_AMT,
+  DEFAULT_PILL_ARC_SETBACK,
   DEFAULT_PILL_CONTINUITY,
-  DEFAULT_PILL_EASE,
+  DEFAULT_PILL_EDGE_SETBACK,
   DEFAULT_PILL_SIDE,
-  PILL_AMT_VAR_NAME,
+  PILL_ARC_SETBACK_VAR_NAME,
+  PILL_EDGE_SETBACK_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
-  PILL_EASE_VAR_NAME,
   PILL_SIDE_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
@@ -23,16 +23,18 @@ import {
 export { PILL_WORKLET_ATTRIBUTE };
 
 /**
- * The pill's shape settings — the custom properties `squircle-pill-amt-*`,
- * `squircle-pill-ease-*`, `squircle-pill-g2`/`-g3` and the side utilities
+ * The pill's shape settings — the custom properties `squircle-pill-arc-setback-*`,
+ * `squircle-pill-edge-setback-*`, `squircle-pill-g2`/`-g3` and the side utilities
  * (`squircle-pill-t`, …) set — and the values
  * they start at, for scripts that set or show them: a settings panel, a
  * preview. The same constants the stylesheet's registrations and the
  * worklet's own fallbacks come from, so they never disagree.
  */
 export const PILL_SHAPE_PROPERTIES = {
-  amt: { name: PILL_AMT_VAR_NAME, default: DEFAULT_PILL_AMT },
-  ease: { name: PILL_EASE_VAR_NAME, default: DEFAULT_PILL_EASE },
+  /** The numeric default is in degrees; write CSS values with an angle unit. */
+  arcSetback: { name: PILL_ARC_SETBACK_VAR_NAME, default: DEFAULT_PILL_ARC_SETBACK },
+  /** Distance in multiples of the cap's half-height. */
+  edgeSetback: { name: PILL_EDGE_SETBACK_VAR_NAME, default: DEFAULT_PILL_EDGE_SETBACK },
   continuity: { name: PILL_CONTINUITY_VAR_NAME, default: DEFAULT_PILL_CONTINUITY },
   side: { name: PILL_SIDE_VAR_NAME, default: DEFAULT_PILL_SIDE },
 } as const;

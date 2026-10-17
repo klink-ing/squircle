@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { paintDef as PillShape } from "@klinking/squircle/pill-shape.worklet";
-import { PILL_SHAPE_PROPERTIES as SHAPE } from "@klinking/squircle/pill-worklet";
 import {
   DEFAULT_SHAPE,
   PINNED,
@@ -14,8 +13,6 @@ import filletWorkletUrl from "../lib/pill-fillet.worklet.js?url";
 import { refreshPill } from "../lib/pills";
 
 const W = 320;
-const H = 80;
-const R = H / 2;
 const FILLET_ATTRIBUTE = "data-pill-fillet";
 /** Whether the browser can draw the demo's own fillet worklet. */
 const hasPaintWorklet =
@@ -25,6 +22,7 @@ type Point = { x: number; y: number };
 
 /** A quadrant of an outline, from the leftmost point to the flat top edge. */
 interface Quadrant {
+  height: number;
   points: Point[];
   /** Index of the last vertex on the circular arc. */
   join: number;
@@ -56,6 +54,7 @@ function profile({ points, k }: Quadrant): { s: number[]; k: number[] } {
 }
 
 function stats(q: Quadrant): Record<string, string> {
+  const R = q.height / 2;
   const { points, join } = q;
   const { s, k } = profile(q);
   let peakRate = 0;
@@ -98,13 +97,10 @@ function arcPoints(r: number, rho: number, beta: number): Point[] {
  * quadrature, at its integration samples rather than the sparser vertices
  * it draws. The dense curvature profile has a different sample count.
  */
-function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant {
+function spiralQuadrant(shape: PillShapeSettings, height: number): Quadrant {
+  const R = height / 2;
   const worklet = new PillShape();
-  const props = propsFrom({
-    [SHAPE.amt.name]: amt,
-    [SHAPE.ease.name]: ease,
-    [SHAPE.continuity.name]: continuity,
-  });
+  const props = propsFrom(shapeStyle(shape));
   const c = worklet.resolveContinuity(props);
   const fitted = worklet.fitEasing(
     R,
@@ -134,9 +130,9 @@ function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant
       const b = Math.min(i + 1, n);
       k.push((fitted.beta * (remaining[a] - remaining[b])) / ((b - a) * ds));
     }
-    k[k.length - 1] = 0;
+    k[k.length - 1] = fitted.exponent === 1 ? 1 / radius : 0;
   }
-  return { points, join, capRadius: radius, edgeStart: points[points.length - 1].x, k };
+  return { height, points, join, capRadius: radius, edgeStart: points[points.length - 1].x, k };
 }
 
 /**
@@ -145,6 +141,9 @@ function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant
  * folded back above it.
  */
 function bezierCurvature(controls: Point[], t: number): number {
+  // Both setbacks at zero produce a bare arc and no blend control points.
+  // Constant and straight-line curves also have zero curvature.
+  if (controls.length < 3) return 0;
   const derive = (pts: Point[]) =>
     pts.slice(1).map((p, i) => ({
       x: (pts.length - 1) * (p.x - pts[i].x),
@@ -167,7 +166,8 @@ function bezierCurvature(controls: Point[], t: number): number {
   return speed === 0 ? 0 : (v.x * a.y - v.y * a.x) / speed ** 3;
 }
 
-function hermiteQuadrant(values: Record<string, string | number>): Quadrant {
+function hermiteQuadrant(values: Record<string, string | number>, height: number): Quadrant {
+  const R = height / 2;
   const { arc, blend, controls, edgeStart, capRadius } = filletQuadrant(
     R,
     W / 2,
@@ -180,7 +180,7 @@ function hermiteQuadrant(values: Record<string, string | number>): Quadrant {
   // Orient the sign so the blend bends the way the arc does where it leaves it.
   const sign = Math.sign(bezierCurvature(controls, 0)) || 1;
   for (let i = arc.length; i < k.length; i++) k[i] *= sign;
-  return { points: [...arc, ...blend], join: arc.length - 1, capRadius, edgeStart, k };
+  return { height, points: [...arc, ...blend], join: arc.length - 1, capRadius, edgeStart, k };
 }
 
 // ── Drawing ─────────────────────────────────────────────────────
@@ -190,7 +190,7 @@ function hermiteQuadrant(values: Record<string, string | number>): Quadrant {
  * the worklets mirror theirs, as a `clip-path`: how the fillet pill is drawn
  * where there is no paint worklet to draw it.
  */
-function outlineClipPath({ points }: Quadrant): string {
+function outlineClipPath({ points, height: H }: Quadrant): string {
   const reversed = [...points].reverse();
   const outline = [
     ...points,
@@ -198,17 +198,23 @@ function outlineClipPath({ points }: Quadrant): string {
     ...points.map((p) => ({ x: W - p.x, y: H - p.y })),
     ...reversed.map((p) => ({ x: p.x, y: H - p.y })),
   ];
-  const d = outline.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`);
-  return `path("${d.join("")}Z")`;
+  return `polygon(${outline
+    .map((p) => `${((p.x / W) * 100).toFixed(4)}% ${((p.y / H) * 100).toFixed(4)}%`)
+    .join(",")})`;
 }
 
 const polyline = (pts: Point[]) => pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 
 function Comb({ q, colour }: { q: Quadrant; colour: string }) {
-  const { points, join } = q;
+  // Keep the comb's marks the same visual weight as the button ratio changes.
+  const H = 80;
+  const R = H / 2;
+  const scale = H / q.height;
+  const points = q.points.map((p) => ({ x: p.x * scale, y: p.y * scale }));
+  const { join } = q;
   const { s, k } = profile(q);
   const combScale = 0.7 * R;
-  const right = Math.min(Math.max(q.edgeStart + 0.6 * R, 2 * R), W / 2);
+  const right = Math.min(Math.max(q.edgeStart * scale + 0.6 * R, 2 * R), (W * scale) / 2);
   // Evenly spaced along the curve, so both sides read the same however
   // densely each is sampled.
   const spacing = s[s.length - 1] / 90;
@@ -220,7 +226,7 @@ function Comb({ q, colour }: { q: Quadrant; colour: string }) {
     const t = { x: points[i + 1].x - points[i - 1].x, y: points[i + 1].y - points[i - 1].y };
     const len = Math.hypot(t.x, t.y) || 1;
     const n = { x: t.y / len, y: -t.x / len };
-    const h = k[i] * R * combScale;
+    const h = k[i] * (q.height / 2) * combScale;
     teeth.push(
       `M${points[i].x.toFixed(2)},${points[i].y.toFixed(2)}l${(n.x * h).toFixed(2)},${(n.y * h).toFixed(2)}`,
     );
@@ -242,12 +248,23 @@ function Comb({ q, colour }: { q: Quadrant; colour: string }) {
         stroke="#3f3f46"
         strokeDasharray="3 3"
       />
+      <path
+        d={`M${R},0 A${R},${R} 0 0 0 ${R},${H}`}
+        fill="none"
+        stroke="#a1a1aa"
+        strokeWidth={0.8}
+        strokeDasharray="0 2.5"
+        strokeLinecap="round"
+      >
+        <title>Semicircular cap with the same height</title>
+      </path>
       <path d={teeth.join("")} stroke={colour} opacity={0.55} strokeWidth={0.6} fill="none" />
       <polyline
         points={polyline([...points, ...mirrored])}
         fill="none"
         stroke="#f4f4f5"
         strokeWidth={1.2}
+        opacity={0.5}
       />
       <circle cx={j.x} cy={j.y} r={1.8} fill={colour} />
       <circle cx={j.x} cy={H - j.y} r={1.8} fill={colour} />
@@ -256,6 +273,7 @@ function Comb({ q, colour }: { q: Quadrant; colour: string }) {
 }
 
 function Plot({ q, colour }: { q: Quadrant; colour: string }) {
+  const R = q.height / 2;
   const { s, k } = profile(q);
   const total = s[s.length - 1] || 1;
   const PW = 320;
@@ -314,11 +332,23 @@ function Stats({ values }: { values: Record<string, string> }) {
 // ── The page ────────────────────────────────────────────────────
 
 export default function PillAlgorithmsDemo() {
+  const [overlay, setOverlay] = useState(false);
+  const [ratio, setRatio] = useState(4);
+  const height = W / ratio;
+  const buttonSize: React.CSSProperties = {
+    width: W,
+    maxWidth: "100%",
+    aspectRatio: ratio,
+    fontSize: Math.min(14, height * 0.6),
+    gridArea: overlay ? "1 / 1" : undefined,
+  };
+  const buttonLabel = "flex items-center justify-center whitespace-nowrap font-medium leading-none";
+  const comparisonLayout = `isolate min-w-0 ${overlay ? "grid grid-cols-1" : "space-y-2"}`;
   const [shape, setShape] = useState<PillShapeSettings>(DEFAULT_SHAPE);
   const [continuity, setContinuity] = useState(2);
   const [fit, setFit] = useState(true);
-  const [arcSetback, setArcSetback] = useState(30);
-  const [edgeSetback, setEdgeSetback] = useState(1);
+  const [arcSetback, setArcSetback] = useState(DEFAULT_SHAPE.arcSetback);
+  const [edgeSetback, setEdgeSetback] = useState(DEFAULT_SHAPE.edgeSetback);
   const [bulgeStart, setBulgeStart] = useState(1);
   const [bulgeEnd, setBulgeEnd] = useState(1);
   // On small screens the fillet's controls fold away, so the pinned bar
@@ -349,8 +379,8 @@ export default function PillAlgorithmsDemo() {
     [continuity, arcSetback, edgeSetback, bulgeStart, bulgeEnd, fit],
   );
 
-  const spiral = useMemo(() => spiralQuadrant(shape.amt, shape.ease, shape.continuity), [shape]);
-  const hermite = useMemo(() => hermiteQuadrant(filletValues), [filletValues]);
+  const spiral = useMemo(() => spiralQuadrant(shape, height), [shape, height]);
+  const hermite = useMemo(() => hermiteQuadrant(filletValues, height), [filletValues, height]);
 
   // Without paint worklets the demo's own fillet worklet can't run either, so
   // its pill is clipped to the same outline instead.
@@ -364,7 +394,7 @@ export default function PillAlgorithmsDemo() {
   const spiralPill = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (spiralPill.current) refreshPill(spiralPill.current);
-  }, [shape]);
+  }, [shape, ratio]);
 
   return (
     <div className="space-y-4">
@@ -383,8 +413,9 @@ export default function PillAlgorithmsDemo() {
             <code>
               (1 − t²)<sup>q−1</sup>
             </code>
-            , also leaves the arc with curvature flat, and arrives flat at the edge for any ease
-            above 0. The controls open on the package's defaults.
+            , also leaves the arc with curvature flat. Short transitions use a compressed G3 profile
+            that still arrives flat at the edge. Fitting preserves the arc setback and reduces only
+            edge setback. The controls open on the package's defaults.
           </p>
         </div>
         <div>
@@ -403,6 +434,29 @@ export default function PillAlgorithmsDemo() {
       </div>
 
       <div className={`${PINNED} grid gap-x-8 gap-y-2 md:grid-cols-2`}>
+        <label className="flex items-center gap-2 text-xs text-zinc-300 md:col-span-2">
+          <input
+            id="comparison-overlay"
+            type="checkbox"
+            role="switch"
+            checked={overlay}
+            onChange={(e) => setOverlay(e.target.checked)}
+            className="h-4 w-4 accent-indigo-500"
+          />
+          Overlay white comparison
+        </label>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_3.5rem] items-center gap-x-3 text-xs md:col-span-2">
+          <Slider
+            id="button-ratio"
+            label="button width : height"
+            value={ratio}
+            min={1}
+            max={20}
+            step={0.1}
+            format={(v) => `${Number(v.toFixed(1))}:1`}
+            onChange={setRatio}
+          />
+        </div>
         <PillShapeControls shape={shape} onChange={setShape} idPrefix="s" />
         <div>
           <button
@@ -444,7 +498,7 @@ export default function PillAlgorithmsDemo() {
               label="arc setback°"
               value={arcSetback}
               min={0}
-              max={89}
+              max={90}
               step={1}
               format={(v) => String(v)}
               onChange={setArcSetback}
@@ -483,16 +537,30 @@ export default function PillAlgorithmsDemo() {
         </div>
       </div>
 
-      <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
-        <div
-          ref={spiralPill}
-          className="squircle-pill bg-demo-squircle"
-          style={{ ...(shapeStyle(shape) as React.CSSProperties), width: W, height: H }}
-        />
-        <div
-          className="pill-fillet bg-demo-plain"
-          style={{ ...filletStyle, width: W, height: H }}
-        />
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+        <div className={comparisonLayout}>
+          <div className={`${buttonLabel} rounded-full bg-white text-zinc-950`} style={buttonSize}>
+            rounded-full
+          </div>
+          <div
+            ref={spiralPill}
+            className={`${buttonLabel} relative z-10 squircle-pill bg-demo-squircle text-white`}
+            style={{ ...(shapeStyle(shape) as React.CSSProperties), ...buttonSize }}
+          >
+            squircle-pill · G{shape.continuity}
+          </div>
+        </div>
+        <div className={comparisonLayout}>
+          <div className={`${buttonLabel} rounded-full bg-white text-zinc-950`} style={buttonSize}>
+            rounded-full
+          </div>
+          <div
+            className={`${buttonLabel} relative z-10 pill-fillet bg-demo-plain text-white`}
+            style={{ ...filletStyle, ...buttonSize }}
+          >
+            Hermite blend · G{continuity}
+          </div>
+        </div>
 
         <Comb q={spiral} colour="#db2777" />
         <Comb q={hermite} colour="#818cf8" />

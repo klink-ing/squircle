@@ -92,7 +92,7 @@ describe("polyfillPills re-reading settings", () => {
   });
 
   it("re-reads every pill once the viewport settles, for media-query variants", async () => {
-    // `sm:squircle-pill-t`, `md:squircle-pill-amt-3`: a breakpoint changes
+    // `sm:squircle-pill-t`, `md:squircle-pill-arc-setback-3`: a breakpoint changes
     // what a pill's classes mean without changing its classes.
     await nextFrame();
     const pill = document.getElementById("pill") as Element;

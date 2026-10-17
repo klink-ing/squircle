@@ -8,10 +8,10 @@ import { renderPillCss } from "./pill-css";
 import { decorationDef, paintDef } from "./pill-shape.worklet";
 import {
   CSS_NAMESPACE,
-  DEFAULT_PILL_AMT,
+  DEFAULT_PILL_ARC_SETBACK,
   DEFAULT_PILL_CONTINUITY,
-  DEFAULT_PILL_EASE,
-  PILL_AMT_VAR_NAME,
+  DEFAULT_PILL_EDGE_SETBACK,
+  PILL_ARC_SETBACK_VAR_NAME,
   PILL_ATTRIBUTE,
   PILL_BACKGROUND_INSET_VAR_NAME,
   PILL_BORDER_COLOR_VAR_NAME,
@@ -24,7 +24,7 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_EASE_VAR_NAME,
+  PILL_EDGE_SETBACK_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
@@ -188,15 +188,15 @@ describe("pill-shape worklet contract", () => {
     // Every input is gathered for every pill on every resize, so the shape —
     // painted for every pill — reads only what shapes it.
     expect(inputProperties).toEqual([
-      PILL_AMT_VAR_NAME,
-      PILL_EASE_VAR_NAME,
+      PILL_ARC_SETBACK_VAR_NAME,
+      PILL_EDGE_SETBACK_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
       PILL_SIDE_VAR_NAME,
       PILL_BACKGROUND_INSET_VAR_NAME,
     ]);
     expect(decorationInputs).toEqual([
-      PILL_AMT_VAR_NAME,
-      PILL_EASE_VAR_NAME,
+      PILL_ARC_SETBACK_VAR_NAME,
+      PILL_EDGE_SETBACK_VAR_NAME,
       PILL_CONTINUITY_VAR_NAME,
       PILL_SIDE_VAR_NAME,
       PILL_REACH_VAR_NAME,
@@ -225,8 +225,8 @@ describe("pill-shape worklet contract", () => {
     it("registers every shaping property the worklet reads", () => {
       const registered = registeredProperties(stylesheet);
       for (const name of [
-        PILL_AMT_VAR_NAME,
-        PILL_EASE_VAR_NAME,
+        PILL_ARC_SETBACK_VAR_NAME,
+        PILL_EDGE_SETBACK_VAR_NAME,
         PILL_CONTINUITY_VAR_NAME,
         PILL_SIDE_VAR_NAME,
       ]) {
@@ -435,8 +435,12 @@ describe("pill-shape worklet contract", () => {
     });
 
     it("starts the properties where the worklet's own fallbacks do", () => {
-      expect(initialValueOf(stylesheet, PILL_AMT_VAR_NAME)).toBe(String(DEFAULT_PILL_AMT));
-      expect(initialValueOf(stylesheet, PILL_EASE_VAR_NAME)).toBe(String(DEFAULT_PILL_EASE));
+      expect(initialValueOf(stylesheet, PILL_ARC_SETBACK_VAR_NAME)).toBe(
+        `${DEFAULT_PILL_ARC_SETBACK}deg`,
+      );
+      expect(initialValueOf(stylesheet, PILL_EDGE_SETBACK_VAR_NAME)).toBe(
+        String(DEFAULT_PILL_EDGE_SETBACK),
+      );
       expect(initialValueOf(stylesheet, PILL_CONTINUITY_VAR_NAME)).toBe(
         String(DEFAULT_PILL_CONTINUITY),
       );
@@ -623,7 +627,8 @@ describe("pill-shape worklet contract", () => {
       // `reach` in from the edge of the grown box.
       const tops = drawn.strokes.map((s) => bounds(s.points).top);
       const expected = [-0.5, -2, 1.25, 3.25, 1.5].map((d) => reach - d);
-      tops.forEach((top, i) => expect(top).toBeCloseTo(expected[i]!, 5));
+      // Bands offset the sampled outline, so allow subpixel chord-normal error.
+      tops.forEach((top, i) => expect(top).toBeCloseTo(expected[i]!, 4));
     });
 
     it("closes seams: a lower band runs on under the band that meets it", () => {
@@ -732,8 +737,8 @@ describe("pill-shape worklet contract", () => {
     // duplicated from variants.ts; this is what keeps them from drifting.
     expect(record(paintDef, undefined).paths).toEqual(
       record(paintDef, {
-        [PILL_AMT_VAR_NAME]: String(DEFAULT_PILL_AMT),
-        [PILL_EASE_VAR_NAME]: String(DEFAULT_PILL_EASE),
+        [PILL_ARC_SETBACK_VAR_NAME]: `${DEFAULT_PILL_ARC_SETBACK}deg`,
+        [PILL_EDGE_SETBACK_VAR_NAME]: String(DEFAULT_PILL_EDGE_SETBACK),
         [PILL_CONTINUITY_VAR_NAME]: String(DEFAULT_PILL_CONTINUITY),
       }).paths,
     );
