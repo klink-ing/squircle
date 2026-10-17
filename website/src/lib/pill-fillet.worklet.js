@@ -74,8 +74,8 @@ const ARC_STEP = Math.PI / 90;
 /** @type {FilletParams} */
 export const DEFAULT_FILLET = {
   continuity: 2,
-  arcSetback: Math.PI / 6,
-  edgeSetback: 1,
+  arcSetback: Math.PI / 4,
+  edgeSetback: 0.75,
   bulgeStart: 1,
   bulgeEnd: 1,
   fit: true,
@@ -99,11 +99,11 @@ export function readParams(props) {
   const continuity = /** @type {1 | 2 | 3} */ (
     Math.min(Math.max(Math.round(number(props, CONTINUITY_VAR, 2)), 1), 3)
   );
-  const degrees = Math.min(Math.max(number(props, ARC_SETBACK_VAR, 30), 0), 89);
+  const degrees = Math.min(Math.max(number(props, ARC_SETBACK_VAR, 45), 0), 89);
   return {
     continuity,
     arcSetback: (degrees * Math.PI) / 180,
-    edgeSetback: Math.max(number(props, EDGE_SETBACK_VAR, 1), 0),
+    edgeSetback: Math.max(number(props, EDGE_SETBACK_VAR, 0.75), 0),
     bulgeStart: Math.max(number(props, BULGE_START_VAR, 1), 0.05),
     bulgeEnd: Math.max(number(props, BULGE_END_VAR, 1), 0.05),
     fit: number(props, FIT_VAR, 1) >= 0.5,

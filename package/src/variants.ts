@@ -39,10 +39,10 @@ const pillVar = (name: string) => `--${CSS_NAMESPACE}-pill-${name}`;
 
 /** Degrees of circular arc replaced by the transition. */
 export const PILL_ARC_SETBACK_VAR_NAME: string = pillVar("arc-setback");
-export const DEFAULT_PILL_ARC_SETBACK = 30 as const;
+export const DEFAULT_PILL_ARC_SETBACK = 45 as const;
 /** Distance past the arc's top, in multiples of the cap's half-height. */
 export const PILL_EDGE_SETBACK_VAR_NAME: string = pillVar("edge-setback");
-export const DEFAULT_PILL_EDGE_SETBACK = 1 as const;
+export const DEFAULT_PILL_EDGE_SETBACK = 0.75 as const;
 /** Border the worklet draws itself, since a CSS border cannot follow the shape. */
 export const PILL_BORDER_WIDTH_VAR_NAME: string = pillVar("border-width");
 export const PILL_BORDER_COLOR_VAR_NAME: string = pillVar("border-color");

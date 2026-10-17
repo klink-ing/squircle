@@ -208,12 +208,12 @@ describe("tailwind-pill.ts utilities", () => {
       ]) {
         expect(css).toContain(`@property ${name}`);
       }
-      // Arc setback 30°, edge setback 1r, G3.
+      // Arc setback 45°, edge setback 0.75r, G3.
       expect(css).toMatch(
-        new RegExp(`@property ${PILL_ARC_SETBACK_VAR_NAME} \\{[^}]*initial-value: 30deg;`),
+        new RegExp(`@property ${PILL_ARC_SETBACK_VAR_NAME} \\{[^}]*initial-value: 45deg;`),
       );
       expect(css).toMatch(
-        new RegExp(`@property ${PILL_EDGE_SETBACK_VAR_NAME} \\{[^}]*initial-value: 1;`),
+        new RegExp(`@property ${PILL_EDGE_SETBACK_VAR_NAME} \\{[^}]*initial-value: 0.75;`),
       );
       expect(css).toMatch(
         new RegExp(`@property ${PILL_CONTINUITY_VAR_NAME} \\{[^}]*initial-value: 3;`),

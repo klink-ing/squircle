@@ -54,7 +54,7 @@ export default function PillTailwindDemo() {
             label="arc-setback-0 (stadium)"
             className="squircle-pill bg-demo-amount squircle-pill-arc-setback-0"
           />
-          <PillBox label="default: 30°, edge 1r, G3" className="squircle-pill bg-demo-amount" />
+          <PillBox label="default: 45°, edge 0.75r, G3" className="squircle-pill bg-demo-amount" />
           <PillBox
             label="arc-setback-60 edge-setback-1"
             className="squircle-pill bg-demo-amount squircle-pill-arc-setback-60 squircle-pill-edge-setback-1"

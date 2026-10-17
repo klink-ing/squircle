@@ -627,7 +627,8 @@ describe("pill-shape worklet contract", () => {
       // `reach` in from the edge of the grown box.
       const tops = drawn.strokes.map((s) => bounds(s.points).top);
       const expected = [-0.5, -2, 1.25, 3.25, 1.5].map((d) => reach - d);
-      tops.forEach((top, i) => expect(top).toBeCloseTo(expected[i]!, 5));
+      // Bands offset the sampled outline, so allow subpixel chord-normal error.
+      tops.forEach((top, i) => expect(top).toBeCloseTo(expected[i]!, 4));
     });
 
     it("closes seams: a lower band runs on under the band that meets it", () => {

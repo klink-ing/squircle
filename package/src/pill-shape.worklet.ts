@@ -286,8 +286,8 @@ const remember = <V>(cache: Map<string, V>, size: number, key: string, value: V)
 };
 
 /** Geometric controls, matching variants.ts without importing into the worklet. */
-const DEFAULT_ARC_SETBACK = 30;
-const DEFAULT_EDGE_SETBACK = 1;
+const DEFAULT_ARC_SETBACK = 45;
+const DEFAULT_EDGE_SETBACK = 0.75;
 const MAX_ARC_SETBACK = (89 * Math.PI) / 180;
 const CLOTHOID_EXPONENT = 2;
 // Above 2 the G3 profile reaches the edge with zero curvature derivative.

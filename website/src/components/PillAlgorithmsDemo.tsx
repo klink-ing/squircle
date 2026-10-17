@@ -326,8 +326,8 @@ export default function PillAlgorithmsDemo() {
   const [shape, setShape] = useState<PillShapeSettings>(DEFAULT_SHAPE);
   const [continuity, setContinuity] = useState(2);
   const [fit, setFit] = useState(true);
-  const [arcSetback, setArcSetback] = useState(30);
-  const [edgeSetback, setEdgeSetback] = useState(1);
+  const [arcSetback, setArcSetback] = useState(DEFAULT_SHAPE.arcSetback);
+  const [edgeSetback, setEdgeSetback] = useState(DEFAULT_SHAPE.edgeSetback);
   const [bulgeStart, setBulgeStart] = useState(1);
   const [bulgeEnd, setBulgeEnd] = useState(1);
   // On small screens the fillet's controls fold away, so the pinned bar
