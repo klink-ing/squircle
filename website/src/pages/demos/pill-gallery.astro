@@ -276,8 +276,8 @@ const sections: Section[] = [
       },
       {
         classes:
-          "--squircle-pill-box-shadow: 0 8px 16px rgb(0 0 0 / 0.6); --squircle-pill-shadow-reach: 24px",
-        note: "A box shadow, with how far it reaches past the pill.",
+          "--squircle-pill-box-shadow: 0 8px 16px rgb(0 0 0 / 0.6)",
+        note: "A box shadow; initialization reserves its painting space automatically.",
         build: "standalone",
         light: true,
       },
@@ -316,6 +316,7 @@ const STANDALONE_BACKGROUND = "background: #6366f1";
     <main class="mx-auto max-w-6xl">
       <p class="mb-2 text-sm"><a href="/demos" class="text-indigo-400 hover:underline">← Demos</a></p>
       <h1 class="mb-2 text-3xl font-bold">Pill gallery</h1>
+      <p class="mb-4 text-sm"><a href="/demos/pill-shadows" class="text-indigo-400 hover:underline">Compare shadows with plain Tailwind →</a></p>
       <p class="mb-4 max-w-3xl text-sm text-zinc-400">
         Every pill below is <code class="text-zinc-300">{PILL}</code> plus the classes in its label,
         unless its section says otherwise.
