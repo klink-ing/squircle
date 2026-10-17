@@ -12,6 +12,7 @@ import {
   PILL_POLYFILL_BORDER_VAR_NAME,
   PILL_POLYFILL_REACH_VAR_NAME,
   PILL_RESOLVED_SHADOW_VAR_NAME,
+  PILL_PAINT_ZOOM_VAR_NAME,
   PILL_SHADOW_REACH_VAR_NAME,
 } from "./variants";
 
@@ -23,6 +24,7 @@ const OUTPUTS = [
   PILL_POLYFILL_BORDER_VAR_NAME,
   PILL_POLYFILL_REACH_VAR_NAME,
   PILL_RESOLVED_SHADOW_VAR_NAME,
+  PILL_PAINT_ZOOM_VAR_NAME,
   PILL_SHADOW_REACH_VAR_NAME,
 ];
 export function pillStyleInputs(doc: Document, cssText: string): string {
@@ -61,10 +63,14 @@ export function observePillShadows(
   const view = doc.defaultView!;
   const selector = `.${options.prefix ?? "squircle-pill"}, [${PILL_ATTRIBUTE}]`;
   type Saved = { value: string; priority: string };
-  const watched = new Map<HTMLElement, { original: Saved[]; shadow?: string }>();
+  const watched = new Map<HTMLElement, { original: Saved[]; shadow?: string; zoom?: number }>();
   let frame = 0;
   let stopped = false;
-  const names = [PILL_RESOLVED_SHADOW_VAR_NAME, PILL_SHADOW_REACH_VAR_NAME];
+  const names = [
+    PILL_RESOLVED_SHADOW_VAR_NAME,
+    PILL_SHADOW_REACH_VAR_NAME,
+    PILL_PAINT_ZOOM_VAR_NAME,
+  ];
   const restore = (el: HTMLElement, original: Saved[]) => {
     names.forEach((name, i) => {
       const saved = original[i]!;
@@ -95,17 +101,20 @@ export function observePillShadows(
     }
     // All reads before writes. In particular, never feed the resolved output
     // back into ::before: it must always compute the live CSS shadow source.
-    const updates: [HTMLElement, string][] = [];
+    const updates: [HTMLElement, string, number][] = [];
     for (const [el, state] of watched) {
       const shadow = view.getComputedStyle(el, "::before").boxShadow || "none";
-      if (shadow !== state.shadow) {
+      const zoom = el.currentCSSZoom ?? 1;
+      if (shadow !== state.shadow || zoom !== state.zoom) {
         state.shadow = shadow;
-        updates.push([el, shadow]);
+        state.zoom = zoom;
+        updates.push([el, shadow, zoom]);
       }
     }
-    for (const [el, shadow] of updates) {
+    for (const [el, shadow, zoom] of updates) {
       el.style.setProperty(PILL_RESOLVED_SHADOW_VAR_NAME, shadow);
       el.style.setProperty(PILL_SHADOW_REACH_VAR_NAME, `${shadowReach(shadow)}px`);
+      el.style.setProperty(PILL_PAINT_ZOOM_VAR_NAME, String(zoom));
     }
     for (const [el] of updates) changed?.(el);
   };

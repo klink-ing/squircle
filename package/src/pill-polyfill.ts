@@ -65,6 +65,7 @@ interface PillGeometry {
   resolveContinuity(props: Lookup): number;
   resolveSide(props: Lookup): string;
   offsetOutline(points: Point[], distance: number): Point[];
+  shadowCutout(points: Point[]): Point[];
   resolveLength(props: Lookup, name: string): number;
   decorationOutset(props: Lookup): number;
   decorationBands(props: Lookup): { from: number; to: number; color: string; dash: number[] }[];
@@ -405,7 +406,7 @@ export const PILL_DECORATION_PROPERTIES: readonly string[] = [
  * `null` where there is nothing to draw. The same bands and shadows the
  * worklet draws, from the same geometry: each band a stroke along the
  * outline moved out to its middle, each shadow the outline grown by its
- * spread, blurred, offset, and drawn only outside the outline. An image
+ * spread, blurred and offset, with a half-pixel overlap at the outline. An image
  * rather than a clip because they come in several colours; it is only
  * rebuilt when the pill changes size or decoration.
  */
@@ -427,10 +428,10 @@ export function pillDecorationImage(
   }));
   const w = round(width + 2 * outset);
   const h = round(height + 2 * outset);
-  const pill = subpath(outline);
   let defs = "";
   let body = "";
   if (shadows.length > 0) {
+    const pill = subpath(geometry.shadowCutout(outline));
     defs += `<clipPath id="o"><path clip-rule="evenodd" d="M0 0H${w}V${h}H0Z${pill}"/></clipPath>`;
     let layers = "";
     // Last first, as CSS stacks them.

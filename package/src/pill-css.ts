@@ -18,6 +18,7 @@ import {
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_BOX_SHADOW_VAR_NAME,
   PILL_RESOLVED_SHADOW_VAR_NAME,
+  PILL_PAINT_ZOOM_VAR_NAME,
   PILL_CLIP_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATED_VAR_NAME,
@@ -131,6 +132,11 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
     PILL_INSET_RING_COLOR_VAR_NAME,
   ];
   return {
+    [`@property ${PILL_PAINT_ZOOM_VAR_NAME}`]: {
+      syntax: '"<number>"',
+      "initial-value": "1",
+      inherits: "true",
+    },
     [`@property ${PILL_AMT_VAR_NAME}`]: {
       syntax: '"<number>"',
       "initial-value": String(DEFAULT_PILL_AMT),
@@ -295,6 +301,7 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
       [PILL_INSET_RING_WIDTH_VAR_NAME]: "0px",
       [PILL_SHADOW_REACH_VAR_NAME]: "0px",
       [PILL_RESOLVED_SHADOW_VAR_NAME]: "initial",
+      [PILL_PAINT_ZOOM_VAR_NAME]: "1",
       [PILL_CLIP_VAR_NAME]: "initial",
       [PILL_DECORATION_VAR_NAME]: "initial",
       [PILL_DECORATION_CLIP_VAR_NAME]: "initial",

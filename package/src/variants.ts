@@ -76,6 +76,8 @@ export const PILL_INSET_RING_COLOR_VAR_NAME: string = pillVar("inset-ring-color"
 export const PILL_BOX_SHADOW_VAR_NAME: string = pillVar("box-shadow");
 /** Internal: browser-resolved box-shadow list, including lengths in px. */
 export const PILL_RESOLVED_SHADOW_VAR_NAME: string = pillVar("resolved-shadow");
+/** Internal: effective CSS zoom for canvas filter lengths. */
+export const PILL_PAINT_ZOOM_VAR_NAME: string = pillVar("paint-zoom");
 /**
  * How far those shadows reach past the box — offset, blur and spread
  * together — which the box they are drawn on has to grow by.

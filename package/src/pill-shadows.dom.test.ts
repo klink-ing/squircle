@@ -11,6 +11,7 @@ import { registerPillWorklet } from "./pill-worklet";
 import {
   PILL_DECORATION_VAR_NAME,
   PILL_RESOLVED_SHADOW_VAR_NAME,
+  PILL_PAINT_ZOOM_VAR_NAME,
   PILL_SHADOW_REACH_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
@@ -73,6 +74,23 @@ describe("resolved pill shadows", () => {
     controller.refresh();
     expect(writes).not.toHaveBeenCalled();
     writes.mockRestore();
+  });
+
+  it("updates canvas blur scale when inherited CSS zoom changes, without feedback", async () => {
+    let zoom = 1;
+    Object.defineProperty(pill, "currentCSSZoom", { get: () => zoom });
+    controller = observePillShadows();
+    await settle();
+    expect(pill.style.getPropertyValue(PILL_PAINT_ZOOM_VAR_NAME)).toBe("1");
+    zoom = 0.5;
+    pill.parentElement!.style.zoom = "0.5";
+    await settle();
+    expect(pill.style.getPropertyValue(PILL_PAINT_ZOOM_VAR_NAME)).toBe("0.5");
+    spy.mockClear();
+    await settle();
+    expect(spy).not.toHaveBeenCalled();
+    controller.disconnect();
+    expect(pill.style.getPropertyValue(PILL_PAINT_ZOOM_VAR_NAME)).toBe("");
   });
 
   it("picks up inherited inline variables and arbitrary theme attributes", async () => {

@@ -19,6 +19,7 @@ import {
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_BOX_SHADOW_VAR_NAME,
   PILL_RESOLVED_SHADOW_VAR_NAME,
+  PILL_PAINT_ZOOM_VAR_NAME,
   PILL_CLIP_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
@@ -75,7 +76,12 @@ const POLYFILL = `:where(:root[${PILL_POLYFILL_ATTRIBUTE}]) ${SHAPE}`;
 type Point = { x: number; y: number };
 type Drawn = {
   /** Every path traced, in order, with what was done with it. */
-  paths: { points: Point[]; op?: "fill" | "stroke" | "clip"; rule?: string | undefined }[];
+  paths: {
+    points: Point[];
+    op?: "fill" | "stroke" | "clip";
+    rule?: string | undefined;
+    color?: string;
+  }[];
   strokes: { color: string; width: number; dash: number[]; join: string; points: Point[] }[];
   shadows: { color: string; blur: number; x: number; y: number; points: Point[] }[];
 };
@@ -119,7 +125,8 @@ const record = (
     },
     fill() {
       drawn.paths[drawn.paths.length - 1]!.op = "fill";
-      if (ctx.shadowColor) {
+      drawn.paths[drawn.paths.length - 1]!.color = ctx.fillStyle;
+      if (ctx.shadowColor && ctx.shadowColor !== "transparent") {
         drawn.shadows.push({
           color: ctx.shadowColor,
           blur: ctx.shadowBlur,
@@ -208,6 +215,7 @@ describe("pill-shape worklet contract", () => {
       PILL_INSET_RING_COLOR_VAR_NAME,
       PILL_BOX_SHADOW_VAR_NAME,
       PILL_RESOLVED_SHADOW_VAR_NAME,
+      PILL_PAINT_ZOOM_VAR_NAME,
       // What `currentColor` stands for.
       "color",
     ]);
@@ -669,7 +677,7 @@ describe("pill-shape worklet contract", () => {
       expect(b.top).toBeCloseTo(2, 5);
     });
 
-    it("casts outer shadows only outside the outline, last first, as CSS stacks them", () => {
+    it("overlaps the fill edge without changing shadow spread, offset or stacking", () => {
       const reach = 20;
       const drawn = record(
         decorationDef,
@@ -681,13 +689,20 @@ describe("pill-shape worklet contract", () => {
         240 + 2 * reach,
         60 + 2 * reach,
       );
-      // The clip: the whole box, with the outline cut out of it.
+      // The cutout stops half a pixel inside the fill, avoiding an AA seam.
       const clip = drawn.paths.find((p) => p.op === "clip");
       expect(clip?.rule).toBe("evenodd");
+      const cutout = bounds(clip!.points.slice(4));
+      expect(cutout.left).toBeCloseTo(reach + 0.5, 5);
+      expect(cutout.top).toBeCloseTo(reach + 0.5, 5);
+      expect(cutout.right).toBeCloseTo(reach + 240 - 0.5, 5);
+      expect(cutout.bottom).toBeCloseTo(reach + 60 - 0.5, 5);
       // The inset one is the copy of the background's to paint.
-      expect(drawn.shadows.map((s) => s.color)).toEqual(["rgb(0 0 0 / 0.6)", "blue"]);
+      expect(drawn.shadows.map((s) => s.color)).toEqual(["rgb(0 0 0 / 0.6)"]);
+      const fills = drawn.paths.filter((p) => p.op === "fill");
+      expect(fills.map((p) => p.color)).toEqual(["#000", "blue"]);
       const soft = drawn.shadows[0]!;
-      const solid = drawn.shadows[1]!;
+      const solid = fills[1]!;
       expect(soft.blur).toBe(8);
       expect(soft.y).toBe(4);
       // Thrown back exactly onto the canvas: the shape grown by its spread,
