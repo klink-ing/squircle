@@ -15,8 +15,8 @@
 declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
 
 const NS = `--${typeof __SQUIRCLE_CSS_NAMESPACE__ === "string" ? __SQUIRCLE_CSS_NAMESPACE__ : "squircle"}-pill`;
-const AMT_VAR = `${NS}-amt`;
-const EASE_VAR = `${NS}-ease`;
+const ARC_SETBACK_VAR = `${NS}-arc-setback`;
+const EDGE_SETBACK_VAR = `${NS}-edge-setback`;
 const BORDER_STYLE_VAR = `${NS}-border-style`;
 const CONTINUITY_VAR = `${NS}-continuity`;
 const SIDE_VAR = `${NS}-side`;
@@ -205,10 +205,10 @@ interface Profile {
  * arc already shedding curvature at a finite rate. `3` also matches the rate
  * curvature changes, `dk/ds`, with `k(t) = (1 / R) * (1 - t^2)^(q - 1)`: flat
  * where it leaves the arc, and, for any exponent above 2, flat where it meets
- * the edge. The ease keeps its meaning — it is the same exponent — but G3
- * floors it at 0, the lowest ease that still arrives at the edge at all.
+ * the edge. The setback solver keeps G2's exponent at least 2 and G3's
+ * strictly above 2, preserving their respective continuity at the edge.
  *
- * G3 is the default: with the default ease it is flat at both ends, which
+ * G3 is the default: its curvature slope is flat at both ends, which
  * reads as the smoothest join. Kept in step with DEFAULT_PILL_CONTINUITY in
  * variants.ts by a test.
  */
@@ -285,49 +285,16 @@ const remember = <V>(cache: Map<string, V>, size: number, key: string, value: V)
   return value;
 };
 
-/**
- * The pill amount sets how soft the easing is: how much of each cap is
- * given over to the curvature transition, in units of 30 degrees. `1` keeps a
- * bare semicircle (a plain stadium, what `border-radius: 9999px` already
- * draws), the default `2` eases the last 30 degrees at each end, `3` eases 60.
- *
- * `1` meaning "circular" matches `--squircle-amt` elsewhere in this package.
- * The request is only ever honoured up to what the element's aspect ratio can
- * fit; see `fitEasing`.
- */
-// Kept in step with DEFAULT_PILL_AMT in variants.ts by a test; this module is
-// deliberately import-free so the worklet stays a standalone module script.
-const DEFAULT_AMOUNT = 2;
-const EASE_PER_AMOUNT = Math.PI / 6;
-const MAX_EASE = Math.PI / 3;
-
-/**
- * The ease smooths the join into the flat edge: it draws the transition
- * further along that edge without spending any more of the arc, so a softer
- * join no longer costs you a rounder cap. Raising it lets the amount come
- * down.
- *
- * `0` is a clothoid, where curvature falls linearly from the arc to the edge.
- * The ease offsets the exponent that governs that fall,
- * `k(t) = (1 / R) * (1 - t)^(q - 1)` with `q = ease + 2`, which makes the
- * transition `q * beta * R` long. Any ease above -1 still starts at `1 / R`
- * and ends at `0`, so G2 holds throughout.
- *
- * The default sits two steps above the clothoid, which reads as a soft join
- * without noticeably flattening the cap. Kept in step with DEFAULT_PILL_EASE
- * in variants.ts by a test.
- */
-const DEFAULT_EASE = 2;
-/** The exponent an ease of 0 means: curvature falling linearly, a clothoid. */
+/** Geometric controls, matching variants.ts without importing into the worklet. */
+const DEFAULT_ARC_SETBACK = 30;
+const DEFAULT_EDGE_SETBACK = 1;
+const MAX_ARC_SETBACK = (89 * Math.PI) / 180;
 const CLOTHOID_EXPONENT = 2;
-/**
- * 0 is the sane floor for real use. Below it the curvature still reaches zero,
- * but `dk/ds` diverges as it arrives; at -1 curvature never decays at all,
- * leaving the same corner a bare stadium has; and at -2 the transition has no
- * length. Those are still honoured so the effect can be seen. Lower would need
- * a negative exponent, where `u ** q` blows up at `u = 0`.
- */
-const MIN_EASE = -CLOTHOID_EXPONENT;
+// Above 2 the G3 profile reaches the edge with zero curvature derivative.
+const G3_MIN_EXPONENT = 2.01;
+// Keep the transition resolved by the quadrature samples, even for extreme inputs.
+const MAX_SETBACK_EXPONENT = 128;
+const setbackCache = new Map<string, { beta: number; exponent: number }>();
 
 /**
  * Nodes along one transition, where its vertices may land. Placement wants
@@ -453,7 +420,7 @@ export const paintDef = class PillShape implements PaintWorklet {
    * resize, which adds up over hundreds of them.
    */
   static get inputProperties() {
-    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR, SIDE_VAR, BACKGROUND_INSET_VAR];
+    return [ARC_SETBACK_VAR, EDGE_SETBACK_VAR, CONTINUITY_VAR, SIDE_VAR, BACKGROUND_INSET_VAR];
   }
 
   /**
@@ -472,21 +439,69 @@ export const paintDef = class PillShape implements PaintWorklet {
     return [];
   }
 
-  /** The requested easing angle, in radians, before it is fitted to the box. */
-  resolveAngle(props?: PaintProperties): number {
-    const raw = Number.parseFloat(props?.get(AMT_VAR)?.toString() ?? "");
-    const amt = Number.isFinite(raw) ? raw : DEFAULT_AMOUNT;
-    return Math.min(Math.max(amt - 1, 0) * EASE_PER_AMOUNT, MAX_EASE);
+  /** Resolve the geometric requests once per angle/distance/continuity tuple. */
+  resolveSetbacks(props?: PaintProperties): { beta: number; exponent: number } {
+    const value = props?.get(ARC_SETBACK_VAR)?.toString().trim() ?? "";
+    const angle = /^([+-]?(?:\d*\.)?\d+(?:e[+-]?\d+)?)(deg|rad|grad|turn)?$/i.exec(value);
+    const unit = angle?.[2]?.toLowerCase();
+    const degrees = angle
+      ? Number(angle[1]) *
+        (unit === "rad" ? 180 / Math.PI : unit === "grad" ? 0.9 : unit === "turn" ? 360 : 1)
+      : DEFAULT_ARC_SETBACK;
+    const beta = Math.min(Math.max((degrees * Math.PI) / 180, 0), MAX_ARC_SETBACK);
+    const raw = Number.parseFloat(props?.get(EDGE_SETBACK_VAR)?.toString() ?? "");
+    const edge = Number.isFinite(raw) ? Math.max(raw, 0) : DEFAULT_EDGE_SETBACK;
+    const continuity = this.resolveContinuity(props);
+    const key = `${beta},${edge},${continuity}`;
+    const known = setbackCache.get(key);
+    if (known) return known;
+    const minimum = continuity === 3 ? G3_MIN_EXPONENT : CLOTHOID_EXPONENT;
+    const reach = (b: number, q: number) => {
+      const samples = this.samples(q, continuity);
+      const metrics = this.capMetrics(1, b, samples.lambda, this.fresnel(b, samples));
+      return metrics.junction - metrics.radius;
+    };
+    let fittedBeta = beta;
+    let exponent = minimum;
+    if (beta === 0 || edge === 0) fittedBeta = 0;
+    else if (edge < reach(beta, minimum)) {
+      // A shorter join needs less arc to turn through. Reduce the requested
+      // angle rather than break continuity with an excessively sharp profile.
+      let low = 0;
+      let high = beta;
+      for (let i = 0; i < 32; i++) {
+        const mid = (low + high) / 2;
+        if (reach(mid, minimum) < edge) low = mid;
+        else high = mid;
+      }
+      fittedBeta = (low + high) / 2;
+    } else {
+      let low = minimum;
+      let high = minimum * 2;
+      while (high < MAX_SETBACK_EXPONENT && reach(beta, high) < edge) {
+        low = high;
+        high *= 2;
+      }
+      high = Math.min(high, MAX_SETBACK_EXPONENT);
+      if (reach(beta, high) < edge) exponent = high;
+      else {
+        for (let i = 0; i < 32; i++) {
+          const mid = (low + high) / 2;
+          if (reach(beta, mid) < edge) low = mid;
+          else high = mid;
+        }
+        exponent = (low + high) / 2;
+      }
+    }
+    return remember(setbackCache, FIT_CACHE_SIZE, key, { beta: fittedBeta, exponent });
   }
 
-  /**
-   * How far the join is eased along the flat edge, as the curvature exponent
-   * it offsets; see `DEFAULT_EASE`.
-   */
+  resolveAngle(props?: PaintProperties): number {
+    return this.resolveSetbacks(props).beta;
+  }
+
   resolveExponent(props?: PaintProperties): number {
-    const raw = Number.parseFloat(props?.get(EASE_VAR)?.toString() ?? "");
-    const ease = Number.isFinite(raw) ? raw : DEFAULT_EASE;
-    return Math.max(ease, MIN_EASE) + CLOTHOID_EXPONENT;
+    return this.resolveSetbacks(props).exponent;
   }
 
   /** `2` for G2, anything else the G3 default; see `Continuity`. */
@@ -525,7 +540,7 @@ export const paintDef = class PillShape implements PaintWorklet {
   /**
    * `remaining` at node `k`: the sample itself where there is one. Between
    * them, G2's is in closed form and G3's interpolated, with the slope the
-   * curvature gives it; G2's slope diverges at the edge below an ease of -1,
+   * curvature gives it; G2's slope diverges at the edge below an exponent of 1,
    * where interpolating would fail.
    */
   remainingAt(samples: Samples, q: number, continuity: Continuity, k: number): number {
@@ -630,7 +645,7 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * The softest easing that still fits, backing off the amount and the ease
+   * The softest easing that still fits, backing off the angle and exponent
    * together.
    *
    * What reads as a smooth transition is the rate curvature changes,
@@ -676,15 +691,16 @@ export const paintDef = class PillShape implements PaintWorklet {
     if (cached) return cached;
 
     // There is only something to trade above the clothoid. At or below it the
-    // requested exponent is passed through and the amount absorbs the
+    // requested exponent is passed through and the angle absorbs the
     // shortfall, which also keeps the rate away from the 0 and 1 singularities.
-    const tradeable = wantedExponent > CLOTHOID_EXPONENT;
+    const minimum = continuity === 3 ? G3_MIN_EXPONENT : CLOTHOID_EXPONENT;
+    const tradeable = wantedExponent > minimum;
     const rate = tradeable ? (wantedExponent - 1) / (wantedExponent * wantedBeta) : 0;
     // rate * beta <= rate * wantedBeta = (q - 1) / q < 1, so the denominator
     // stays positive.
     const exponentFor = (beta: number): number =>
       tradeable
-        ? Math.min(Math.max(1 / (1 - rate * beta), CLOTHOID_EXPONENT), wantedExponent)
+        ? Math.min(Math.max(1 / (1 - rate * beta), minimum), wantedExponent)
         : wantedExponent;
 
     // How far past the box's centre the easing lands, in half-heights. No
@@ -693,7 +709,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       this.junctionRatio(beta, exponentFor(beta), continuity, into);
     // Where the exponent stops being held at the clothoid, the reach has a
     // kink that the table has to sample exactly.
-    const kink = tradeable ? 1 / (2 * rate) : 0;
+    const kink = tradeable ? (1 - 1 / minimum) / rate : 0;
     const table =
       fitTableCache.get(request) ??
       remember(
@@ -884,7 +900,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     if (!eased) return points;
     const { samples, fresnel } = eased;
 
-    // The lowest ease gives the transition no length at all: the arc alone
+    // A zero-length profile leaves just the arc, which alone
     // spans the height and meets the flat edge at a corner.
     if (samples.lambda <= 0) return points;
 
@@ -985,12 +1001,12 @@ export const paintDef = class PillShape implements PaintWorklet {
   fittedQuadrant(
     long: number,
     short: number,
-    ease: number,
+    angle: number,
     exponent: number,
     continuity: Continuity = DEFAULT_CONTINUITY,
   ): Point[] {
     const r = short / 2;
-    const fitted = this.fitEasing(r, long / 2, ease, exponent, continuity);
+    const fitted = this.fitEasing(r, long / 2, angle, exponent, continuity);
     const key = `${short},${fitted.beta},${fitted.exponent},${continuity}`;
     const cached = quadrantCache.get(key);
     if (cached) return cached;
@@ -1079,7 +1095,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     // The box seen from the capped end: `w` along the square edges, `h` along the capped one.
     const w = across ? height : width;
     const h = across ? width : height;
-    const ease = this.resolveAngle(props);
+    const angle = this.resolveAngle(props);
     const exponent = this.resolveExponent(props);
     const continuity = this.resolveContinuity(props);
 
@@ -1088,10 +1104,10 @@ export const paintDef = class PillShape implements PaintWorklet {
       h / 2 <= w
         ? // The left edge binds: the caps meet halfway down it, and each eases
           // along the whole top edge.
-          this.fittedQuadrant(2 * w, h, ease, exponent, continuity)
+          this.fittedQuadrant(2 * w, h, angle, exponent, continuity)
         : // The top edge binds: the cap spans it, meeting the square corner,
           // and eases down half the left edge.
-          this.fittedQuadrant(h, 2 * w, ease, exponent, continuity)
+          this.fittedQuadrant(h, 2 * w, angle, exponent, continuity)
             .map((p) => ({ x: p.y, y: p.x }))
             .reverse();
     const left: Point[] = [
@@ -1332,7 +1348,7 @@ declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
  */
 export const decorationDef = class PillDecoration extends paintDef {
   static override get inputProperties() {
-    return [AMT_VAR, EASE_VAR, CONTINUITY_VAR, SIDE_VAR, ...DECORATION_INPUTS];
+    return [ARC_SETBACK_VAR, EDGE_SETBACK_VAR, CONTINUITY_VAR, SIDE_VAR, ...DECORATION_INPUTS];
   }
 
   override paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {

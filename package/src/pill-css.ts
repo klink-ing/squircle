@@ -4,12 +4,13 @@
  */
 
 import {
-  DEFAULT_PILL_AMT,
+  DEFAULT_PILL_ARC_SETBACK,
   DEFAULT_PILL_CONTINUITY,
   DEFAULT_PILL_SIDE,
-  DEFAULT_PILL_EASE,
+  DEFAULT_PILL_EDGE_SETBACK,
   FULL_RADIUS,
-  PILL_AMT_VAR_NAME,
+  PILL_ARC_SETBACK_VAR_NAME,
+  PILL_EDGE_SETBACK_VAR_NAME,
   PILL_BACKGROUND_INSET_VAR_NAME,
   PILL_ATTRIBUTE,
   PILL_BORDER_COLOR_VAR_NAME,
@@ -24,7 +25,6 @@ import {
   PILL_DECORATED_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_EASE_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
@@ -132,19 +132,19 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
     PILL_INSET_RING_COLOR_VAR_NAME,
   ];
   return {
+    [`@property ${PILL_ARC_SETBACK_VAR_NAME}`]: {
+      syntax: '"<angle>"',
+      "initial-value": `${DEFAULT_PILL_ARC_SETBACK}deg`,
+      inherits: "true",
+    },
+    [`@property ${PILL_EDGE_SETBACK_VAR_NAME}`]: {
+      syntax: '"<number>"',
+      "initial-value": String(DEFAULT_PILL_EDGE_SETBACK),
+      inherits: "true",
+    },
     [`@property ${PILL_PAINT_ZOOM_VAR_NAME}`]: {
       syntax: '"<number>"',
       "initial-value": "1",
-      inherits: "true",
-    },
-    [`@property ${PILL_AMT_VAR_NAME}`]: {
-      syntax: '"<number>"',
-      "initial-value": String(DEFAULT_PILL_AMT),
-      inherits: "true",
-    },
-    [`@property ${PILL_EASE_VAR_NAME}`]: {
-      syntax: '"<number>"',
-      "initial-value": String(DEFAULT_PILL_EASE),
       inherits: "true",
     },
     [`@property ${PILL_CONTINUITY_VAR_NAME}`]: {

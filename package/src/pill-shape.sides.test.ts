@@ -5,7 +5,11 @@
 
 import { describe, expect, it } from "vitest";
 import { paintDef } from "./pill-shape.worklet";
-import { PILL_AMT_VAR_NAME, PILL_EASE_VAR_NAME, PILL_SIDE_VAR_NAME } from "./variants";
+import {
+  PILL_ARC_SETBACK_VAR_NAME,
+  PILL_EDGE_SETBACK_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
+} from "./variants";
 
 type Point = { x: number; y: number };
 
@@ -19,11 +23,15 @@ const props = (values: Record<string, string | number | undefined>) => ({
     values[name] === undefined ? undefined : { toString: () => String(values[name]) },
 });
 
-const outline = (width: number, height: number, side?: string, amt?: number, ease?: number) =>
+const outline = (width: number, height: number, side?: string, arc?: number, edge?: number) =>
   geometry.boxOutline(
     width,
     height,
-    props({ [PILL_SIDE_VAR_NAME]: side, [PILL_AMT_VAR_NAME]: amt, [PILL_EASE_VAR_NAME]: ease }),
+    props({
+      [PILL_SIDE_VAR_NAME]: side,
+      [PILL_ARC_SETBACK_VAR_NAME]: arc === undefined ? undefined : `${arc}deg`,
+      [PILL_EDGE_SETBACK_VAR_NAME]: edge,
+    }),
   );
 
 const EPS = 1e-6;
@@ -180,7 +188,7 @@ describe("pill sides", () => {
     });
   });
 
-  it("stays convex and inside the box at every side, ratio, amount and ease", () => {
+  it("stays convex and inside the box at every side, ratio and setback", () => {
     for (const side of ["t", "r", "b", "l"]) {
       for (const [width, height] of [
         [200, 40],
@@ -190,10 +198,10 @@ describe("pill sides", () => {
         [40, 50],
         [41, 80],
       ] as const) {
-        for (const amt of [1, 2, 3]) {
-          for (const ease of [-2, 0, 2, 6]) {
-            const points = outline(width, height, side, amt, ease);
-            const label = `${side} ${width}x${height} amt ${amt} ease ${ease}`;
+        for (const arc of [0, 30, 60, 89]) {
+          for (const edge of [-1, 0, 0.05, 1, 4]) {
+            const points = outline(width, height, side, arc, edge);
+            const label = `${side} ${width}x${height} arc ${arc} edge ${edge}`;
             expect(inside(points, width, height), label).toBe(true);
             expect(isConvex(points), label).toBe(true);
           }

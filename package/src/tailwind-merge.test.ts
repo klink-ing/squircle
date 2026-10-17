@@ -92,11 +92,17 @@ describe("squircleMergeConfig", () => {
 
     it("its knobs never cancel the pill or each other", () => {
       expect(
-        twMerge("squircle-pill squircle-pill-amt-3 squircle-pill-ease-2 squircle-pill-g3"),
-      ).toBe("squircle-pill squircle-pill-amt-3 squircle-pill-ease-2 squircle-pill-g3");
-      expect(twMerge("squircle-pill-amt-3 squircle-md")).toBe("squircle-pill-amt-3 squircle-md");
-      expect(twMerge("squircle-amt-3 squircle-pill-amt-2")).toBe(
-        "squircle-amt-3 squircle-pill-amt-2",
+        twMerge(
+          "squircle-pill squircle-pill-arc-setback-3 squircle-pill-edge-setback-2 squircle-pill-g3",
+        ),
+      ).toBe(
+        "squircle-pill squircle-pill-arc-setback-3 squircle-pill-edge-setback-2 squircle-pill-g3",
+      );
+      expect(twMerge("squircle-pill-arc-setback-3 squircle-md")).toBe(
+        "squircle-pill-arc-setback-3 squircle-md",
+      );
+      expect(twMerge("squircle-amt-3 squircle-pill-arc-setback-2")).toBe(
+        "squircle-amt-3 squircle-pill-arc-setback-2",
       );
     });
 
@@ -110,8 +116,8 @@ describe("squircleMergeConfig", () => {
     it("its sides replace each other and nothing else", () => {
       expect(twMerge("squircle-pill-t squircle-pill-l")).toBe("squircle-pill-l");
       expect(twMerge("squircle-pill-b squircle-pill-s")).toBe("squircle-pill-s");
-      expect(twMerge("squircle-pill squircle-pill-e squircle-pill-amt-3")).toBe(
-        "squircle-pill squircle-pill-e squircle-pill-amt-3",
+      expect(twMerge("squircle-pill squircle-pill-e squircle-pill-arc-setback-3")).toBe(
+        "squircle-pill squircle-pill-e squircle-pill-arc-setback-3",
       );
       // A later all-corners radius replaces the pill, side and all.
       expect(twMerge("squircle-pill squircle-pill-t rounded-lg")).toBe("rounded-lg");
@@ -119,8 +125,12 @@ describe("squircleMergeConfig", () => {
     });
 
     it("a later knob wins over an earlier one of the same kind", () => {
-      expect(twMerge("squircle-pill-amt-2 squircle-pill-amt-3")).toBe("squircle-pill-amt-3");
-      expect(twMerge("squircle-pill-ease-1 squircle-pill-ease-2")).toBe("squircle-pill-ease-2");
+      expect(twMerge("squircle-pill-arc-setback-2 squircle-pill-arc-setback-3")).toBe(
+        "squircle-pill-arc-setback-3",
+      );
+      expect(twMerge("squircle-pill-edge-setback-1 squircle-pill-edge-setback-2")).toBe(
+        "squircle-pill-edge-setback-2",
+      );
       expect(twMerge("squircle-pill-g2 squircle-pill-g3")).toBe("squircle-pill-g3");
     });
   });

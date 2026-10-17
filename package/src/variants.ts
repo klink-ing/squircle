@@ -37,14 +37,12 @@ const coreVar = (name: string) => `--${CSS_NAMESPACE}-${name}`;
 /** `--<namespace>-pill-<name>`, e.g. `--squircle-pill-border-width`. */
 const pillVar = (name: string) => `--${CSS_NAMESPACE}-pill-${name}`;
 
-export const PILL_AMT_VAR_NAME: string = pillVar("amt");
-export const DEFAULT_PILL_AMT = 2 as const;
-/**
- * How far the pill's easing is drawn along the flat edge: `0` is a clothoid,
- * higher is softer. See the worklet.
- */
-export const PILL_EASE_VAR_NAME: string = pillVar("ease");
-export const DEFAULT_PILL_EASE = 2 as const;
+/** Degrees of circular arc replaced by the transition. */
+export const PILL_ARC_SETBACK_VAR_NAME: string = pillVar("arc-setback");
+export const DEFAULT_PILL_ARC_SETBACK = 30 as const;
+/** Distance past the arc's top, in multiples of the cap's half-height. */
+export const PILL_EDGE_SETBACK_VAR_NAME: string = pillVar("edge-setback");
+export const DEFAULT_PILL_EDGE_SETBACK = 1 as const;
 /** Border the worklet draws itself, since a CSS border cannot follow the shape. */
 export const PILL_BORDER_WIDTH_VAR_NAME: string = pillVar("border-width");
 export const PILL_BORDER_COLOR_VAR_NAME: string = pillVar("border-color");

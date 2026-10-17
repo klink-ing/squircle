@@ -118,7 +118,7 @@ export default squircle;
 // it controls corner shape, not radius, so radius classes never cancel it.
 //
 // `squircle-pill` shapes all four corners, so it sits with the all-corners
-// utilities. Its `-amt-*`, `-ease-*`, `-g2`/`-g3` and side (`-t`, `-s`, …)
+// utilities. Its `-arc-setback-*`, `-edge-setback-*`, `-g2`/`-g3` and side (`-t`, `-s`, …)
 // knobs each get a group of their own; left out, the catch-all `squircle-*`
 // group would take them for radii and have them cancel the pill and each
 // other.
@@ -166,8 +166,8 @@ const classGroups: Record<string, (string | Record<string, ((value: string) => b
   ),
   "squircle-amt": [{ "squircle-amt": [() => true] }],
   [PILL]: [PILL],
-  [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
-  [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
+  [`${PILL}-arc-setback`]: [{ [`${PILL}-arc-setback`]: [() => true] }],
+  [`${PILL}-edge-setback`]: [{ [`${PILL}-edge-setback`]: [() => true] }],
   [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
   [`${PILL}-side`]: PILL_SIDE_NAMES.map((side) => `${PILL}-${side}`),
 };

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { paintDef as PillShape } from "@klinking/squircle/pill-shape.worklet";
-import { PILL_SHAPE_PROPERTIES as SHAPE } from "@klinking/squircle/pill-worklet";
 import {
   DEFAULT_SHAPE,
   PINNED,
@@ -98,13 +97,9 @@ function arcPoints(r: number, rho: number, beta: number): Point[] {
  * quadrature, at its integration samples rather than the sparser vertices
  * it draws. The dense curvature profile has a different sample count.
  */
-function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant {
+function spiralQuadrant(shape: PillShapeSettings): Quadrant {
   const worklet = new PillShape();
-  const props = propsFrom({
-    [SHAPE.amt.name]: amt,
-    [SHAPE.ease.name]: ease,
-    [SHAPE.continuity.name]: continuity,
-  });
+  const props = propsFrom(shapeStyle(shape));
   const c = worklet.resolveContinuity(props);
   const fitted = worklet.fitEasing(
     R,
@@ -145,6 +140,9 @@ function spiralQuadrant(amt: number, ease: number, continuity: number): Quadrant
  * folded back above it.
  */
 function bezierCurvature(controls: Point[], t: number): number {
+  // Both setbacks at zero produce a bare arc and no blend control points.
+  // Constant and straight-line curves also have zero curvature.
+  if (controls.length < 3) return 0;
   const derive = (pts: Point[]) =>
     pts.slice(1).map((p, i) => ({
       x: (pts.length - 1) * (p.x - pts[i].x),
@@ -349,7 +347,7 @@ export default function PillAlgorithmsDemo() {
     [continuity, arcSetback, edgeSetback, bulgeStart, bulgeEnd, fit],
   );
 
-  const spiral = useMemo(() => spiralQuadrant(shape.amt, shape.ease, shape.continuity), [shape]);
+  const spiral = useMemo(() => spiralQuadrant(shape), [shape]);
   const hermite = useMemo(() => hermiteQuadrant(filletValues), [filletValues]);
 
   // Without paint worklets the demo's own fillet worklet can't run either, so
@@ -383,8 +381,8 @@ export default function PillAlgorithmsDemo() {
             <code>
               (1 − t²)<sup>q−1</sup>
             </code>
-            , also leaves the arc with curvature flat, and arrives flat at the edge for any ease
-            above 0. The controls open on the package's defaults.
+            , also leaves the arc with curvature flat, and arrives flat at the edge throughout the
+            supported setback range. The controls open on the package's defaults.
           </p>
         </div>
         <div>

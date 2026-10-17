@@ -14,13 +14,13 @@ import {
 } from "./pill-polyfill";
 import { paintDef } from "./pill-shape.worklet";
 import {
-  PILL_AMT_VAR_NAME,
+  PILL_ARC_SETBACK_VAR_NAME,
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_BOX_SHADOW_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
-  PILL_EASE_VAR_NAME,
+  PILL_EDGE_SETBACK_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
@@ -166,11 +166,11 @@ describe("pill polyfill", () => {
     });
 
     it("honours the shape properties the worklet reads", () => {
-      const shape = { amt: "3", ease: "4", continuity: "2" };
+      const shape = { arcSetback: "60deg", edgeSetback: "4", continuity: "2" };
       const ours = pillOutlinePoints(240, 60, shape);
       const theirs = workletVertices(240, 60, {
-        [PILL_AMT_VAR_NAME]: "3",
-        [PILL_EASE_VAR_NAME]: "4",
+        [PILL_ARC_SETBACK_VAR_NAME]: "60deg",
+        [PILL_EDGE_SETBACK_VAR_NAME]: "4",
         [PILL_CONTINUITY_VAR_NAME]: "2",
       });
       expect(ours[10]?.x).toBeCloseTo((theirs[10] as Point).x, 6);
@@ -190,7 +190,7 @@ describe("pill polyfill", () => {
         [240, 60, {}],
         [33.33, 120.01, {}],
         [61, 60, {}],
-        [500, 20, { amt: "4", ease: "6", continuity: "2" }],
+        [500, 20, { arcSetback: "89deg", edgeSetback: "6", continuity: "2" }],
         [120, 40, { side: "t" }],
       ] as const) {
         const traced = parse(pillOutlinePath(w, h, shape))[0] as Point[];
@@ -223,7 +223,7 @@ describe("pill polyfill", () => {
 
     it("is the pill's outline, in the coordinates of its box", () => {
       expect(pillClipPath(240, 60)).toBe(`path("${pillOutlinePath(240, 60)}")`);
-      const shape = { amt: "3" };
+      const shape = { arcSetback: "60deg" };
       expect(pillClipPath(240, 60, shape)).toBe(`path("${pillOutlinePath(240, 60, shape)}")`);
     });
 

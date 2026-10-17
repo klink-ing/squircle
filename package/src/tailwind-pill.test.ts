@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { createCompiler } from "./test-utils";
 import {
   FULL_RADIUS,
-  PILL_AMT_VAR_NAME,
+  PILL_ARC_SETBACK_VAR_NAME,
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
@@ -16,7 +16,7 @@ import {
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATED_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
-  PILL_EASE_VAR_NAME,
+  PILL_EDGE_SETBACK_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_POLYFILL_BORDER_VAR_NAME,
   PILL_POLYFILL_REACH_VAR_NAME,
@@ -199,8 +199,8 @@ describe("tailwind-pill.ts utilities", () => {
       // could not be typed, animated, or resolved to px for the worklet.
       const css = await compilePillAll(["squircle-pill"]);
       for (const name of [
-        PILL_AMT_VAR_NAME,
-        PILL_EASE_VAR_NAME,
+        PILL_ARC_SETBACK_VAR_NAME,
+        PILL_EDGE_SETBACK_VAR_NAME,
         PILL_CONTINUITY_VAR_NAME,
         PILL_SIDE_VAR_NAME,
         PILL_BORDER_WIDTH_VAR_NAME,
@@ -208,9 +208,13 @@ describe("tailwind-pill.ts utilities", () => {
       ]) {
         expect(css).toContain(`@property ${name}`);
       }
-      // Amount 2, ease 2, G3.
-      expect(css).toMatch(new RegExp(`@property ${PILL_AMT_VAR_NAME} \\{[^}]*initial-value: 2;`));
-      expect(css).toMatch(new RegExp(`@property ${PILL_EASE_VAR_NAME} \\{[^}]*initial-value: 2;`));
+      // Arc setback 30°, edge setback 1r, G3.
+      expect(css).toMatch(
+        new RegExp(`@property ${PILL_ARC_SETBACK_VAR_NAME} \\{[^}]*initial-value: 30deg;`),
+      );
+      expect(css).toMatch(
+        new RegExp(`@property ${PILL_EDGE_SETBACK_VAR_NAME} \\{[^}]*initial-value: 1;`),
+      );
       expect(css).toMatch(
         new RegExp(`@property ${PILL_CONTINUITY_VAR_NAME} \\{[^}]*initial-value: 3;`),
       );
@@ -240,18 +244,41 @@ describe("tailwind-pill.ts utilities", () => {
       expect(css).toBe("");
     });
 
-    it("sets the amount, bare or arbitrary, and nothing else", async () => {
-      const css = await compilePill(["squircle-pill-amt-3", "squircle-pill-amt-[2.5]"]);
-      expect(css).toContain(`${PILL_AMT_VAR_NAME}: 3`);
-      expect(css).toContain(`${PILL_AMT_VAR_NAME}: 2.5`);
+    it("sets the arc setback, bare or arbitrary, and nothing else", async () => {
+      const css = await compilePill([
+        "squircle-pill-arc-setback-3",
+        "squircle-pill-arc-setback-[2.5deg]",
+      ]);
+      expect(css).toContain(`${PILL_ARC_SETBACK_VAR_NAME}: 3deg`);
+      expect(css).toContain(`${PILL_ARC_SETBACK_VAR_NAME}: 2.5deg`);
       expect(css).not.toContain("mask-image");
     });
 
-    it("sets the ease, bare or arbitrary, and nothing else", async () => {
-      const css = await compilePill(["squircle-pill-ease-4", "squircle-pill-ease-[0.5]"]);
-      expect(css).toContain(`${PILL_EASE_VAR_NAME}: 4`);
-      expect(css).toContain(`${PILL_EASE_VAR_NAME}: 0.5`);
+    it("sets the edge setback, bare or arbitrary, and nothing else", async () => {
+      const css = await compilePill([
+        "squircle-pill-edge-setback-4",
+        "squircle-pill-edge-setback-[0.5]",
+      ]);
+      expect(css).toContain(`${PILL_EDGE_SETBACK_VAR_NAME}: 4`);
+      expect(css).toContain(`${PILL_EDGE_SETBACK_VAR_NAME}: 0.5`);
       expect(css).not.toContain("mask-image");
+    });
+
+    it("accepts CSS variables and calculated angles", async () => {
+      const css = await compilePill([
+        "squircle-pill-arc-setback-(--arc)",
+        "squircle-pill-edge-setback-(--edge)",
+        "squircle-pill-arc-setback-[calc(0.25turn-30deg)]",
+      ]);
+      expect(css).toContain(`${PILL_ARC_SETBACK_VAR_NAME}: var(--arc)`);
+      expect(css).toContain(`${PILL_EDGE_SETBACK_VAR_NAME}: var(--edge)`);
+      expect(css).toMatch(/--squircle-pill-arc-setback: (?:calc\(.*\)|60deg)/);
+    });
+
+    it("removes the previous amount and ease utilities", async () => {
+      expect(await compilePill(["squircle-pill-amt-2", "squircle-pill-ease-2"])).toBe("");
+      const css = await compilePillAll(["squircle-pill"]);
+      expect(css).not.toMatch(/--squircle-pill-(?:amt|ease)\b/);
     });
 
     it("switches continuity with -g2 and -g3, and nothing else", async () => {
@@ -263,10 +290,9 @@ describe("tailwind-pill.ts utilities", () => {
 
     it("rejects values that are not numbers", async () => {
       for (const candidate of [
-        "squircle-pill-amt-[1em]",
-        "squircle-pill-amt-foo",
-        "squircle-pill-amt-(--my-amt)",
-        "squircle-pill-ease-[1px]",
+        "squircle-pill-arc-setback-[1em]",
+        "squircle-pill-arc-setback-foo",
+        "squircle-pill-edge-setback-[1px]",
       ]) {
         expect(await compilePill([candidate]), candidate).toBe("");
       }
@@ -339,9 +365,9 @@ describe("tailwind-pill.ts utilities", () => {
   });
 
   it("honours a custom prefix", async () => {
-    const css = await compilePill(["pillbox", "pillbox-amt-3"], 'prefix: "pillbox";');
+    const css = await compilePill(["pillbox", "pillbox-arc-setback-3"], 'prefix: "pillbox";');
     expect(css).toContain(".pillbox");
     expect(css).toContain(`border-radius: ${FULL_RADIUS}`);
-    expect(css).toContain(`${PILL_AMT_VAR_NAME}: 3`);
+    expect(css).toContain(`${PILL_ARC_SETBACK_VAR_NAME}: 3deg`);
   });
 });

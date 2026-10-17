@@ -5,7 +5,11 @@
 
 import plugin from "tailwindcss/plugin";
 import { PILL_SIDE_NAMES, pillCssObj, pillPropertyRegistrations, pillSideCss } from "./pill-css";
-import { PILL_AMT_VAR_NAME, PILL_CONTINUITY_VAR_NAME, PILL_EASE_VAR_NAME } from "./variants";
+import {
+  PILL_CONTINUITY_VAR_NAME,
+  PILL_ARC_SETBACK_VAR_NAME,
+  PILL_EDGE_SETBACK_VAR_NAME,
+} from "./variants";
 
 export interface SquirclePillPluginOptions {
   /** Class name prefix for utilities (default: "squircle-pill") */
@@ -17,8 +21,8 @@ export interface SquirclePillPluginOptions {
  * size, so there is no size or axis to pick: a cap can't be wider than the
  * box, so it always caps the short ends. What can be picked is capping one
  * end alone: `-t`, `-r`, `-b`, `-l`, and `-s`/`-e` for the inline ends,
- * square the other. The knobs the shape has — the easing amount, its ease, and its
- * continuity — get `-amt-*`, `-ease-*` and `-g2`/`-g3` utilities, which only
+ * square the other. The knobs the shape has — the arc setback, edge setback, and its
+ * continuity — get `-arc-setback-*`, `-edge-setback-*` and `-g2`/`-g3` utilities, which only
  * set the custom property, the same thing writing it yourself does.
  *
  * The rules themselves live in pill-css.ts, shared with the standalone
@@ -52,19 +56,39 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
         });
 
         // `type: "number"` alone only admits arbitrary values; the bare-value
-        // hook is what lets `-amt-3` work like `squircle-amt-3` does through
+        // hook is what lets `-edge-setback-3` work like `squircle-amt-3` does through
         // `@utility`. Anything that is not a plain number falls through.
         const numbers = {
           __BARE_VALUE__: ({ value }: { value: string }) =>
             /^-?\d+(\.\d+)?$/.test(value) ? value : undefined,
         } as unknown as Record<string, string>;
+        const numeric = /^[+-]?(?:\d*\.)?\d+(?:e[+-]?\d+)?$/i;
+        const angle = /^[+-]?(?:\d*\.)?\d+(?:e[+-]?\d+)?(?:deg|rad|grad|turn)$/i;
+        const expression = /^(?:var|calc|min|max|clamp)\(/;
 
         matchUtilities(
           {
-            [`${prefix}-amt`]: (value: string) => ({ [PILL_AMT_VAR_NAME]: value }),
-            [`${prefix}-ease`]: (value: string) => ({ [PILL_EASE_VAR_NAME]: value }),
+            [`${prefix}-arc-setback`]: (value: string) =>
+              angle.test(value) || expression.test(value)
+                ? { [PILL_ARC_SETBACK_VAR_NAME]: value }
+                : {},
           },
-          { type: "number", values: numbers },
+          {
+            type: ["angle", "any"],
+            values: {
+              __BARE_VALUE__: ({ value }: { value: string }) =>
+                /^\d+(\.\d+)?$/.test(value) ? `${value}deg` : undefined,
+            } as unknown as Record<string, string>,
+          },
+        );
+        matchUtilities(
+          {
+            [`${prefix}-edge-setback`]: (value: string) =>
+              numeric.test(value) || expression.test(value)
+                ? { [PILL_EDGE_SETBACK_VAR_NAME]: value }
+                : {},
+          },
+          { type: ["number", "any"], values: numbers },
         );
       },
   );

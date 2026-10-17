@@ -88,7 +88,7 @@ const twMerge = extendTailwindMerge(squircleMergeConfig, {
 });
 ```
 
-The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners utility cancels earlier side/corner utilities (from either family), a side cancels its two corners, and a narrower utility refines a broader one instead of canceling it — `squircle-md squircle-tl-sm` keeps both. `squircle-amt-*` is independent of radius classes. `squircle-pill` counts as an all-corners utility, and its `-amt-*`, `-ease-*`, `-g2`/`-g3` and side modifiers each only cancel their own kind, except that a later all-corners radius cancels a side along with the pill.
+The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners utility cancels earlier side/corner utilities (from either family), a side cancels its two corners, and a narrower utility refines a broader one instead of canceling it — `squircle-md squircle-tl-sm` keeps both. `squircle-amt-*` is independent of radius classes. `squircle-pill` counts as an all-corners utility, and its `-arc-setback-*`, `-edge-setback-*`, `-g2`/`-g3` and side modifiers each only cancel their own kind, except that a later all-corners radius cancels a side along with the pill.
 
 ### Utilities
 
@@ -449,7 +449,7 @@ The parameters are deliberately untyped so relative units (`em`, `rem`, containe
 
 `rounded-full` gives you a stadium: two semicircles and two straight edges, meeting where the curvature drops from `1/r` to zero in a single step. That step is visible as a faint crease at each end of every pill button. `corner-shape: superellipse()` can't fix it — on a pill the cap _is_ the shape, so reshaping the corner changes the silhouette — and no combination of `border-radius` values can ease one curvature into another.
 
-`squircle-pill` draws the pill with a [Houdini paint worklet](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Painting_API) instead. The caps stay circular arcs, and the last stretch of each arc is replaced by a **G2-continuous easing**: a power-law spiral (a [clothoid](https://en.wikipedia.org/wiki/Euler_spiral) at its simplest setting) along which curvature falls smoothly to zero before the flat edge begins. There are no size variants — the shape is derived from the element's own dimensions, so one utility covers every button, badge and avatar.
+`squircle-pill` draws the pill with a [Houdini paint worklet](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Painting_API) instead. The caps stay circular arcs, and the last stretch of each arc is replaced by a **G3-continuous easing**: a power-law spiral (a [clothoid](https://en.wikipedia.org/wiki/Euler_spiral) at its simplest setting) along which curvature falls smoothly to zero before the flat edge begins. There are no size variants — the shape is derived from the element's own dimensions, so one utility covers every button, badge and avatar.
 
 <details>
 <summary><strong>Tailwind CSS v4</strong></summary>
@@ -502,18 +502,20 @@ registerPillWorklet(workletUrl);
 <div class="squircle-pill h-10 w-10 bg-zinc-200"></div>
 ```
 
-| Utility                             | Effect                                                                                                                                                                                                   |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `squircle-pill`                     | The pill. Caps derived from the element's size.                                                                                                                                                          |
-| `squircle-pill-t`, `-r`, `-b`, `-l` | Caps that end alone and squares the other. A cap is never larger than the box allows, so `squircle-pill-t` on a wide button is a tab whose top corners run its full height.                              |
-| `squircle-pill-s`, `-e`             | The inline-start or inline-end end: `-l`/`-r`, swapped under `dir="rtl"`.                                                                                                                                |
-| `squircle-pill-amt-*`               | How much of each cap is handed to the easing, in 30° steps. `1` is a bare semicircle; default `2`.                                                                                                       |
-| `squircle-pill-ease-*`              | Stretches the easing further along the flat edge without spending more of the arc. `0` is a clothoid; default `2`.                                                                                       |
-| `squircle-pill-g2`                  | Matches curvature only (G2), where the easing leaves the arc and where it meets the edge. `squircle-pill-g3`, the default, also matches the rate curvature changes (G3) at both, for any ease above `0`. |
+| Utility                             | Effect                                                                                                                                                                      |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `squircle-pill`                     | The pill. Caps derived from the element's size.                                                                                                                             |
+| `squircle-pill-t`, `-r`, `-b`, `-l` | Caps that end alone and squares the other. A cap is never larger than the box allows, so `squircle-pill-t` on a wide button is a tab whose top corners run its full height. |
+| `squircle-pill-s`, `-e`             | The inline-start or inline-end end: `-l`/`-r`, swapped under `dir="rtl"`.                                                                                                   |
+| `squircle-pill-arc-setback-*`       | Degrees of circular arc replaced by the transition. Default `30`; `0` is a stadium.                                                                                         |
+| `squircle-pill-edge-setback-*`      | Distance past the arc's top to the end of the transition, in multiples of half the pill's height. Default `1`.                                                              |
+| `squircle-pill-g2`, `-g3`           | G2 matches curvature at the joins. G3, the default, also matches its rate of change.                                                                                        |
 
-Both accept bare numbers (`squircle-pill-amt-3`, `squircle-pill-amt-1.5`) and arbitrary values (`squircle-pill-amt-[2.5]`), and reject anything else. They only set the custom property — `--squircle-pill-amt` and `--squircle-pill-ease`, and `--squircle-pill-continuity` (`2` or `3`) for the `-g2`/`-g3` utilities — which you can also set yourself, on the element or an ancestor; both are registered and animate. When an element is too narrow for what you asked for, both are eased down together so the join stays smooth; a square renders as a plain circle.
+Use bare degrees (`squircle-pill-arc-setback-30`), arbitrary angles (`squircle-pill-arc-setback-[0.5rad]`), and numeric distances (`squircle-pill-edge-setback-1.5`). CSS-variable utilities such as `squircle-pill-arc-setback-(--arc)` and `squircle-pill-edge-setback-(--edge)` work too. They set `--squircle-pill-arc-setback` (an angle) and `--squircle-pill-edge-setback` (a number), which inherit and animate. Both renderers use the same geometry and fitting.
 
-A side is a modifier on the pill, one per pill; a later one replaces an earlier one. It's for button groups and segmented controls:
+Either setback at zero produces a stadium. Requests are fitted to the supported curvature range and the space available: a very short edge setback can reduce the arc angle, and narrow pills reduce the transition to fit. A square renders as a circle. On a side pill, the distance unit is half the fitted cap's height, after turning the capped side into the drawing's coordinate system.
+
+**Migrating from 0.12.3:** `squircle-pill-amt-*`, `squircle-pill-ease-*`, their CSS variables, and `PILL_SHAPE_PROPERTIES.amt`/`.ease` are removed. Use the setback utilities/variables and `.arcSetback`/`.edgeSetback`. Direct polyfill geometry calls now take `{ arcSetback: "30deg", edgeSetback: "1" }` instead of `{ amt, ease }`. The default is now 30° and 1r, so the default silhouette changes. To approximate the previous G3 default, use 30° and an edge setback of `0.6035`; `ease` has no direct numeric rename because it was an exponent, not a distance. G2 and G3 remain available. Initialization is unchanged.
 
 ```html
 <div class="flex gap-0.5">
@@ -594,13 +596,13 @@ Register the worklet as above. Here the pill's own properties also drive a real 
 
 ### How pill shapes work
 
-A circular arc has constant curvature `1/R`; a straight edge has none. The worklet joins them with a transition along which curvature falls off over the transition's arc length. With `squircle-pill-g2` it falls as `k(t) = (1/R) · (1 − t)^(q − 1)` — a clothoid at `q = 2`, where the fall is linear, and a softer spiral above it. `squircle-pill-amt-*` sets how much of the arc (β, in 30° steps) the transition replaces, and `squircle-pill-ease-*` offsets `q` (`q = ease + 2`), which lengthens the transition to `q · R · β` along the edge without eating any more of the arc. The cap radius is then solved so that the arc's rise plus the transition's rise is exactly half the element's height, so the outline always fits the box; the position along the transition is the Fresnel-type integral of that curvature, evaluated numerically once per shape and cached.
+A circular arc has constant curvature `1/R`; a straight edge has none. The worklet joins them with a transition along which curvature falls monotonically to zero. Arc setback gives the requested angular span β. Edge setback gives the requested distance from the circular cap's top to the transition's flat endpoint, normalized by the cap's half-height. The worklet solves for the curvature exponent q that reaches that endpoint, and solves the cap radius so the whole shape fits its height. The inverse solve and geometry are cached across elements and sizes.
 
-That profile leaves the arc already shedding curvature at a finite rate, so it is only G2 where it leaves the arc. The default, G3, uses `k(t) = (1/R) · (1 − t²)^(q − 1)` instead, whose curvature starts falling with zero slope — G3 at the arc — and, for `q > 2` (any ease above `0`), also arrives with zero slope at the edge. Everything else, including the fit to the box, is the same for both.
+G2 uses `k(t) = (1/R) · (1 − t)^(q − 1)`, a clothoid at q = 2. G3 uses `k(t) = (1/R) · (1 − t²)^(q − 1)` with q > 2 so curvature has zero slope at both joins. The solver caps q at 128 to keep extreme requests resolved by the quadrature samples; requests outside that range are constrained. Fitting preserves the selected continuity while reducing the transition to fit the available box.
 
 That's a different construction from the curvature-continuous fillet in CAD tools (SolidWorks and Onshape's "curvature continuous", Fusion's G2, Rhino's `BlendCrv`), which blend arc into edge with a quintic Hermite polynomial that has position, tangent and curvature prescribed at both ends, controlled by a setback per face and a bulge per end. The spiral's advantage is that its curvature profile is monotone by construction and its length is a closed-form function of the cap, which is what lets it fit itself to the box; the Hermite blend keeps the cap at its full radius and lets the blend bow outward, which is right for a model and wrong for a button. The site's [pill algorithms demo](https://squircle.klink.ing/demos/pill-algorithms) renders the two side by side, with each one's controls and a curvature comb, so you can judge for yourself.
 
-**Browser support:** the Paint API is in Chromium (Chrome, Edge, Opera, Samsung Internet). Safari and Firefox get the stadium fallback. Both `--squircle-pill-*` properties are registered with `@property`, which those browsers support, so nothing else changes.
+**Browser support:** the Paint API is in Chromium (Chrome, Edge, Opera, Samsung Internet). Safari and Firefox get the stadium fallback. The shape properties are registered with `@property`, which those browsers support, so nothing else changes.
 
 ## How the radius correction works
 
