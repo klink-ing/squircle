@@ -6,7 +6,19 @@
 // @vitest-environment happy-dom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { polyfillPills, type PillPolyfill } from "./pill-polyfill";
+import { pillDecoration, polyfillPills, type PillPolyfill } from "./pill-polyfill";
+import {
+  PILL_BORDER_COLOR_VAR_NAME,
+  PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_DECORATION_CLIP_VAR_NAME,
+  PILL_DECORATION_VAR_NAME,
+  PILL_OUTLINE_COLOR_VAR_NAME,
+  PILL_OUTLINE_OFFSET_VAR_NAME,
+  PILL_OUTLINE_WIDTH_VAR_NAME,
+  PILL_POLYFILL_BORDER_VAR_NAME,
+  PILL_POLYFILL_REACH_VAR_NAME,
+  PILL_REACH_VAR_NAME,
+} from "./variants";
 
 /**
  * happy-dom observes no layout, so this stands in for the browser's
@@ -110,5 +122,51 @@ describe("polyfillPills re-reading settings", () => {
     expect(readsOf(spy, pill)).toBe(3);
     // Pills elsewhere are left alone.
     expect(readsOf(spy, far)).toBe(1);
+  });
+
+  it.each([2, 4, 6])(
+    "aligns decoration layout and drawing with a zoomed reach of %ipx",
+    (reach) => {
+      // At 50%, 100%, and 150% Safari reports a different derived reach for
+      // the same 2px outline and offset. Its CSS box must use exactly the
+      // drawing's outset, without substituting another registered length.
+      const pill = document.getElementById("pill") as HTMLElement;
+      const values = {
+        [PILL_BORDER_WIDTH_VAR_NAME]: "2px",
+        [PILL_BORDER_COLOR_VAR_NAME]: "#12665e",
+        [PILL_OUTLINE_WIDTH_VAR_NAME]: "2px",
+        [PILL_OUTLINE_OFFSET_VAR_NAME]: "2px",
+        [PILL_OUTLINE_COLOR_VAR_NAME]: "#2896e3",
+        [PILL_REACH_VAR_NAME]: "4px",
+      };
+      for (const [name, value] of Object.entries(values)) pill.style.setProperty(name, value);
+      // Reproduce the browser's computed value rather than a CSS zoom, which
+      // does not trigger the WebKit bug.
+      pill.style.setProperty(PILL_REACH_VAR_NAME, `${reach}px`);
+      polyfill?.refresh(pill);
+
+      const expectedReach = Math.max(reach, 4);
+      const drawing = pillDecoration(120, 40, {
+        ...values,
+        [PILL_REACH_VAR_NAME]: `${expectedReach}px`,
+      });
+      expect(pill.style.getPropertyValue(PILL_POLYFILL_BORDER_VAR_NAME)).toBe("2px");
+      expect(pill.style.getPropertyValue(PILL_POLYFILL_REACH_VAR_NAME)).toBe(`${expectedReach}px`);
+      expect(pill.style.getPropertyValue(PILL_DECORATION_VAR_NAME)).toBe(drawing?.image);
+      expect(pill.style.getPropertyValue(PILL_DECORATION_CLIP_VAR_NAME)).toBe("");
+    },
+  );
+
+  it("updates and removes the untyped layout lengths", () => {
+    const pill = document.getElementById("pill") as HTMLElement;
+    pill.style.setProperty(PILL_BORDER_WIDTH_VAR_NAME, "2px");
+    polyfill?.refresh(pill);
+    expect(pill.style.getPropertyValue(PILL_POLYFILL_BORDER_VAR_NAME)).toBe("2px");
+    pill.style.setProperty(PILL_BORDER_WIDTH_VAR_NAME, "0px");
+    polyfill?.refresh(pill);
+    expect(pill.style.getPropertyValue(PILL_POLYFILL_BORDER_VAR_NAME)).toBe("0px");
+    polyfill?.disconnect();
+    expect(pill.style.getPropertyValue(PILL_POLYFILL_BORDER_VAR_NAME)).toBe("");
+    expect(pill.style.getPropertyValue(PILL_POLYFILL_REACH_VAR_NAME)).toBe("");
   });
 });
