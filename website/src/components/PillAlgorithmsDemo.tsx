@@ -332,6 +332,7 @@ function Stats({ values }: { values: Record<string, string> }) {
 // ── The page ────────────────────────────────────────────────────
 
 export default function PillAlgorithmsDemo() {
+  const [overlay, setOverlay] = useState(false);
   const [ratio, setRatio] = useState(4);
   const height = W / ratio;
   const buttonSize: React.CSSProperties = {
@@ -339,8 +340,10 @@ export default function PillAlgorithmsDemo() {
     maxWidth: "100%",
     aspectRatio: ratio,
     fontSize: Math.min(14, height * 0.6),
+    gridArea: overlay ? "1 / 1" : undefined,
   };
   const buttonLabel = "flex items-center justify-center whitespace-nowrap font-medium leading-none";
+  const comparisonLayout = `isolate min-w-0 ${overlay ? "grid grid-cols-1" : "space-y-2"}`;
   const [shape, setShape] = useState<PillShapeSettings>(DEFAULT_SHAPE);
   const [continuity, setContinuity] = useState(2);
   const [fit, setFit] = useState(true);
@@ -430,6 +433,17 @@ export default function PillAlgorithmsDemo() {
       </div>
 
       <div className={`${PINNED} grid gap-x-8 gap-y-2 md:grid-cols-2`}>
+        <label className="flex items-center gap-2 text-xs text-zinc-300 md:col-span-2">
+          <input
+            id="comparison-overlay"
+            type="checkbox"
+            role="switch"
+            checked={overlay}
+            onChange={(e) => setOverlay(e.target.checked)}
+            className="h-4 w-4 accent-indigo-500"
+          />
+          Overlay white comparison
+        </label>
         <div className="grid grid-cols-[auto_minmax(0,1fr)_3.5rem] items-center gap-x-3 text-xs md:col-span-2">
           <Slider
             id="button-ratio"
@@ -523,24 +537,24 @@ export default function PillAlgorithmsDemo() {
       </div>
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
-        <div className="min-w-0 space-y-2">
+        <div className={comparisonLayout}>
           <div className={`${buttonLabel} rounded-full bg-white text-zinc-950`} style={buttonSize}>
             rounded-full
           </div>
           <div
             ref={spiralPill}
-            className={`${buttonLabel} squircle-pill bg-demo-squircle text-white`}
+            className={`${buttonLabel} relative z-10 squircle-pill bg-demo-squircle text-white`}
             style={{ ...(shapeStyle(shape) as React.CSSProperties), ...buttonSize }}
           >
             squircle-pill · G{shape.continuity}
           </div>
         </div>
-        <div className="min-w-0 space-y-2">
+        <div className={comparisonLayout}>
           <div className={`${buttonLabel} rounded-full bg-white text-zinc-950`} style={buttonSize}>
             rounded-full
           </div>
           <div
-            className={`${buttonLabel} pill-fillet bg-demo-plain text-white`}
+            className={`${buttonLabel} relative z-10 pill-fillet bg-demo-plain text-white`}
             style={{ ...filletStyle, ...buttonSize }}
           >
             Hermite blend · G{continuity}
