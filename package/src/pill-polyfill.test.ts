@@ -37,16 +37,44 @@ import {
 
 type Point = { x: number; y: number };
 
-const parse = (d: string): Point[][] =>
-  d
-    .split("Z")
-    .filter((sub) => sub.includes("M"))
-    .map((sub) =>
-      [...sub.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({
-        x: Number(m[1]),
-        y: Number(m[2]),
-      })),
-    );
+/**
+ * The vertices of each subpath in path data, absolute: the polyfill writes
+ * `M`, `L` and `H`/`V`, and relative `l` (with repeated pairs), `h` and `v`.
+ */
+const parse = (d: string): Point[][] => {
+  const paths: Point[][] = [];
+  let points: Point[] = [];
+  let x = 0;
+  let y = 0;
+  for (const [, command, args] of d.matchAll(/([MLHVZlhv])([^MLHVZlhv]*)/g)) {
+    const n = (args ?? "")
+      .trim()
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(Number);
+    const at = () => points.push({ x, y });
+    if (command === "Z") {
+      if (points.length > 0) paths.push(points);
+      points = [];
+    } else if (command === "M" || command === "L" || command === "l") {
+      const relative = command === "l";
+      for (let i = 0; i < n.length; i += 2) {
+        x = (relative ? x : 0) + (n[i] as number);
+        y = (relative ? y : 0) + (n[i + 1] as number);
+        at();
+      }
+    } else {
+      for (const v of n) {
+        if (command === "H") x = v;
+        else if (command === "V") y = v;
+        else if (command === "h") x += v;
+        else y += v;
+        at();
+      }
+    }
+  }
+  return paths;
+};
 
 /** The vertices the worklet itself draws, without the repeats where quadrants meet. */
 const workletVertices = (width: number, height: number, values: Record<string, string> = {}) => {
@@ -153,6 +181,29 @@ describe("pill polyfill", () => {
     it("is one closed path, and empty for a box with no area", () => {
       expect(pillOutlinePath(240, 60)).toMatch(/^M[^Z]*Z$/);
       expect(pillOutlinePath(0, 60)).toBe("");
+    });
+
+    it("traces the outline's own points, to the hundredth it is written to", () => {
+      // Pills with a flat edge are written from cached relative runs of the
+      // quadrant, the rest point by point; both must land on the outline.
+      for (const [w, h, shape] of [
+        [240, 60, {}],
+        [33.33, 120.01, {}],
+        [61, 60, {}],
+        [500, 20, { amt: "4", ease: "6", continuity: "2" }],
+        [120, 40, { side: "t" }],
+      ] as const) {
+        const traced = parse(pillOutlinePath(w, h, shape))[0] as Point[];
+        const outline = pillOutlinePoints(w, h, shape);
+        expect(traced.length, `${w}x${h}`).toBe(outline.length);
+        traced.forEach((p, i) => {
+          const q = outline[i] as Point;
+          expect(
+            Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)),
+            `${w}x${h} #${i}`,
+          ).toBeLessThan(0.011);
+        });
+      }
     });
   });
 

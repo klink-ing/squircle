@@ -23,6 +23,8 @@ import {
   PILL_OUTLINE_STYLE_VAR_NAME,
   PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
+  PILL_POLYFILL_BORDER_VAR_NAME,
+  PILL_POLYFILL_REACH_VAR_NAME,
   PILL_REACH_VAR_NAME,
   PILL_RING_COLOR_VAR_NAME,
   PILL_RING_OFFSET_COLOR_VAR_NAME,
@@ -48,6 +50,17 @@ export interface PillShapeInput {
 
 interface PillGeometry {
   boxOutline(width: number, height: number, props: Lookup): Point[];
+  outline(long: number, short: number, quadrant: Point[]): Point[];
+  fittedQuadrant(
+    long: number,
+    short: number,
+    ease: number,
+    exponent: number,
+    continuity: number,
+  ): Point[];
+  resolveAngle(props: Lookup): number;
+  resolveExponent(props: Lookup): number;
+  resolveContinuity(props: Lookup): number;
   resolveSide(props: Lookup): string;
   offsetOutline(points: Point[], distance: number): Point[];
   resolveLength(props: Lookup, name: string): number;
@@ -115,20 +128,210 @@ export function pillOutlinePoints(
  * resolve.
  */
 const round = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * A whole number of hundredths of a pixel as path data: `1234` is `12.34`.
+ * Formatting the integer and placing the point by hand is about twice as
+ * fast as formatting the fraction, and this runs for every point of every
+ * pill on every resize.
+ */
+function hundredths(n: number): string {
+  const sign = n < 0 ? "-" : "";
+  const abs = n < 0 ? -n : n;
+  const whole = Math.floor(abs / 100);
+  const frac = abs - whole * 100;
+  if (frac === 0) return sign + whole;
+  if (frac % 10 === 0) return `${sign}${whole}.${frac / 10}`;
+  return `${sign}${whole}${frac < 10 ? ".0" : "."}${frac}`;
+}
+const coordinate = (v: number) => hundredths(Math.round(v * 100));
+
 const subpath = (points: Point[]): string => {
-  // Rounding by hand is several times cheaper than `toFixed`, and this runs
-  // for every point of every pill on every resize.
   const first = points[0] as Point;
-  let d = `M${round(first.x)} ${round(first.y)}`;
+  let d = `M${coordinate(first.x)} ${coordinate(first.y)}`;
   for (let i = 1; i < points.length; i++) {
     const p = points[i] as Point;
-    d += `L${round(p.x)} ${round(p.y)}`;
+    d += `L${coordinate(p.x)} ${coordinate(p.y)}`;
   }
   return `${d}Z`;
 };
 
+/**
+ * The parts of a pill's path that do not depend on its length: everything
+ * but the two flat edges. A pill capped at both ends is one quadrant four
+ * times over, mirrored, and moving the outline out or in moves each of its
+ * points along its own normal, the same in every copy. So in relative
+ * commands, each quadrant's run of the path is the same few deltas with
+ * their signs flipped, for any length; only the flat edges between them
+ * change. They are worked out once per quadrant and offset, in whole
+ * hundredths of a pixel — rounded where they are absolute, so the deltas are
+ * exact and add up to the very points they stand for.
+ */
+interface Pieces {
+  /** The first point, in hundredths of the long and short axes. */
+  x0: number;
+  y0: number;
+  /** Where the quadrant meets the flat edge, along the long axis. */
+  xj: number;
+  /** Where the path ends, across the short axis: the start, mirrored. */
+  y1: number;
+  /** The step across the short axis where the top half meets the bottom. */
+  join: number;
+  /** The quadrant's runs, in path order, and backwards. */
+  runs: [string, string, string, string];
+  reversed: [string, string, string, string];
+}
+const piecesCache = new WeakMap<Point[], Map<string, Pieces>>();
+
+/** Relative line commands through these steps, written along the box's axes. */
+function run(steps: number[], vertical: boolean): string {
+  if (steps.length === 0) return "";
+  let d = "l";
+  for (let i = 0; i < steps.length; i += 2) {
+    const along = steps[i] as number;
+    const across = steps[i + 1] as number;
+    d += `${i === 0 ? "" : " "}${hundredths(vertical ? across : along)} ${hundredths(vertical ? along : across)}`;
+  }
+  return d;
+}
+
+/**
+ * The outline of a pill capped at both ends with a flat edge between, moved
+ * out by `distance` (in where negative), shifted by `shift` on both axes, and
+ * optionally backwards, as path data from cached `Pieces`; `null` where that
+ * does not apply — a pill capped at one end, a box with no area, or one too
+ * short for a flat edge, whose quadrant changes with its length anyway — for
+ * the caller to build the path point by point instead.
+ */
+function pillPath(
+  width: number,
+  height: number,
+  shape: PillShapeInput,
+  distance = 0,
+  shift = 0,
+  backwards = false,
+): string | null {
+  if (width <= 0 || height <= 0) return null;
+  const props = lookup({
+    [PILL_AMT_VAR_NAME]: shape.amt,
+    [PILL_EASE_VAR_NAME]: shape.ease,
+    [PILL_CONTINUITY_VAR_NAME]: shape.continuity,
+    [PILL_SIDE_VAR_NAME]: shape.side,
+  });
+  if (geometry.resolveSide(props) !== "auto") return null;
+  const vertical = height > width;
+  const long = vertical ? height : width;
+  const short = vertical ? width : height;
+  const quadrant = geometry.fittedQuadrant(
+    long,
+    short,
+    geometry.resolveAngle(props),
+    geometry.resolveExponent(props),
+    geometry.resolveContinuity(props),
+  );
+  const end = quadrant[quadrant.length - 1];
+  if (!end || long - 2 * end.x <= 1e-6) return null;
+
+  let byOffset = piecesCache.get(quadrant);
+  if (!byOffset) piecesCache.set(quadrant, (byOffset = new Map()));
+  const key = `${distance},${vertical}`;
+  let pieces = byOffset.get(key);
+  if (!pieces) {
+    const made = makePieces(quadrant, long, short, distance, vertical);
+    if (!made) return null;
+    byOffset.set(key, (pieces = made));
+  }
+
+  const { x0, y0, y1, xj, join, runs, reversed } = pieces;
+  const flat = Math.round(long * 100) - 2 * xj;
+  if (flat <= 0) return null;
+  const s = Math.round(shift * 100);
+  const across = (n: number) => `${vertical ? "h" : "v"}${hundredths(n)}`;
+  const along = (n: number) => `${vertical ? "v" : "h"}${hundredths(n)}`;
+  const at = (x: number, y: number) =>
+    `M${hundredths((vertical ? y : x) + s)} ${hundredths((vertical ? x : y) + s)}`;
+  const [a, b, c, d] = backwards ? reversed : runs;
+  const joint = join === 0 ? "" : across(backwards ? -join : join);
+  return `${at(x0, backwards ? y1 : y0)}${a}${along(flat)}${b}${joint}${c}${along(-flat)}${d}Z`;
+}
+
+function makePieces(
+  quadrant: Point[],
+  long: number,
+  short: number,
+  distance: number,
+  vertical: boolean,
+): Pieces | null {
+  const n = quadrant.length;
+  let points = quadrant;
+  if (distance !== 0) {
+    // Offset the whole outline, at this length, and keep the first
+    // quadrant: each point moves by its neighbours alone, and with a flat
+    // edge the last one's neighbour across it is level for any length.
+    const ring: Point[] = [];
+    for (const q of geometry.outline(long, short, quadrant)) {
+      const last = ring[ring.length - 1];
+      if (!last || Math.abs(last.x - q.x) > 1e-6 || Math.abs(last.y - q.y) > 1e-6) ring.push(q);
+    }
+    const moved = geometry.offsetOutline(ring, distance);
+    // Anything other than the quadrant's own points first means repeats
+    // were dropped from it; build the path point by point instead.
+    if (moved.length !== 4 * n - 2) return null;
+    points = moved.slice(0, n);
+  }
+  const xs = points.map((p) => Math.round(p.x * 100));
+  // Across the short axis, from its middle, so the bottom half mirrors the
+  // top exactly even where the box is an odd number of hundredths across.
+  const middle = Math.round(short * 50);
+  const ys = points.map((p) => Math.round((p.y - short / 2) * 100));
+  // Steps along the quadrant, then its three mirror images in path order:
+  // mirrored along the long axis and backwards, across both, across the
+  // short axis and backwards.
+  const a: number[] = [];
+  const b: number[] = [];
+  const c: number[] = [];
+  const d: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = (xs[i + 1] as number) - (xs[i] as number);
+    const dy = (ys[i + 1] as number) - (ys[i] as number);
+    a.push(dx, dy);
+    c.push(-dx, -dy);
+  }
+  for (let i = n - 1; i > 0; i--) {
+    const dx = (xs[i] as number) - (xs[i - 1] as number);
+    const dy = (ys[i] as number) - (ys[i - 1] as number);
+    b.push(dx, -dy);
+    d.push(-dx, dy);
+  }
+  // The same path backwards: each run backwards, steps negated.
+  const back = (steps: number[]) => {
+    const out: number[] = [];
+    for (let i = steps.length - 2; i >= 0; i -= 2)
+      out.push(-(steps[i] as number), -(steps[i + 1] as number));
+    return out;
+  };
+  return {
+    x0: xs[0] as number,
+    y0: middle + (ys[0] as number),
+    xj: xs[n - 1] as number,
+    y1: middle - (ys[0] as number),
+    join: -2 * (ys[0] as number),
+    // Each way round, the last step returns to where the path began, which
+    // `Z` does instead.
+    runs: [run(a, vertical), run(b, vertical), run(c, vertical), run(d.slice(0, -2), vertical)],
+    reversed: [
+      run(back(d), vertical),
+      run(back(c), vertical),
+      run(back(b), vertical),
+      run(back(a).slice(0, -2), vertical),
+    ],
+  };
+}
+
 /** The pill's outline as SVG path data, in the coordinates of its box. */
 export function pillOutlinePath(width: number, height: number, shape: PillShapeInput = {}): string {
+  const fast = pillPath(width, height, shape);
+  if (fast !== null) return fast;
   const points = pillOutlinePoints(width, height, shape);
   return points.length > 0 ? subpath(points) : "";
 }
@@ -149,6 +352,8 @@ export function pillClipPath(
   const auto = geometry.resolveSide(lookup({ [PILL_SIDE_VAR_NAME]: shape?.side })) === "auto";
   if (width <= 0 || height <= 0 || (width === height && inset <= 0 && auto)) return null;
   if (inset <= 0) return `path("${pillOutlinePath(width, height, shape)}")`;
+  const fast = pillPath(width, height, shape ?? {}, -inset);
+  if (fast !== null) return `path("${fast}")`;
   return `path("${subpath(geometry.offsetOutline(pillOutlinePoints(width, height, shape), -inset))}")`;
 }
 
@@ -340,12 +545,24 @@ export function pillDecoration(
     return image ? { image, clip: null } : null;
   }
   const outset = geometry.decorationOutset(props);
+  // A band reaching in past the middle would cross itself; it ends there.
+  const deepest = -(Math.min(width, height) / 2 - 0.01);
+  if (band.dash.length === 0) {
+    // A solid band is its outer edge, then its inner one backwards, which
+    // with even-odd fill is the hole that leaves the band.
+    const outer = pillPath(width, height, shape, Math.max(band.to, deepest), outset);
+    const inner = pillPath(width, height, shape, Math.max(band.from, deepest), outset, true);
+    if (outer !== null && inner !== null) {
+      return {
+        image: `linear-gradient(${band.color}, ${band.color})`,
+        clip: `path(evenodd, "${outer}${inner}")`,
+      };
+    }
+  }
   const outline = pillOutlinePoints(width, height, shape).map((p) => ({
     x: p.x + outset,
     y: p.y + outset,
   }));
-  // A band reaching in past the middle would cross itself; it ends there.
-  const deepest = -(Math.min(width, height) / 2 - 0.01);
   const edges: BandEdges = {
     outer: geometry.offsetOutline(outline, Math.max(band.to, deepest)),
     inner: geometry.offsetOutline(outline, Math.max(band.from, deepest)),
@@ -445,6 +662,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     decoration: PillDecorationInput;
     decorationKey: string;
     inset: number;
+    border: number;
+    reach: number;
   }
   const settings = new WeakMap<Element, Settings>();
   const read = (el: Element): Settings => {
@@ -455,8 +674,20 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     for (const name of PILL_DECORATION_PROPERTIES) values[name] = style.getPropertyValue(name);
     // Most pills have none, and are spared working it out on every resize.
     const props = lookup(values);
-    const decorated =
-      geometry.decorationBands(props).length > 0 || geometry.decorationShadows(props).length > 0;
+    const bands = geometry.decorationBands(props);
+    const shadows = geometry.decorationShadows(props);
+    const decorated = bands.length > 0 || shadows.length > 0;
+    // Safari can scale the derived, registered reach when its length inputs
+    // are substituted. Keep the CSS box and drawing on the same pixel value,
+    // with enough room for every band and shadow even when zooming out.
+    const reach = Math.max(
+      geometry.decorationOutset(props),
+      ...bands.map((band) => band.to),
+      ...shadows.map(
+        (shadow) => Math.max(Math.abs(shadow.x), Math.abs(shadow.y)) + shadow.blur + shadow.spread,
+      ),
+    );
+    values[PILL_REACH_VAR_NAME] = `${reach}px`;
     const fresh: Settings = {
       shape: {
         amt: style.getPropertyValue(PILL_AMT_VAR_NAME),
@@ -467,6 +698,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       decoration: decorated ? values : {},
       decorationKey: decorated ? Object.values(values).join("|") : "",
       inset: pillBackgroundInset(values),
+      border: Math.max(geometry.resolveLength(props, PILL_BORDER_WIDTH_VAR_NAME), 0),
+      reach,
     };
     settings.set(el, fresh);
     return fresh;
@@ -494,16 +727,17 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
     const deadline = performance.now() + FRAME_BUDGET_MS;
     // All reads first, then all writes, so no read forces a style recalc
     // that an earlier write invalidated.
-    const updates: [HTMLElement, string | null, PillDecorationDrawing | null][] = [];
+    const updates: [HTMLElement, string | null, PillDecorationDrawing | null, number, number][] =
+      [];
     for (const el of pending) {
       if (performance.now() > deadline && updates.length > 0) break;
       pending.delete(el);
       const size = sizes.get(el);
       if (!size) continue;
       const { width, height } = size;
-      const { shape, decoration, decorationKey, inset } = read(el);
+      const { shape, decoration, decorationKey, inset, border, reach } = read(el);
       const shapeKey = `${width},${height},${shape.amt},${shape.ease},${shape.continuity},${shape.side}`;
-      const key = `${shapeKey},${inset},${decorationKey}`;
+      const key = `${shapeKey},${inset},${border},${reach},${decorationKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);
       updates.push([
@@ -512,9 +746,13 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         decorationKey
           ? cachedDrawing(`d:${key}`, () => pillDecoration(width, height, decoration, shape))
           : null,
+        border,
+        reach,
       ]);
     }
-    for (const [el, clip, decorated] of updates) {
+    for (const [el, clip, decorated, border, reach] of updates) {
+      el.style.setProperty(PILL_POLYFILL_BORDER_VAR_NAME, `${border}px`);
+      el.style.setProperty(PILL_POLYFILL_REACH_VAR_NAME, `${reach}px`);
       if (clip) el.style.setProperty(PILL_CLIP_VAR_NAME, clip);
       else el.style.removeProperty(PILL_CLIP_VAR_NAME);
       if (decorated) el.style.setProperty(PILL_DECORATION_VAR_NAME, decorated.image);
@@ -659,6 +897,8 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         (el as HTMLElement).style.removeProperty(PILL_CLIP_VAR_NAME);
         (el as HTMLElement).style.removeProperty(PILL_DECORATION_VAR_NAME);
         (el as HTMLElement).style.removeProperty(PILL_DECORATION_CLIP_VAR_NAME);
+        (el as HTMLElement).style.removeProperty(PILL_POLYFILL_BORDER_VAR_NAME);
+        (el as HTMLElement).style.removeProperty(PILL_POLYFILL_REACH_VAR_NAME);
       }
       watched.clear();
       doc.documentElement.removeAttribute(PILL_POLYFILL_ATTRIBUTE);

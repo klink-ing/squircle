@@ -30,7 +30,7 @@ declare const __SQUIRCLE_CSS_NAMESPACE__: string | undefined;
 export const CSS_NAMESPACE: string =
   typeof __SQUIRCLE_CSS_NAMESPACE__ === "string"
     ? __SQUIRCLE_CSS_NAMESPACE__
-    : (globalThis.process?.env?.SQUIRCLE_CSS_NAMESPACE ?? "squircle");
+    : (globalThis.process?.env?.["SQUIRCLE_CSS_NAMESPACE"] ?? "squircle");
 
 /** `--<namespace>-<name>`, e.g. `--squircle-amt`. */
 const coreVar = (name: string) => `--${CSS_NAMESPACE}-${name}`;
@@ -131,6 +131,10 @@ export const PILL_WORKLET_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-workle
  * it computes per element from the same geometry the worklet draws.
  */
 export const PILL_POLYFILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill-polyfill`;
+// Untyped pixel values: WebKit scales registered lengths again on substitution
+// at page zoom, so the polyfill must lay out its drawing with these instead.
+export const PILL_POLYFILL_BORDER_VAR_NAME: string = pillVar("polyfill-border");
+export const PILL_POLYFILL_REACH_VAR_NAME: string = pillVar("polyfill-reach");
 export const PILL_CLIP_VAR_NAME: string = pillVar("clip");
 /** What the standalone stylesheet hangs its rules off, so it works without Tailwind. */
 export const PILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill`;

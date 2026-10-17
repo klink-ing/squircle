@@ -7,6 +7,7 @@ catalog:
   "@semantic-release/commit-analyzer": ^13.0.1
   "@semantic-release/github": ^11.0.1
   "@semantic-release/release-notes-generator": ^14.0.3
+  "@types/babel__core": ^7.20.5
   "@types/node": ^24
   conventional-changelog-conventionalcommits: ^9.3.1
   happy-dom: ^20.14.5
@@ -31,6 +32,8 @@ overrides:
   "@vitest/utils": 5.0.3
   vite: "catalog:"
   vitest: "catalog:"
+patchedDependencies:
+  "@pandacss/types@1.11.0": patches/@pandacss__types@1.11.0.patch
 
 peerDependencyRules:
   allowAny:

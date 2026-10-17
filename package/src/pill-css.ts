@@ -30,6 +30,8 @@ import {
   PILL_OUTLINE_STYLE_VAR_NAME,
   PILL_OUTLINE_WIDTH_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
+  PILL_POLYFILL_BORDER_VAR_NAME,
+  PILL_POLYFILL_REACH_VAR_NAME,
   PILL_REACH_VAR_NAME,
   PILL_RING_COLOR_VAR_NAME,
   PILL_RING_OFFSET_COLOR_VAR_NAME,
@@ -198,19 +200,19 @@ const TAILWIND_BOX_SHADOW = [
  * as it would anywhere, shadows and all.
  */
 export function pillCssObj(flavor: PillCssFlavor): PillCss {
-  const background = (shape: PillCss): PillCss => ({
+  const background = (shape: PillCss, border = PILL_BORDER_WIDTH_VAR_NAME): PillCss => ({
     content: '""',
     position: "absolute",
     // The pseudo is positioned against the padding box; the border box is
     // what it has to cover.
-    inset: `calc(-1 * var(${PILL_BORDER_WIDTH_VAR_NAME}))`,
+    inset: `calc(-1 * var(${border}))`,
     "z-index": "-1",
     "pointer-events": "none",
     "border-radius": "inherit",
     background: "inherit",
     // A border as wide as the element's, so a background positioned against
     // the padding box lines up with the original. Painted under it too.
-    border: `var(${PILL_BORDER_WIDTH_VAR_NAME}) solid transparent`,
+    border: `var(${border}) solid transparent`,
     "-webkit-background-clip": "border-box",
     "background-clip": "border-box",
     // The inset shadows paint inside the copy; the outer ones are cut away
@@ -219,18 +221,22 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     ...shape,
   });
 
-  const decoration = (paint: PillCss): PillCss => ({
+  const decoration = (
+    paint: PillCss,
+    border = PILL_BORDER_WIDTH_VAR_NAME,
+    reach = PILL_REACH_VAR_NAME,
+  ): PillCss => ({
     // With Tailwind, only on pills `tailwind-pill-border` has seen a border,
     // outline, ring or shadow utility on: a pseudo on every pill, even drawing
     // nothing, costs a paint each per resize. Without that plugin, always.
     content: flavor === "tailwind" ? `var(${PILL_DECORATED_VAR_NAME}, "")` : '""',
     position: "absolute",
     "pointer-events": "none",
-    inset: `calc(-1 * (var(${PILL_BORDER_WIDTH_VAR_NAME}) + var(${PILL_REACH_VAR_NAME})))`,
+    inset: `calc(-1 * (var(${border}) + var(${reach})))`,
     ...paint,
   });
 
-  const shaped = (shape: PillCss, paint: PillCss): PillCss => ({
+  const shaped = (shape: PillCss, paint: PillCss, polyfill = false): PillCss => ({
     // The worklet only runs where there is an area to paint.
     "min-width": "1px",
     "min-height": "1px",
@@ -241,8 +247,13 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // The real border must not paint: it is a stadium ring. Its width still
     // reserves room for the drawn one.
     "border-color": "transparent",
-    "&::before": background(shape),
-    "&::after": decoration(paint),
+    ...(polyfill ? { "border-width": `var(${PILL_POLYFILL_BORDER_VAR_NAME}, 0px)` } : {}),
+    "&::before": background(shape, polyfill ? PILL_POLYFILL_BORDER_VAR_NAME : undefined),
+    "&::after": decoration(
+      paint,
+      polyfill ? PILL_POLYFILL_BORDER_VAR_NAME : undefined,
+      polyfill ? PILL_POLYFILL_REACH_VAR_NAME : undefined,
+    ),
   });
 
   return {
@@ -285,6 +296,8 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
       [PILL_CLIP_VAR_NAME]: "initial",
       [PILL_DECORATION_VAR_NAME]: "initial",
       [PILL_DECORATION_CLIP_VAR_NAME]: "initial",
+      [PILL_POLYFILL_BORDER_VAR_NAME]: "0px",
+      [PILL_POLYFILL_REACH_VAR_NAME]: "0px",
       // How far the outline, the ring and the shadows reach past the box,
       // which the decoration's box grows by.
       [PILL_REACH_VAR_NAME]: `max(0px, var(${PILL_OUTLINE_OFFSET_VAR_NAME}) + var(${PILL_OUTLINE_WIDTH_VAR_NAME}), var(${PILL_RING_OFFSET_WIDTH_VAR_NAME}) + var(${PILL_RING_WIDTH_VAR_NAME}), var(${PILL_SHADOW_REACH_VAR_NAME}))`,
@@ -345,6 +358,7 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
         "background-repeat": "no-repeat",
         "clip-path": `var(${PILL_DECORATION_CLIP_VAR_NAME}, none)`,
       },
+      true,
     ),
     // Hiding the element's own background and shadows, so nothing of the
     // stadium shows past the pill. Important, so neither a background or

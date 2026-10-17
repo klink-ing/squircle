@@ -75,7 +75,8 @@ export interface SquirclePillBorderPluginOptions {
  * width or a colour: a functional utility only matches when the value resolves
  * against the values and type given to it, so widths and colours can be
  * registered separately and anything unrecognised falls through to Tailwind
- * untouched.
+ * untouched. Untyped variables are forwarded as colours after those typed
+ * matchers decline them, following Tailwind's border and outline defaults.
  *
  * `border-dashed` and friends need no help — they set `--tw-border-style`, and
  * the pill utility reads that variable directly.
@@ -150,31 +151,60 @@ const squirclePillBorder: ReturnType<typeof plugin.withOptions<SquirclePillBorde
         // Gives the pill the `::after` its border, outline, rings and shadows
         // are drawn on.
         const decorated = { [PILL_DECORATED_VAR_NAME]: '""' };
-        matchUtilities(
-          {
-            border: (value: string) =>
-              onPill({ [PILL_BORDER_WIDTH_VAR_NAME]: value, ...decorated }),
-          },
-          asWidths(theme("borderWidth"), "1px"),
-        );
-        matchUtilities(
-          { border: (value: string) => onPill({ [PILL_BORDER_COLOR_VAR_NAME]: value }) },
-          { values: colors, type: "color" },
+        const mirror = (
+          name: string,
+          widthTheme: Record<string, string> | undefined,
+          width: (value: string) => ReturnType<typeof onPill>,
+          color: (value: string) => ReturnType<typeof onPill>,
+        ) => {
+          const widthOptions = asWidths(widthTheme, "1px");
+          let matched = false;
+          const handled = (emit: typeof width) => (value: string) => {
+            matched = true;
+            return emit(value);
+          };
+          matchUtilities({ [name]: handled(width) }, widthOptions);
+          matchUtilities({ [name]: handled(color) }, { values: colors, type: "color" });
+          // A `var()` has no inferable type. `['color', 'any']` would be a
+          // fallback utility, skipped once Tailwind's native rule matches.
+          // Instead, run an untyped matcher after the typed ones. Its values
+          // and modifiers cover every typed match so it always consumes the
+          // flag, including named widths and colours with opacity modifiers.
+          matchUtilities(
+            {
+              [name]: (value: string, { modifier }) => {
+                const alreadyMatched = matched;
+                matched = false;
+                if (alreadyMatched || modifier !== null || !value.startsWith("var(")) return {};
+                return color(value);
+              },
+            },
+            {
+              values: {
+                inherit: "inherit",
+                transparent: "transparent",
+                current: "currentcolor",
+                ...colors,
+                ...widthOptions.values,
+              },
+              type: "any",
+              modifiers: "any",
+            },
+          );
+        };
+        mirror(
+          "border",
+          theme("borderWidth"),
+          (value) => onPill({ [PILL_BORDER_WIDTH_VAR_NAME]: value, ...decorated }),
+          (value) => onPill({ [PILL_BORDER_COLOR_VAR_NAME]: value }),
         );
 
         const noOutline = { "outline-color": "transparent" };
-        matchUtilities(
-          {
-            outline: (value: string) =>
-              onPill({ [PILL_OUTLINE_WIDTH_VAR_NAME]: value, ...decorated }, noOutline),
-          },
-          asWidths(theme("outlineWidth"), "1px"),
-        );
-        matchUtilities(
-          {
-            outline: (value: string) => onPill({ [PILL_OUTLINE_COLOR_VAR_NAME]: value }, noOutline),
-          },
-          { values: colors, type: "color" },
+        mirror(
+          "outline",
+          theme("outlineWidth"),
+          (value) => onPill({ [PILL_OUTLINE_WIDTH_VAR_NAME]: value, ...decorated }, noOutline),
+          (value) => onPill({ [PILL_OUTLINE_COLOR_VAR_NAME]: value }, noOutline),
         );
         matchUtilities(
           {
