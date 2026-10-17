@@ -99,7 +99,7 @@ export function readParams(props) {
   const continuity = /** @type {1 | 2 | 3} */ (
     Math.min(Math.max(Math.round(number(props, CONTINUITY_VAR, 2)), 1), 3)
   );
-  const degrees = Math.min(Math.max(number(props, ARC_SETBACK_VAR, 45), 0), 89);
+  const degrees = Math.min(Math.max(number(props, ARC_SETBACK_VAR, 45), 0), 90);
   return {
     continuity,
     arcSetback: (degrees * Math.PI) / 180,

@@ -303,12 +303,12 @@ describe("pill-shape worklet geometry", () => {
   });
 
   describe("fitting the easing to the box", () => {
-    it("eases harder when the pill is too stubby for the request", () => {
+    it("reduces the transition reach when the pill is too stubby for the request", () => {
       const roomy = paint(400, 60);
       const stubby = paint(80, 60);
       const easeSpan = (ctx: RecordingContext) => {
         const j = junctionIndex(ctx);
-        // Angular span handed to the easing, via where the arc stops.
+        // Where the transition reaches the top flat edge.
         return ctx.vertices[j]!.x;
       };
       expect(easeSpan(stubby)).toBeLessThan(easeSpan(roomy));
@@ -317,13 +317,22 @@ describe("pill-shape worklet geometry", () => {
     it("draws a square as a circle without searching for an easing", () => {
       const worklet = new (ProfileGeometry as unknown as new () => {
         junctionRatio(...args: unknown[]): number;
-        fitEasing(r: number, half: number, beta: number, q: number, c: 2 | 3): { beta: number };
+        fitEasing(
+          r: number,
+          half: number,
+          beta: number,
+          q: number,
+          c: 2 | 3,
+        ): { beta: number; exponent: number };
       })();
       let probes = 0;
       const junctionRatio = worklet.junctionRatio.bind(worklet);
       worklet.junctionRatio = (...args) => (probes++, junctionRatio(...args));
       for (const c of [2, 3] as const) {
-        expect(worklet.fitEasing(50, 50, Math.PI / 3, 6, c).beta).toBe(0);
+        expect(worklet.fitEasing(50, 50, Math.PI / 3, 6, c)).toEqual({
+          beta: Math.PI / 3,
+          exponent: 1,
+        });
       }
       expect(probes).toBe(0);
     });
@@ -331,7 +340,13 @@ describe("pill-shape worklet geometry", () => {
     it("settles narrow pills in a couple of exact evaluations, from a table built once", () => {
       const worklet = new (ProfileGeometry as unknown as new () => {
         junctionRatio(...args: unknown[]): number;
-        fitEasing(r: number, half: number, beta: number, q: number, c: 2 | 3): { beta: number };
+        fitEasing(
+          r: number,
+          half: number,
+          beta: number,
+          q: number,
+          c: 2 | 3,
+        ): { beta: number; exponent: number };
       })();
       let probes = 0;
       const junctionRatio = worklet.junctionRatio.bind(worklet);
@@ -348,13 +363,11 @@ describe("pill-shape worklet geometry", () => {
         const fits = 200;
         for (let i = 1; i <= fits; i++) {
           const ratio = 1 + (i / fits) * 0.6;
-          const { beta } = worklet.fitEasing(1, ratio, wanted, q, c);
-          // Fits, and gives up no more than the tolerance to do it.
-          const exponent = (b: number) =>
-            Math.min(Math.max(1 / (1 - ((q - 1) / (q * wanted)) * b), c === 3 ? 2.01 : 2), q);
-          expect(junctionRatio(beta, exponent(beta), c)).toBeLessThanOrEqual(ratio + 1e-12);
-          const past = beta + 1e-4 * wanted;
-          expect(junctionRatio(past, exponent(past), c)).toBeGreaterThan(ratio);
+          const { beta, exponent } = worklet.fitEasing(1, ratio, wanted, q, c);
+          expect(beta).toBe(wanted);
+          expect(junctionRatio(beta, exponent, c)).toBeLessThanOrEqual(ratio + 1e-12);
+          const past = exponent + 1e-4 * (q - 1);
+          expect(junctionRatio(beta, past, c)).toBeGreaterThan(ratio);
         }
         expect(probes / fits, `G${c}`).toBeLessThan(2);
       }
@@ -500,61 +513,8 @@ describe("pill-shape worklet geometry", () => {
     });
   });
 
-  describe("fitting both controls together", () => {
-    // A pill too narrow for the requested easing has to give something up.
-    // Surrendering the amount alone drives the curvature rate up like 1 / beta,
-    // which is what makes a narrow pill look abruptly cornered.
-    const WIDTHS = [600, 300, 240, 180, 140, 110];
-
-    it("holds the curvature rate steady as the pill narrows", () => {
-      const rates = WIDTHS.map((w) => curvatureGradient(paint(w, HEIGHT, 4, 4), R));
-      const widest = rates[0]!;
-      for (let i = 0; i < rates.length; i++) {
-        expect(rates[i], `width ${WIDTHS[i]}`).toBeLessThan(1.3 * widest);
-      }
-    });
-
-    it("gives up ease as well as amount", () => {
-      // At 180 the requested easing does not fit, so both must come down.
-      const roomy = paint(600, HEIGHT, 4, 4);
-      const tight = paint(180, HEIGHT, 4, 4);
-
-      const capOf = (ctx: RecordingContext) =>
-        circleThrough(ctx.vertices[0]!, ctx.vertices[3]!, ctx.vertices[6]!);
-      const flatEdgeStart = (ctx: RecordingContext) => ctx.vertices[junctionIndex(ctx)]!.x;
-
-      // The tight pill still eases — it has not collapsed to a stadium...
-      expect(flatEdgeStart(tight)).toBeGreaterThan(capOf(tight).r * 1.2);
-      // ...and it eases over less room than the roomy one.
-      expect(flatEdgeStart(tight)).toBeLessThan(flatEdgeStart(roomy));
-    });
-
-    it("keeps more of the amount than backing off the amount alone would", () => {
-      // Trading ease for amount is the whole point: the cap should stay
-      // meaningfully eased rather than snapping back to a bare semicircle.
-      const tight = paint(140, HEIGHT, 4, 4);
-      const profile = capCurvature(tight);
-      const peak = Math.max(...profile);
-
-      // A real ramp, not a cliff, at a width where beta-only fitting collapses.
-      expect(peak).toBeGreaterThan(0);
-      expect(arrivalAngle(tight)).toBeLessThan(3);
-      expect(profile.length).toBeGreaterThan(8);
-    });
-
-    it("leaves a clothoid alone", () => {
-      // With the ease already at the clothoid there is nothing to trade,
-      // so narrowing may only reduce the amount.
-      for (const w of [600, 240, 140, 90]) {
-        const ctx = paint(w, HEIGHT, 4, 0);
-        for (const p of ctx.vertices) {
-          expect(p.x, `width ${w}`).toBeGreaterThanOrEqual(-1e-6);
-          expect(p.x, `width ${w}`).toBeLessThanOrEqual(w + 1e-6);
-        }
-      }
-    });
-
-    it("still fits the box while trading the two off", () => {
+  describe("fitting edge setback with a fixed arc setback", () => {
+    it("fits the box while keeping the arc angle", () => {
       for (const [amt, ease] of [
         [4, 4],
         [3, 6],

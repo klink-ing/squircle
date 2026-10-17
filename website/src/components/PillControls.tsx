@@ -114,7 +114,7 @@ export function PillShapeControls({
         label="arc setback°"
         value={shape.arcSetback}
         min={0}
-        max={89}
+        max={90}
         step={1}
         format={(v) => `${v.toFixed(0)}°`}
         onChange={(arcSetback) => onChange({ ...shape, arcSetback })}

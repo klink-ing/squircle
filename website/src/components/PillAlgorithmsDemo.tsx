@@ -130,7 +130,7 @@ function spiralQuadrant(shape: PillShapeSettings, height: number): Quadrant {
       const b = Math.min(i + 1, n);
       k.push((fitted.beta * (remaining[a] - remaining[b])) / ((b - a) * ds));
     }
-    k[k.length - 1] = 0;
+    k[k.length - 1] = fitted.exponent === 1 ? 1 / radius : 0;
   }
   return { height, points, join, capRadius: radius, edgeStart: points[points.length - 1].x, k };
 }
@@ -413,8 +413,9 @@ export default function PillAlgorithmsDemo() {
             <code>
               (1 − t²)<sup>q−1</sup>
             </code>
-            , also leaves the arc with curvature flat, and arrives flat at the edge throughout the
-            supported setback range. The controls open on the package's defaults.
+            , also leaves the arc with curvature flat. Short transitions use a compressed G3 profile
+            that still arrives flat at the edge. Fitting preserves the arc setback and reduces only
+            edge setback. The controls open on the package's defaults.
           </p>
         </div>
         <div>
@@ -497,7 +498,7 @@ export default function PillAlgorithmsDemo() {
               label="arc setback°"
               value={arcSetback}
               min={0}
-              max={89}
+              max={90}
               step={1}
               format={(v) => String(v)}
               onChange={setArcSetback}

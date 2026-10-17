@@ -19,19 +19,22 @@ for (const cell of fixture.querySelectorAll<HTMLElement>(".cell")) {
 }
 const literal = fixture.querySelectorAll("button")[1]!;
 const reference = fixture.querySelector("svg")!;
-async function setSetbacks(arc: string, edge: string, degrees: number) {
+async function setSetbacks(arc: string, edge: string, degrees: number, width = 120) {
   fixture.style.setProperty("--arc", arc);
   fixture.style.setProperty("--edge", edge);
   literal.style.setProperty("--squircle-pill-arc-setback", `${degrees}deg`);
   literal.style.setProperty("--squircle-pill-edge-setback", edge);
-  const points = pillOutlinePoints(120, 40, {
+  for (const button of fixture.querySelectorAll("button")) button.style.width = `${width}px`;
+  reference.setAttribute("width", String(width));
+  reference.setAttribute("viewBox", `0 0 ${width} 40`);
+  const points = pillOutlinePoints(width, 40, {
     arcSetback: `${degrees}deg`,
     edgeSetback: edge,
     continuity,
   });
   const path = points.map((p, i) => `${i ? "L" : "M"}${p.x} ${p.y}`).join("");
   reference.innerHTML =
-    mode === "native" ? '<rect width="120" height="40" rx="20"/>' : `<path d="${path}Z"/>`;
+    mode === "native" ? `<rect width="${width}" height="40" rx="20"/>` : `<path d="${path}Z"/>`;
   await new Promise((resolve) =>
     requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 40))),
   );

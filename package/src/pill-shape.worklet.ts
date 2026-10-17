@@ -205,8 +205,8 @@ interface Profile {
  * arc already shedding curvature at a finite rate. `3` also matches the rate
  * curvature changes, `dk/ds`, with `k(t) = (1 / R) * (1 - t^2)^(q - 1)`: flat
  * where it leaves the arc, and, for any exponent above 2, flat where it meets
- * the edge. The setback solver keeps G2's exponent at least 2 and G3's
- * strictly above 2, preserving their respective continuity at the edge.
+ * the edge. Short G3 transitions instead use (1 - t^p)^2, p >= 2, so
+ * curvature can fall later without losing its flat slope at either join.
  *
  * G3 is the default: its curvature slope is flat at both ends, which
  * reads as the smoothest join. Kept in step with DEFAULT_PILL_CONTINUITY in
@@ -233,7 +233,7 @@ const fitsAsAskedCache = new Map<string, number>();
 /** Fitted easings for narrower pills, keyed by aspect ratio and request. */
 const FIT_CACHE_SIZE = 1024;
 /**
- * How closely the fit pins down the easing angle, relative to the request.
+ * How closely the fit pins down the exponent offset, relative to the request.
  * Whatever it settles on fits the box; this only decides how much of the
  * requested easing is kept, and 1e-4 of it is far below anything visible.
  */
@@ -241,19 +241,19 @@ const FIT_TOLERANCE = 1e-4;
 const fitCache = new Map<string, { beta: number; exponent: number }>();
 
 /**
- * How far the easing reaches, sampled across the angles a request can be
+ * How far the easing reaches, sampled across the exponents a request can be
  * fitted down to, keyed by the request. The reach grows smoothly and steadily
- * with the angle and depends on nothing but the request, so one table, built
+ * with the exponent and depends on nothing but the request, so one table, built
  * the first time a pill is too narrow for its request, gives every narrower
- * pill a starting angle within a few tolerances of its fit; one or two exact
+ * pill a starting exponent within a few tolerances of its fit; one or two exact
  * evaluations then settle it, where searching from scratch takes four to ten.
  * Pages usually share one request across all their pills, so the table is
  * paid for once.
  */
 interface FitTable {
-  betas: number[];
+  offsets: number[];
   ratios: number[];
-  /** `dbeta/dratio` at each node, for each of the two segments it bounds. */
+  /** `d(exponent)/d(ratio)` at each node, for each of the two segments it bounds. */
   slopesIn: number[];
   slopesOut: number[];
 }
@@ -288,10 +288,9 @@ const remember = <V>(cache: Map<string, V>, size: number, key: string, value: V)
 /** Geometric controls, matching variants.ts without importing into the worklet. */
 const DEFAULT_ARC_SETBACK = 45;
 const DEFAULT_EDGE_SETBACK = 0.75;
-const MAX_ARC_SETBACK = (89 * Math.PI) / 180;
-const CLOTHOID_EXPONENT = 2;
-// Above 2 the G3 profile reaches the edge with zero curvature derivative.
-const G3_MIN_EXPONENT = 2.01;
+const MAX_ARC_SETBACK = Math.PI / 2;
+// At 1 the transition is circular; positive edge setbacks use exponents above 1.
+const CIRCULAR_EXPONENT = 1;
 // Keep the transition resolved by the quadrature samples, even for extreme inputs.
 const MAX_SETBACK_EXPONENT = 128;
 const setbackCache = new Map<string, { beta: number; exponent: number }>();
@@ -330,6 +329,11 @@ for (let i = 0; i <= EASE_STEPS; i++) {
 /** `base ** power` from the base's logarithm, with `0 ** 0` kept at 1. */
 const powFromLog = (logBase: number, power: number): number =>
   power === 0 ? 1 : Math.exp(power * logBase);
+
+/** Exact remaining turn for the compressed G3 profile (1 - t^p)^2. */
+function compressedRemaining(t: number, p: number, total: number, power = t ** p): number {
+  return Math.max(0, 1 - (t * (1 - (2 * power) / (p + 1) + (power * power) / (2 * p + 1))) / total);
+}
 
 /**
  * The integral of `f`, given at `SAMPLES + 1` evenly spaced points of
@@ -455,27 +459,14 @@ export const paintDef = class PillShape implements PaintWorklet {
     const key = `${beta},${edge},${continuity}`;
     const known = setbackCache.get(key);
     if (known) return known;
-    const minimum = continuity === 3 ? G3_MIN_EXPONENT : CLOTHOID_EXPONENT;
+    const minimum = CIRCULAR_EXPONENT;
     const reach = (b: number, q: number) => {
       const samples = this.samples(q, continuity);
       const metrics = this.capMetrics(1, b, samples.lambda, this.fresnel(b, samples));
       return metrics.junction - metrics.radius;
     };
-    let fittedBeta = beta;
     let exponent = minimum;
-    if (beta === 0 || edge === 0) fittedBeta = 0;
-    else if (edge < reach(beta, minimum)) {
-      // A shorter join needs less arc to turn through. Reduce the requested
-      // angle rather than break continuity with an excessively sharp profile.
-      let low = 0;
-      let high = beta;
-      for (let i = 0; i < 32; i++) {
-        const mid = (low + high) / 2;
-        if (reach(mid, minimum) < edge) low = mid;
-        else high = mid;
-      }
-      fittedBeta = (low + high) / 2;
-    } else {
+    if (beta > 0 && edge > 0) {
       let low = minimum;
       let high = minimum * 2;
       while (high < MAX_SETBACK_EXPONENT && reach(beta, high) < edge) {
@@ -493,7 +484,7 @@ export const paintDef = class PillShape implements PaintWorklet {
         exponent = (low + high) / 2;
       }
     }
-    return remember(setbackCache, FIT_CACHE_SIZE, key, { beta: fittedBeta, exponent });
+    return remember(setbackCache, FIT_CACHE_SIZE, key, { beta, exponent });
   }
 
   resolveAngle(props?: PaintProperties): number {
@@ -545,9 +536,14 @@ export const paintDef = class PillShape implements PaintWorklet {
    */
   remainingAt(samples: Samples, q: number, continuity: Continuity, k: number): number {
     if (k % SAMPLE_STRIDE === 0) return samples.remaining[k / SAMPLE_STRIDE]!;
-    return continuity === 2
-      ? powFromLog(LOG_ONE_MINUS_T[k]!, q)
-      : hermite(samples.remaining, samples.slope, k);
+    if (continuity === 2) return powFromLog(LOG_ONE_MINUS_T[k]!, q);
+    if (q < 3) {
+      const t = k / EASE_STEPS;
+      if (q <= 1) return 1 - t;
+      const p = 4 / (q - 1);
+      return compressedRemaining(t, p, 1 / samples.lambda);
+    }
+    return hermite(samples.remaining, samples.slope, k);
   }
 
   /** The profile at the samples; see `Samples`. */
@@ -562,6 +558,20 @@ export const paintDef = class PillShape implements PaintWorklet {
       for (let j = 0; j <= SAMPLES; j++) {
         remaining[j] = powFromLog(LOG_ONE_MINUS_T[j * SAMPLE_STRIDE]!, q);
       }
+    } else if (q < 3) {
+      // For short setbacks, delay the fall in curvature instead of reducing
+      // the arc angle. (1 - t^p)^2 has flat curvature at both ends for p >= 2,
+      // joins the ordinary G3 profile at q=3, and tends to a circle as q -> 1.
+      const p = q > 1 ? 4 / (q - 1) : Infinity;
+      const total = 1 - 2 / (p + 1) + 1 / (2 * p + 1);
+      for (let j = 0; j <= SAMPLES; j++) {
+        const t = j / SAMPLES;
+        const power = q > 1 ? t ** p : 0;
+        remaining[j] = q > 1 ? compressedRemaining(t, p, total, power) : 1 - t;
+        slope[j] = -((1 - power) ** 2) / total;
+      }
+      remaining[SAMPLES] = 0;
+      lambda = 1 / total;
     } else {
       // Curvature (1 - t^2)^e, integrated for the turn taken so far, and
       // normalised: the curvature, scaled by the same total, is the slope.
@@ -645,21 +655,10 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * The softest easing that still fits, backing off the angle and exponent
-   * together.
-   *
-   * What reads as a smooth transition is the rate curvature changes,
-   * `|dk/ds| * R^2 = (q - 1) / (q * beta)`. Surrendering beta alone sends that
-   * rate up like `1 / beta`, so a pill too narrow for the requested easing ends
-   * up looking abruptly cornered even though it is still formally G2. Holding
-   * the rate fixed instead pins the exponent to whatever beta survives:
-   *
-   *     q = 1 / (1 - rate * beta)
-   *
-   * which returns the requested exponent at the requested beta and eases down
-   * towards the plain clothoid as the room runs out. Once it bottoms out there
-   * the rate does climb, on the way to the bare semicircle a square has no
-   * choice but to be.
+   * Fit only the edge setback: hold the arc angle and reduce the curvature
+   * exponent until the transition lands inside the box. At exponent 1 its
+   * edge setback is zero and the outline is circular, so every aspect ratio
+   * has a bracket. The request and fitted results are shared across sizes.
    */
   fitEasing(
     r: number,
@@ -668,9 +667,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     wantedExponent: number,
     continuity: Continuity = DEFAULT_CONTINUITY,
   ): { beta: number; exponent: number } {
-    // A square, or anything no longer than it is tall, has no flat edge to
-    // ease into: only a circle fits, so there is nothing to search for.
-    if (wantedBeta <= 0 || half <= r) return { beta: 0, exponent: wantedExponent };
+    if (wantedBeta <= 0) return { beta: 0, exponent: wantedExponent };
+    // Keep the angle even at the square limit; exponent 1 is a circle.
+    if (half <= r) return { beta: wantedBeta, exponent: CIRCULAR_EXPONENT };
+    if (wantedExponent <= CIRCULAR_EXPONENT) return { beta: wantedBeta, exponent: wantedExponent };
 
     // The fit depends on the box only through its aspect ratio: the whole
     // shape scales with the half-height.
@@ -690,43 +690,28 @@ export const paintDef = class PillShape implements PaintWorklet {
     const cached = fitCache.get(key);
     if (cached) return cached;
 
-    // There is only something to trade above the clothoid. At or below it the
-    // requested exponent is passed through and the angle absorbs the
-    // shortfall, which also keeps the rate away from the 0 and 1 singularities.
-    const minimum = continuity === 3 ? G3_MIN_EXPONENT : CLOTHOID_EXPONENT;
-    const tradeable = wantedExponent > minimum;
-    const rate = tradeable ? (wantedExponent - 1) / (wantedExponent * wantedBeta) : 0;
-    // rate * beta <= rate * wantedBeta = (q - 1) / q < 1, so the denominator
-    // stays positive.
-    const exponentFor = (beta: number): number =>
-      tradeable
-        ? Math.min(Math.max(1 / (1 - rate * beta), minimum), wantedExponent)
-        : wantedExponent;
-
-    // How far past the box's centre the easing lands, in half-heights. No
-    // easing at all is a bare semicircle, which lands at 1 and fits any pill.
-    const reach = (beta: number, into?: Integrals): number =>
-      this.junctionRatio(beta, exponentFor(beta), continuity, into);
-    // Where the exponent stops being held at the clothoid, the reach has a
-    // kink that the table has to sample exactly.
-    const kink = tradeable ? (1 - 1 / minimum) / rate : 0;
+    const span = wantedExponent - CIRCULAR_EXPONENT;
+    const reach = (offset: number, into?: Integrals): number =>
+      this.junctionRatio(wantedBeta, CIRCULAR_EXPONENT + offset, continuity, into);
+    // The compressed and ordinary G3 families meet at exponent 3.
+    const kink = continuity === 3 ? 2 : 0;
     const table =
       fitTableCache.get(request) ??
       remember(
         fitTableCache,
         FIT_TABLE_CACHE_SIZE,
         request,
-        this.fitTable(wantedBeta, fitsAsAsked, kink, reach),
+        this.fitTable(span, fitsAsAsked, kink, reach),
       );
 
     // Start from the table: its segment brackets the answer, and its guess
     // lands within a few tolerances of it. `low` always fits, so it is what is
     // returned; each step aims a little short so it is usually the next `low`,
     // and the search stops once the root is estimated within the tolerance.
-    const tolerance = FIT_TOLERANCE * wantedBeta;
-    const { segment, beta: guess } = this.fitGuess(table, ratio);
-    let low = table.betas[segment] as number;
-    let high = table.betas[segment + 1] as number;
+    const tolerance = FIT_TOLERANCE * span;
+    const { segment, offset: guess } = this.fitGuess(table, ratio);
+    let low = table.offsets[segment] as number;
+    let high = table.offsets[segment + 1] as number;
     let fLow = (table.ratios[segment] as number) - ratio;
     let fHigh = (table.ratios[segment + 1] as number) - ratio;
     let next = guess - tolerance / 2;
@@ -748,10 +733,12 @@ export const paintDef = class PillShape implements PaintWorklet {
         fHigh = f;
       }
       const gap = (-fLow * (high - low)) / (fHigh - fLow);
-      if (gap <= tolerance || high - low <= tolerance) break;
+      // A positive edge request should not round down to the circular limit
+      // merely because its exponent offset is below the usual tolerance.
+      if (low > 0 && (gap <= tolerance || high - low <= tolerance)) break;
       next = low + gap - tolerance / 2;
     }
-    const fitted = { beta: low, exponent: exponentFor(low) };
+    const fitted = { beta: wantedBeta, exponent: CIRCULAR_EXPONENT + low };
     if (kept) this.keepTransition(fitted.beta, fitted.exponent, continuity, kept);
     return remember(fitCache, FIT_CACHE_SIZE, key, fitted);
   }
@@ -782,30 +769,30 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
-   * Samples the reach at evenly spaced angles up to the request, plus the
+   * Samples the reach at evenly spaced exponent offsets up to the request, plus the
    * kink, with the slopes `fitGuess` interpolates along: harmonic means of the
    * neighbouring secants (Fritsch–Carlson, which keeps the interpolant
    * monotone), one-sided at the ends and either side of the kink.
    */
   fitTable(
-    wantedBeta: number,
+    span: number,
     fitsAsAsked: number,
     kink: number,
-    reach: (beta: number) => number,
+    reach: (offset: number) => number,
   ): FitTable {
-    const betas: number[] = [];
-    for (let i = 0; i <= FIT_TABLE_STEPS; i++) betas.push((wantedBeta * i) / FIT_TABLE_STEPS);
-    const near = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * wantedBeta;
-    if (kink > 0 && kink < wantedBeta && !betas.some((b) => near(b, kink))) {
-      betas.push(kink);
-      betas.sort((a, b) => a - b);
+    const offsets: number[] = [];
+    for (let i = 0; i <= FIT_TABLE_STEPS; i++) offsets.push((span * i) / FIT_TABLE_STEPS);
+    const near = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * span;
+    if (kink > 0 && kink < span && !offsets.some((b) => near(b, kink))) {
+      offsets.push(kink);
+      offsets.sort((a, b) => a - b);
     }
-    const n = betas.length - 1;
-    const ratios = betas.map((b, i) => (i === 0 ? 1 : i === n ? fitsAsAsked : reach(b)));
+    const n = offsets.length - 1;
+    const ratios = offsets.map((b, i) => (i === 0 ? 1 : i === n ? fitsAsAsked : reach(b)));
     const secants: number[] = [];
     for (let i = 0; i < n; i++) {
       secants.push(
-        ((betas[i + 1] as number) - (betas[i] as number)) /
+        ((offsets[i + 1] as number) - (offsets[i] as number)) /
           ((ratios[i + 1] as number) - (ratios[i] as number)),
       );
     }
@@ -815,7 +802,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       const before = secants[i - 1];
       const after = secants[i];
       const smooth =
-        before !== undefined && after !== undefined && !near(betas[i] as number, kink)
+        before !== undefined && after !== undefined && !near(offsets[i] as number, kink)
           ? before * after <= 0
             ? 0
             : 2 / (1 / before + 1 / after)
@@ -823,35 +810,35 @@ export const paintDef = class PillShape implements PaintWorklet {
       slopesIn.push(smooth ?? before ?? 0);
       slopesOut.push(smooth ?? after ?? 0);
     }
-    return { betas, ratios, slopesIn, slopesOut };
+    return { offsets, ratios, slopesIn, slopesOut };
   }
 
   /**
-   * The table's estimate of the angle reaching `ratio`, and the segment that
+   * The table's estimate of the exponent offset reaching `ratio`, and the segment that
    * brackets it.
    *
    * Nearly square boxes fall in the first segment, where the reach grows
-   * linearly from 1 and bends only gently: `ratio - 1 = a beta + b beta^2`,
-   * fitted through the first two samples, gives the angle straight from the
+   * linearly from 1 and bends only gently: `ratio - 1 = a offset + b offset^2`,
+   * fitted through the first two samples, gives the offset straight from the
    * quadratic formula. Elsewhere it is a monotone cubic through the samples.
    */
-  fitGuess(table: FitTable, ratio: number): { segment: number; beta: number } {
-    const { betas, ratios, slopesIn, slopesOut } = table;
-    const last = betas.length - 2;
+  fitGuess(table: FitTable, ratio: number): { segment: number; offset: number } {
+    const { offsets, ratios, slopesIn, slopesOut } = table;
+    const last = offsets.length - 2;
     let segment = 0;
     while (segment < last && (ratios[segment + 1] as number) < ratio) segment++;
 
     if (segment === 0) {
-      const b1 = betas[1] as number;
-      const b2 = betas[2] ?? b1;
+      const b1 = offsets[1] as number;
+      const b2 = offsets[2] ?? b1;
       const y1 = (ratios[1] as number) - 1;
       const y2 = ((ratios[2] ?? ratios[1]) as number) - 1;
       const b = b2 === b1 ? 0 : (y2 / b2 - y1 / b1) / (b2 - b1);
       const a = y1 / b1 - b * b1;
       const y = ratio - 1;
-      // The root of b beta^2 + a beta - y, written to stay exact as b -> 0.
+      // The root of b offset^2 + a offset - y, written to stay exact as b -> 0.
       const disc = a * a + 4 * b * y;
-      return { segment, beta: disc > 0 ? (2 * y) / (a + Math.sqrt(disc)) : y / a };
+      return { segment, offset: disc > 0 ? (2 * y) / (a + Math.sqrt(disc)) : y / a };
     }
 
     const r0 = ratios[segment] as number;
@@ -861,10 +848,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     const t3 = t2 * t;
     return {
       segment,
-      beta:
-        (2 * t3 - 3 * t2 + 1) * (betas[segment] as number) +
+      offset:
+        (2 * t3 - 3 * t2 + 1) * (offsets[segment] as number) +
         (t3 - 2 * t2 + t) * h * (slopesOut[segment] as number) +
-        (-2 * t3 + 3 * t2) * (betas[segment + 1] as number) +
+        (-2 * t3 + 3 * t2) * (offsets[segment + 1] as number) +
         (t3 - t2) * h * (slopesIn[segment + 1] as number),
     };
   }
@@ -879,6 +866,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     q: number,
     continuity: Continuity = DEFAULT_CONTINUITY,
   ): Point[] {
+    if (q === CIRCULAR_EXPONENT && beta > 0) return this.quadrant(r, 0, q, continuity);
     // No easing is a bare circular cap of the full half-height: nothing to
     // integrate.
     const eased = beta > 0 ? this.transition(beta, q, continuity) : null;

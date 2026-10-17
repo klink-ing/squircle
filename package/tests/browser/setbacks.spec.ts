@@ -10,21 +10,28 @@ for (const mode of ["worklet", "polyfill", "native"])
       await page.goto(`/tests/setbacks.html?mode=${mode}&continuity=${continuity}`);
       await expect(page.locator("html")).toHaveAttribute("data-ready", "true");
       const cells = page.locator(".cell");
-      for (const [arc, edge, degrees] of [
-        ["30deg", "1", 30],
-        ["calc(0.25turn - 30deg)", "2", 60],
-        ["0deg", "1", 0],
-        ["45deg", "0", 45],
-        ["15deg", "0.05", 15],
-        ["30deg", "1", 30],
+      for (const [arc, edge, degrees, width] of [
+        ["30deg", "1", 30, 120],
+        ["calc(0.25turn - 30deg)", "2", 60, 120],
+        ["0deg", "1", 0, 120],
+        ["45deg", "0", 45, 120],
+        ["15deg", "0.05", 15, 120],
+        ["90deg", "1", 90, 120],
+        ["90deg", "4", 90, 44],
+        ["45deg", "4", 45, 40],
+        ["45deg", "4", 45, 40.4],
+        ["45deg", "0.001", 45, 56],
+        ["30deg", "1", 30, 120],
       ] as const) {
         await page.evaluate(
-          async ([a, e, d]) => {
+          async ([a, e, d, w]) => {
             await (
-              window as unknown as { setSetbacks(a: string, e: string, d: number): Promise<void> }
-            ).setSetbacks(a, e, d);
+              window as unknown as {
+                setSetbacks(a: string, e: string, d: number, w: number): Promise<void>;
+              }
+            ).setSetbacks(a, e, d, w);
           },
-          [arc, edge, degrees] as const,
+          [arc, edge, degrees, width] as const,
         );
         await expect(page.locator("button").first()).toHaveCSS(
           "--squircle-pill-arc-setback",

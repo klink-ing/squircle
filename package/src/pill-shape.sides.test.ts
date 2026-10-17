@@ -198,7 +198,7 @@ describe("pill sides", () => {
         [40, 50],
         [41, 80],
       ] as const) {
-        for (const arc of [0, 30, 60, 89]) {
+        for (const arc of [0, 30, 60, 89, 90]) {
           for (const edge of [-1, 0, 0.05, 1, 4]) {
             const points = outline(width, height, side, arc, edge);
             const label = `${side} ${width}x${height} arc ${arc} edge ${edge}`;
