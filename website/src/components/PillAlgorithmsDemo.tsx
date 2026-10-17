@@ -248,6 +248,16 @@ function Comb({ q, colour }: { q: Quadrant; colour: string }) {
         stroke="#3f3f46"
         strokeDasharray="3 3"
       />
+      <path
+        d={`M${R},0 A${R},${R} 0 0 0 ${R},${H}`}
+        fill="none"
+        stroke="#a1a1aa"
+        strokeWidth={0.8}
+        strokeDasharray="0 2.5"
+        strokeLinecap="round"
+      >
+        <title>Semicircular cap with the same height</title>
+      </path>
       <path d={teeth.join("")} stroke={colour} opacity={0.55} strokeWidth={0.6} fill="none" />
       <polyline
         points={polyline([...points, ...mirrored])}
