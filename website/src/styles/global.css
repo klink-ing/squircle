@@ -27,6 +27,13 @@
   --color-adjusted-fill: oklch(from var(--color-adjusted-border) min(1, calc(l - 0.3)) c h);
 }
 
+@layer base {
+  ::selection {
+    background-color: var(--color-indigo-200);
+    color: var(--color-zinc-950);
+  }
+}
+
 @layer components {
   .type-step-heading {
     line-height: 1.1;
