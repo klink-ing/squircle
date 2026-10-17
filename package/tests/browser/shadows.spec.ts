@@ -55,8 +55,7 @@ async function expectUnclipped(cells: Locator[], label: string) {
 
 for (const mode of ["worklet", "polyfill", "native"]) {
   for (const zoom of [0.5, 1, 1.5]) {
-    test(`${mode} shadows at ${zoom * 100}% zoom`, async ({ page, browserName }) => {
-      test.skip(mode === "worklet" && browserName !== "chromium", "Paint API requires Chromium");
+    test(`${mode} shadows at ${zoom * 100}% zoom`, async ({ page }) => {
       await page.goto(`/tests/shadows.html?mode=${mode}&zoom=${zoom}`);
       await page.getByRole("button", { name: "Run shadow regressions" }).click();
       // This runs the whole dynamic-change sequence, including frame waits.
