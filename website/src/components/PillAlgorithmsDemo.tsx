@@ -204,6 +204,8 @@ function outlineClipPath({ points, height: H }: Quadrant): string {
 }
 
 const polyline = (pts: Point[]) => pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+const clampedEdgeSetback = (q: Quadrant) =>
+  Math.max(0, (q.edgeStart - q.capRadius) / (q.height / 2));
 
 function Comb({ q, colour }: { q: Quadrant; colour: string }) {
   // Keep the comb's marks the same visual weight as the button ratio changes.
@@ -457,7 +459,12 @@ export default function PillAlgorithmsDemo() {
             onChange={setRatio}
           />
         </div>
-        <PillShapeControls shape={shape} onChange={setShape} idPrefix="s" />
+        <PillShapeControls
+          shape={shape}
+          onChange={setShape}
+          idPrefix="s"
+          clampedEdgeSetback={clampedEdgeSetback(spiral)}
+        />
         <div>
           <button
             type="button"
@@ -512,6 +519,7 @@ export default function PillAlgorithmsDemo() {
               step={0.05}
               format={(v) => v.toFixed(2)}
               onChange={setEdgeSetback}
+              clampedValue={clampedEdgeSetback(hermite)}
             />
             <Slider
               id="f-bulge0"

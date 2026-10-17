@@ -37,6 +37,7 @@ export function Slider({
   step,
   format,
   onChange,
+  clampedValue,
 }: {
   id: string;
   label: string;
@@ -46,6 +47,7 @@ export function Slider({
   step: number;
   format: (v: number) => string;
   onChange: (v: number) => void;
+  clampedValue?: number;
 }) {
   return (
     <>
@@ -63,6 +65,19 @@ export function Slider({
         className="slider-filled min-w-0"
       />
       <code className="text-right text-zinc-300">{format(value)}</code>
+      {clampedValue !== undefined && (
+        <>
+          <span className="col-span-2 text-right text-[10px] text-zinc-400">clamped</span>
+          <output
+            id={`${id}-clamped`}
+            htmlFor={id}
+            aria-label="Clamped edge setback"
+            className="text-right font-mono text-[10px] text-indigo-300"
+          >
+            {format(clampedValue)}
+          </output>
+        </>
+      )}
     </>
   );
 }
@@ -77,10 +92,12 @@ export function PillShapeControls({
   shape,
   onChange,
   idPrefix = "pill",
+  clampedEdgeSetback,
 }: {
   shape: PillShapeSettings;
   onChange: (shape: PillShapeSettings) => void;
   idPrefix?: string;
+  clampedEdgeSetback?: number;
 }) {
   const isDefault =
     shape.arcSetback === DEFAULT_SHAPE.arcSetback &&
@@ -128,6 +145,7 @@ export function PillShapeControls({
         step={0.05}
         format={(v) => v.toFixed(2)}
         onChange={(edgeSetback) => onChange({ ...shape, edgeSetback })}
+        clampedValue={clampedEdgeSetback}
       />
     </div>
   );
