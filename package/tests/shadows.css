@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@plugin "../src/tailwind-pill.ts";
+@plugin "../src/tailwind-pill-border.ts";
+@source "./shadows.ts";
+html {
+  font-size: 20px;
+}
+body {
+  margin: 0;
+  background: white;
+  color: black;
+  font-family: sans-serif;
+}
+#result {
+  height: 40px;
+}
+#fixture {
+  font-size: 24px;
+  --button-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.1);
+}
+.row {
+  display: flex;
+}
+.cell {
+  width: 260px;
+  height: 180px;
+  display: grid;
+  place-items: center;
+}
+button {
+  width: 120px;
+  height: 40px;
+}
+#fixture[data-theme="dark"] {
+  --button-shadow: -6px 4px 8px -2px rgb(0 0 0 / 0.8);
+}
+#fixture.hover-parent:hover {
+  --button-shadow: -8px 5px 10px 2px black;
+}

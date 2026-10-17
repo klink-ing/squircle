@@ -74,10 +74,12 @@ export const PILL_INSET_RING_COLOR_VAR_NAME: string = pillVar("inset-ring-color"
  * the `shadow-*`, `inset-shadow-*` and ring utilities' own variables.
  */
 export const PILL_BOX_SHADOW_VAR_NAME: string = pillVar("box-shadow");
+/** Internal: browser-resolved box-shadow list, including lengths in px. */
+export const PILL_RESOLVED_SHADOW_VAR_NAME: string = pillVar("resolved-shadow");
 /**
  * How far those shadows reach past the box — offset, blur and spread
  * together — which the box they are drawn on has to grow by.
- * `tailwind-pill-border` sets it for `shadow-*`.
+ * Initialization resolves it at runtime; the plugin supplies a literal estimate.
  */
 export const PILL_SHADOW_REACH_VAR_NAME: string = pillVar("shadow-reach");
 /**

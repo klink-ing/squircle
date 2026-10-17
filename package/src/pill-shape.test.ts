@@ -18,6 +18,7 @@ import {
   PILL_BORDER_STYLE_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
   PILL_BOX_SHADOW_VAR_NAME,
+  PILL_RESOLVED_SHADOW_VAR_NAME,
   PILL_CLIP_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
@@ -206,6 +207,7 @@ describe("pill-shape worklet contract", () => {
       PILL_INSET_RING_WIDTH_VAR_NAME,
       PILL_INSET_RING_COLOR_VAR_NAME,
       PILL_BOX_SHADOW_VAR_NAME,
+      PILL_RESOLVED_SHADOW_VAR_NAME,
       // What `currentColor` stands for.
       "color",
     ]);

@@ -104,6 +104,11 @@ export default defineConfig({
       "test:stylex": {
         command: "vp test run stylex",
       },
+      "test:browser": {
+        command: "playwright test --config tests/playwright.config.ts",
+        dependsOn: ["build"],
+        cache: false,
+      },
       "test:pill": {
         cache: { env: NAMESPACE_ENV },
         command: "vp test run pill-",

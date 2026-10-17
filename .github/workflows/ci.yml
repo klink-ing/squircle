@@ -25,6 +25,12 @@ jobs:
 
       - run: vp run ready
 
+      - name: Install browsers for shadow regressions
+        run: vp exec --filter @klinking/squircle playwright install --with-deps chromium webkit
+
+      - name: Test pill shadows in the browser
+        run: vp run @klinking/squircle#test:browser
+
       - name: Test the release notes
         run: node --test 'release/*.test.mjs'
 

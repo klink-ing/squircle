@@ -57,7 +57,7 @@ const nextFrame = async () => {
 
 /** How many times the polyfill has read `el`'s computed style. */
 const readsOf = (spy: ReturnType<typeof vi.spyOn>, el: Element) =>
-  spy.mock.calls.filter(([target]: unknown[]) => target === el).length;
+  spy.mock.calls.filter(([target, pseudo]: unknown[]) => target === el && !pseudo).length;
 
 describe("polyfillPills re-reading settings", () => {
   let polyfill: PillPolyfill | null = null;

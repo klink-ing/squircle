@@ -33,6 +33,7 @@ const RING_OFFSET_COLOR_VAR = `${NS}-ring-offset-color`;
 const INSET_RING_WIDTH_VAR = `${NS}-inset-ring-width`;
 const INSET_RING_COLOR_VAR = `${NS}-inset-ring-color`;
 const BOX_SHADOW_VAR = `${NS}-box-shadow`;
+const RESOLVED_SHADOW_VAR = `${NS}-resolved-shadow`;
 const REACH_VAR = `${NS}-reach`;
 const BACKGROUND_INSET_VAR = `${NS}-background-inset`;
 /** What decides the decoration; see `decorationBands` and `decorationShadows`. */
@@ -52,6 +53,7 @@ const DECORATION_INPUTS = [
   INSET_RING_WIDTH_VAR,
   INSET_RING_COLOR_VAR,
   BOX_SHADOW_VAR,
+  RESOLVED_SHADOW_VAR,
   // What `currentColor` stands for: a registered colour keeps the keyword as
   // its computed value, which a canvas has no element to resolve against.
   "color",
@@ -1190,7 +1192,10 @@ export const paintDef = class PillShape implements PaintWorklet {
    * paints them itself; invisible ones are dropped.
    */
   decorationShadows(props?: PaintProperties): Shadow[] {
-    const value = props?.get(BOX_SHADOW_VAR)?.toString().trim() ?? "";
+    const value =
+      (props?.get(RESOLVED_SHADOW_VAR)?.toString().trim() ||
+        props?.get(BOX_SHADOW_VAR)?.toString().trim()) ??
+      "";
     if (value === "" || value === "none") return [];
     const shadows: Shadow[] = [];
     for (const layer of splitTopLevel(value, ",")) {
