@@ -474,7 +474,7 @@ import { registerPillWorklet } from "@klinking/squircle/pill-worklet";
 registerPillWorklet();
 ```
 
-The helper loads the worklet shipped next to it and, once it is in, marks `<html>` with `data-squircle-pill-worklet`. That mark is what switches pills from their `rounded-full` fallback to the drawn shape — `@supports (mask-image: paint(pill-shape))` is true whether or not a worklet by that name ever loaded, so gating on it alone would erase every pill the moment the file failed to load. Where paint worklets are unsupported it resolves to `false` and nothing changes; a load that fails rejects, so the error shows up in the console rather than as blank buttons. The same module exports `PILL_SHAPE_PROPERTIES`, each shape setting's custom property name and default, for scripts that set or show them.
+The helper loads the worklet shipped next to it and, once it is in, marks `<html>` with `data-squircle-pill-worklet`. That mark is what switches pills from their `rounded-full` fallback to the drawn shape — `@supports (mask-image: paint(pill-shape))` is true whether or not a worklet by that name ever loaded, so gating on it alone would erase every pill the moment the file failed to load. Where paint worklets are unsupported it resolves to `false` and nothing changes; a load that fails rejects, so the error shows up in the console rather than as blank buttons. The same module exports `PILL_SHAPE_PROPERTIES`, each shape setting's custom property name and default, for scripts that set or show them. `PILL_SHAPE_PROPERTIES.maxRadius` is `--squircle-pill-max-radius`, in px, defaulting to `Infinity`.
 
 `registerPillWorklet()` also starts shadow tracking automatically; existing calls need no changes and the polyfill stays opt-in. Shadows such as `shadow-(--button-shadow)` use the browser's resolved dimensions, including nested variables, fallbacks, CSS math and relative units. Tracking covers new pills, hover/focus, ancestor attributes and inline variables, viewport changes and the system colour scheme. It schedules work on changes and does not poll idle pills.
 
@@ -509,9 +509,21 @@ registerPillWorklet(workletUrl);
 | `squircle-pill-s`, `-e`             | The inline-start or inline-end end: `-l`/`-r`, swapped under `dir="rtl"`.                                                                                                   |
 | `squircle-pill-arc-setback-*`       | Degrees of circular arc replaced by the transition. Default `45`; `0` is a stadium.                                                                                         |
 | `squircle-pill-edge-setback-*`      | Distance past the arc's top to the end of the transition, in multiples of half the pill's height. Default `0.75`.                                                           |
+| `squircle-pill-max-*`               | Largest radius a cap may have. Past it the pill stops growing rounder and its corners ease into a squircle. Default none.                                                   |
 | `squircle-pill-g2`, `-g3`           | G2 matches curvature at the joins. G3, the default, also matches its rate of change.                                                                                        |
 
 Use bare degrees (`squircle-pill-arc-setback-30`), arbitrary angles (`squircle-pill-arc-setback-[0.5rad]`), and numeric distances (`squircle-pill-edge-setback-1.5`). CSS-variable utilities such as `squircle-pill-arc-setback-(--arc)` and `squircle-pill-edge-setback-(--edge)` work too. They set `--squircle-pill-arc-setback` (an angle) and `--squircle-pill-edge-setback` (a number), which inherit and animate. Both renderers use the same geometry and fitting.
+
+`squircle-pill-max-*` takes a radius from your theme (`squircle-pill-max-lg`, the theme's resolved value), an arbitrary length or expression (`squircle-pill-max-[26px]`, `squircle-pill-max-[calc(1lh+12px)]`) or a variable (`squircle-pill-max-(--field-radius)`). `squircle-pill-max-none` and `-full` remove the limit. A bare number or anything that isn't a length produces nothing. It sets `--squircle-pill-max-radius`, a registered `<length>` that inherits and is not reset on each pill, so it can go on an ancestor and every pill inside follows. Use it where a pill grows taller than it was meant to, like a chat composer whose textarea expands:
+
+```html
+<div class="squircle-pill squircle-pill-max-[26px] flex items-end gap-2 border border-zinc-300 p-2">
+  <textarea class="min-w-0 flex-1 resize-none bg-transparent" rows="1"></textarea>
+  <button class="squircle-pill bg-blue-500 px-4 py-2 text-white">Send</button>
+</div>
+```
+
+One line tall, it is a pill. As the text wraps, the caps stop at 26px and the box becomes a rounded rectangle instead of a tall capsule.
 
 Either setback at zero produces a stadium. Arc setback clamps to 0–90° and takes priority over edge setback. Short edge requests and narrow pills keep that angle, reducing only the edge setback as needed to fit. A square renders as a circle. On a side pill, the distance unit is half the fitted cap's height, after turning the capped side into the drawing's coordinate system.
 
@@ -547,7 +559,7 @@ One thing to know: the pill hides its own background by clipping it to its text,
 
 ### Fallback
 
-Without the worklet — Safari, Firefox, or before `registerPillWorklet()` resolves — a pill is a plain `rounded-full` stadium with a real border, and nothing else. Not a superellipse: on a pill the cap is the whole shape, so a superellipse would change the silhouette rather than soften a corner. No layout shift when the worklet lands.
+Without the worklet — Safari, Firefox, or before `registerPillWorklet()` resolves — a pill is a plain `rounded-full` stadium with a real border, and nothing else. Not a superellipse: on a pill the cap is the whole shape, so a superellipse would change the silhouette rather than soften a corner. No layout shift when the worklet lands. The stadium and the side caps read `--squircle-pill-max-radius` too, so past a `squircle-pill-max-*` limit the fallback is a rounded rectangle at that radius.
 
 ### Polyfill for browsers without paint worklets
 
@@ -588,7 +600,7 @@ The same rules, hung off an attribute:
 <button data-squircle-pill style="--squircle-pill-border-width: 2px">Save</button>
 ```
 
-Give the attribute a value to cap one end: `data-squircle-pill="t"`, and `r`, `b`, `l`, `s` and `e`, as the utilities do.
+Give the attribute a value to cap one end: `data-squircle-pill="t"`, and `r`, `b`, `l`, `s` and `e`, as the utilities do. To limit the cap radius, set `--squircle-pill-max-radius` (a length, default `calc(infinity * 1px)`) on the pill or an ancestor: `style="--squircle-pill-max-radius: 26px"`.
 
 Register the worklet as above. Here the pill's own properties also drive a real border, so a bordered pill degrades to a bordered stadium without the worklet; `--squircle-pill-border-color` defaults to `currentColor` and `--squircle-pill-border-style` to `solid`. The stylesheet is generated from the same source as the Tailwind utility, so the two never disagree.
 
@@ -601,6 +613,8 @@ A circular arc has constant curvature `1/R`; a straight edge has none. The workl
 G2 uses `k(t) = (1/R) · (1 − t)^(q − 1)`, a clothoid at q = 2. G3 uses `k(t) = (1/R) · (1 − t²)^(q − 1)` for q ≥ 3. Shorter transitions use `(1/R) · (1 − t^p)²`, with `p = 4/(q − 1)` for 1 < q < 3: curvature falls later while keeping zero slope at both joins. Both families tend to a circle at q = 1, letting edge setback approach zero without changing the arc angle. The solver caps q at 128 to keep extreme requests resolved by the quadrature samples; requests outside that range are constrained. Fitting preserves the arc angle and selected continuity while reducing only the edge setback to fit the available box.
 
 That's a different construction from the curvature-continuous fillet in CAD tools (SolidWorks and Onshape's "curvature continuous", Fusion's G2, Rhino's `BlendCrv`), which blend arc into edge with a quintic Hermite polynomial that has position, tangent and curvature prescribed at both ends, controlled by a setback per face and a bulge per end. The spiral's advantage is that its curvature profile is monotone by construction and its length is a closed-form function of the cap, which is what lets it fit itself to the box; the Hermite blend keeps the cap at its full radius and lets the blend bow outward, which is right for a model and wrong for a button. The site's [pill algorithms demo](https://squircle.klink.ing/demos/pill-algorithms) renders the two side by side, with each one's controls and a curvature comb, so you can judge for yourself.
+
+**Past a max radius,** the pill stops following the cap. Below the limit nothing changes. Above it, each corner blends from the capped arc into a superellipse, by tangent direction, so the curve stays continuous. The flat edge stays where the cap ends it, and the corner keeps the cap's roundness: the distance from the box corner to the curve's 45° tangent, the same measure the radius correction matches below. At the defaults the exponent is about 3.5, floored at 3.25 for G3 and 2.25 for G2. The blend is fully grown once the box is about 3.4 times the max radius tall.
 
 **Browser support:** the Paint API is in Chromium (Chrome, Edge, Opera, Samsung Internet). Safari and Firefox get the stadium fallback. The shape properties are registered with `@property`, which those browsers support, so nothing else changes.
 
@@ -1438,8 +1452,9 @@ export const squircleMergeConfig = {
       ),
       "squircle-amt": [{ "squircle-amt": [() => true] }],
       [PILL]: [PILL],
-      [`${PILL}-amt`]: [{ [`${PILL}-amt`]: [() => true] }],
-      [`${PILL}-ease`]: [{ [`${PILL}-ease`]: [() => true] }],
+      [`${PILL}-arc-setback`]: [{ [`${PILL}-arc-setback`]: [() => true] }],
+      [`${PILL}-edge-setback`]: [{ [`${PILL}-edge-setback`]: [() => true] }],
+      [`${PILL}-max`]: [{ [`${PILL}-max`]: [() => true] }],
       [`${PILL}-continuity`]: [`${PILL}-g2`, `${PILL}-g3`],
       [`${PILL}-side`]: ["t", "r", "b", "l", "s", "e"].map((side) => `${PILL}-${side}`),
     },
