@@ -174,7 +174,7 @@ const outline = (width: number, height: number, side?: string, max?: string) =>
   );
 const sameSet = (a: Point[], b: Point[]) => {
   const key = (p: Point) => `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
-  return [...a.map(key)].sort().join("|") === [...b.map(key)].sort().join("|");
+  return a.map(key).sort().join("|") === b.map(key).sort().join("|");
 };
 
 describe("pill max radius", () => {
@@ -368,6 +368,16 @@ describe("pill max radius", () => {
         geometry.traceBox(ctx, w, h, p);
         expect(traced).toEqual(geometry.boxOutline(w, h, p));
       }
+    });
+
+    it("limits side caps whose long edge is the box's width", () => {
+      const points = outline(400, 120, "l", "26px");
+      expect(points).toContainEqual({ x: 400, y: 0 });
+      expect(points).toContainEqual({ x: 400, y: 120 });
+      expect(isConvex(points)).toBe(true);
+      expect(points.every((p) => p.x >= -1e-9 && p.x <= 400 + 1e-9)).toBe(true);
+      expect(points.every((p) => p.y >= -1e-9 && p.y <= 120 + 1e-9)).toBe(true);
+      expect(points).not.toEqual(outline(400, 120, "l"));
     });
 
     it("limits side caps", () => {

@@ -435,6 +435,16 @@ describe("tailwind-pill.ts utilities", () => {
       }
     });
 
+    it("accepts only CSS lengths, and a bare 0", async () => {
+      for (const c of ["squircle-pill-max-[3deg]", "squircle-pill-max-[2foo]"]) {
+        expect(await compilePill([c])).toBe("");
+      }
+      expect(await compilePill(["squircle-pill-max-[0]"])).toContain(`${max}: 0`);
+      const css = await compilePill(["squircle-pill-max-[2vh]", "squircle-pill-max-[1lh]"]);
+      expect(css).toContain(`${max}: 2vh`);
+      expect(css).toContain(`${max}: 1lh`);
+    });
+
     it("sets only the custom property", async () => {
       const css = await compilePill(["squircle-pill-max-[26px]"]);
       expect(css).not.toContain("border-radius");

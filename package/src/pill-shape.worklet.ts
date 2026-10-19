@@ -1218,7 +1218,7 @@ export const paintDef = class PillShape implements PaintWorklet {
       y: (1 - w) * c.y + w * sy,
     });
     return {
-      key: `max:${r},${fitted.beta},${fitted.exponent},${w},${extent},${continuity}`,
+      key: `max:${r},${fitted.beta},${fitted.exponent},${w},${extent},${exponent},${continuity}`,
       at: (phi) => {
         // Exactly on the edges, where the cap is only to rounding, and the
         // superellipse to `tan`'s at π/2.

@@ -99,7 +99,12 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
         const { none: _none, full: _full, ...radiusValues } = theme("borderRadius") ?? {};
         const themeRadii = new Set<string>(Object.values(radiusValues));
         // A length, but never a percentage, which has no box to resolve against.
-        const length = /^[+-]?(?:\d*\.)?\d+(?:e[+-]?\d+)?([a-z]+)$/i;
+        const units =
+          "px|em|rem|ex|rex|ch|rch|cap|rcap|ic|ric|lh|rlh|(?:[sld]?v(?:w|h|i|b|min|max))|cq(?:w|h|i|b|min|max)|cm|mm|q|in|pt|pc";
+        const length = new RegExp(
+          `^(?:[+-]?(?:\\d*\\.)?\\d+(?:e[+-]?\\d+)?(?:${units})|[+-]?0)$`,
+          "i",
+        );
         matchUtilities(
           {
             [`${prefix}-max`]: (value: string) =>
