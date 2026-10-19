@@ -4,12 +4,13 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { paintDef } from "./pill-shape.worklet";
+import { decorationDef, paintDef } from "./pill-shape.worklet";
 import {
   PILL_ARC_SETBACK_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
   PILL_EDGE_SETBACK_VAR_NAME,
   PILL_MAX_RADIUS_VAR_NAME,
+  PILL_SIDE_VAR_NAME,
 } from "./variants";
 
 type Point = { x: number; y: number };
@@ -18,6 +19,8 @@ type Continuity = 2 | 3;
 const geometry = new (paintDef as unknown as new () => {
   resolveSetbacks(props?: unknown): { beta: number; exponent: number };
   resolveMaxRadius(props?: unknown): number;
+  boxOutline(width: number, height: number, props?: unknown): Point[];
+  traceBox(ctx: unknown, width: number, height: number, props?: unknown): void;
   junctionRatio(beta: number, q: number, continuity: Continuity): number;
   roundnessExponent(beta: number, q: number, continuity: Continuity): number;
   fitEasing(
@@ -163,6 +166,17 @@ const isConvex = (points: Point[]) => {
   return true;
 };
 
+const outline = (width: number, height: number, side?: string, max?: string) =>
+  geometry.boxOutline(
+    width,
+    height,
+    props({ [PILL_SIDE_VAR_NAME]: side, [PILL_MAX_RADIUS_VAR_NAME]: max }),
+  );
+const sameSet = (a: Point[], b: Point[]) => {
+  const key = (p: Point) => `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
+  return [...a.map(key)].sort().join("|") === [...b.map(key)].sort().join("|");
+};
+
 describe("pill max radius", () => {
   describe("resolveMaxRadius", () => {
     const max = (value?: string) =>
@@ -281,6 +295,97 @@ describe("pill max radius", () => {
       expect(points.every((p) => p.y >= -1e-9 && p.y <= 30 + 1e-9)).toBe(true);
       expect(isConvex(points)).toBe(true);
       expect(apart(curve(30, 26.001, 26), capCurve(30, 26))).toBeLessThan(0.01);
+    });
+  });
+
+  describe("outlines", () => {
+    it("reads the max radius", () => {
+      expect(paintDef.inputProperties).toContain(PILL_MAX_RADIUS_VAR_NAME);
+      expect(decorationDef.inputProperties).toContain(PILL_MAX_RADIUS_VAR_NAME);
+    });
+
+    it("leaves pills under their limit alone", () => {
+      const boxes: [number, number, string?][] = [
+        [120, 40],
+        [40, 120],
+        [40, 40],
+      ];
+      for (const side of ["t", "r", "b", "l"]) boxes.push([120, 40, side], [40, 120, side]);
+      for (const [w, h, side] of boxes) {
+        const today = outline(w, h, side);
+        // The most the corners can reach: half the capped edge, or the other edge.
+        const room =
+          side === undefined
+            ? Math.min(w, h) / 2
+            : Math.min(...(side === "t" || side === "b" ? [w / 2, h] : [h / 2, w]));
+        expect(outline(w, h, side, `${room}px`)).toEqual(today);
+        expect(outline(w, h, side, "100px")).toEqual(today);
+      }
+    });
+
+    it("grows straight sides past the limit", () => {
+      const points = outline(400, 120, undefined, "26px");
+      expect(isConvex(points)).toBe(true);
+      expect(points.every((p) => p.x >= -1e-9 && p.x <= 400 + 1e-9)).toBe(true);
+      expect(points.every((p) => p.y >= -1e-9 && p.y <= 120 + 1e-9)).toBe(true);
+      const onEdge = points.filter((p) => Math.abs(p.x) < 1e-9);
+      expect(onEdge).toHaveLength(2);
+      const [a, b] = onEdge as [Point, Point];
+      expect(a.y).toBeGreaterThan(40);
+      expect(a.y).toBeLessThan(80);
+      expect(Math.abs(a.y + b.y - 120)).toBeLessThan(1e-9);
+      // The corners stop at 26 * 1.697 or so, leaving a long straight side.
+      expect(Math.abs(b.y - a.y)).toBeGreaterThan(25);
+      expect(points).not.toEqual(outline(400, 120));
+      const mirrored = (f: (p: Point) => Point) => sameSet(points, points.map(f));
+      expect(mirrored((p) => ({ x: 400 - p.x, y: p.y }))).toBe(true);
+      expect(mirrored((p) => ({ x: p.x, y: 120 - p.y }))).toBe(true);
+    });
+
+    it("turns tall pills", () => {
+      const tall = outline(120, 400, undefined, "26px");
+      const wide = outline(400, 120, undefined, "26px");
+      expect(
+        sameSet(
+          tall,
+          wide.map((p) => ({ x: p.y, y: p.x })),
+        ),
+      ).toBe(true);
+    });
+
+    it("traces what it lists", () => {
+      for (const [w, h] of [
+        [400, 120],
+        [120, 400],
+        [120, 40],
+      ] as const) {
+        const traced: Point[] = [];
+        const ctx = {
+          moveTo: (x: number, y: number) => traced.push({ x, y }),
+          lineTo: (x: number, y: number) => traced.push({ x, y }),
+        };
+        const p = props({ [PILL_MAX_RADIUS_VAR_NAME]: "26px" });
+        geometry.traceBox(ctx, w, h, p);
+        expect(traced).toEqual(geometry.boxOutline(w, h, p));
+      }
+    });
+
+    it("limits side caps", () => {
+      const points = outline(400, 40, "t", "10px");
+      expect(points).toContainEqual({ x: 0, y: 40 });
+      expect(points).toContainEqual({ x: 400, y: 40 });
+      expect(isConvex(points)).toBe(true);
+      // `t` is the left outline transposed; its top edge binds, so the corner
+      // is `corner` turned over and back, and the far corner its mirror.
+      const expected = corner(200, 40, 10).reverse();
+      const n = expected.length;
+      expect(points.slice(0, n)).toEqual(expected);
+      const far = points.slice(-n).reverse();
+      far.forEach((p, i) => {
+        expect(400 - p.x).toBeCloseTo(expected[i]!.x, 9);
+        expect(p.y).toBeCloseTo(expected[i]!.y, 9);
+      });
+      expect(outline(400, 40, "t", "100px")).toEqual(outline(400, 40, "t"));
     });
   });
 });

@@ -440,7 +440,14 @@ export const paintDef = class PillShape implements PaintWorklet {
    * resize, which adds up over hundreds of them.
    */
   static get inputProperties() {
-    return [ARC_SETBACK_VAR, EDGE_SETBACK_VAR, CONTINUITY_VAR, SIDE_VAR, BACKGROUND_INSET_VAR];
+    return [
+      ARC_SETBACK_VAR,
+      EDGE_SETBACK_VAR,
+      CONTINUITY_VAR,
+      SIDE_VAR,
+      MAX_RADIUS_VAR,
+      BACKGROUND_INSET_VAR,
+    ];
   }
 
   /**
@@ -1242,9 +1249,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     const outline = this.outline(
       long,
       short,
-      this.fittedQuadrant(
-        long,
-        short,
+      this.corner(
+        long / 2,
+        short / 2,
+        this.resolveMaxRadius(props),
         this.resolveAngle(props),
         this.resolveExponent(props),
         this.resolveContinuity(props),
@@ -1262,9 +1270,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     const vertical = height > width;
     const long = vertical ? height : width;
     const short = vertical ? width : height;
-    const quadrant = this.fittedQuadrant(
-      long,
-      short,
+    const quadrant = this.corner(
+      long / 2,
+      short / 2,
+      this.resolveMaxRadius(props),
       this.resolveAngle(props),
       this.resolveExponent(props),
       this.resolveContinuity(props),
@@ -1306,16 +1315,19 @@ export const paintDef = class PillShape implements PaintWorklet {
     const angle = this.resolveAngle(props);
     const exponent = this.resolveExponent(props);
     const continuity = this.resolveContinuity(props);
+    const maxRadius = this.resolveMaxRadius(props);
 
     // The top-left corner, from the left edge round to the top edge.
+    const longRoom = Math.max(h / 2, w);
+    const shortRoom = Math.min(h / 2, w);
     const corner =
       h / 2 <= w
         ? // The left edge binds: the caps meet halfway down it, and each eases
           // along the whole top edge.
-          this.fittedQuadrant(2 * w, h, angle, exponent, continuity)
+          this.corner(longRoom, shortRoom, maxRadius, angle, exponent, continuity)
         : // The top edge binds: the cap spans it, meeting the square corner,
           // and eases down half the left edge.
-          this.fittedQuadrant(h, 2 * w, angle, exponent, continuity)
+          this.corner(longRoom, shortRoom, maxRadius, angle, exponent, continuity)
             .map((p) => ({ x: p.y, y: p.x }))
             .reverse();
     const left: Point[] = [
@@ -1556,7 +1568,14 @@ declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
  */
 export const decorationDef = class PillDecoration extends paintDef {
   static override get inputProperties() {
-    return [ARC_SETBACK_VAR, EDGE_SETBACK_VAR, CONTINUITY_VAR, SIDE_VAR, ...DECORATION_INPUTS];
+    return [
+      ARC_SETBACK_VAR,
+      EDGE_SETBACK_VAR,
+      CONTINUITY_VAR,
+      SIDE_VAR,
+      MAX_RADIUS_VAR,
+      ...DECORATION_INPUTS,
+    ];
   }
 
   override paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {
