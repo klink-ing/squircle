@@ -6,9 +6,11 @@
 import plugin from "tailwindcss/plugin";
 import { PILL_SIDE_NAMES, pillCssObj, pillPropertyRegistrations, pillSideCss } from "./pill-css";
 import {
+  FULL_RADIUS,
   PILL_CONTINUITY_VAR_NAME,
   PILL_ARC_SETBACK_VAR_NAME,
   PILL_EDGE_SETBACK_VAR_NAME,
+  PILL_MAX_RADIUS_VAR_NAME,
 } from "./variants";
 
 export interface SquirclePillPluginOptions {
@@ -22,7 +24,8 @@ export interface SquirclePillPluginOptions {
  * box, so it always caps the short ends. What can be picked is capping one
  * end alone: `-t`, `-r`, `-b`, `-l`, and `-s`/`-e` for the inline ends,
  * square the other. The knobs the shape has — the arc setback, edge setback, and its
- * continuity — get `-arc-setback-*`, `-edge-setback-*` and `-g2`/`-g3` utilities, which only
+ * continuity — get `-arc-setback-*`, `-edge-setback-*` and `-g2`/`-g3` utilities, as does
+ * its largest radius, `-max-*`, which only
  * set the custom property, the same thing writing it yourself does.
  *
  * The rules themselves live in pill-css.ts, shared with the standalone
@@ -31,7 +34,7 @@ export interface SquirclePillPluginOptions {
 const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptions>> =
   plugin.withOptions<SquirclePillPluginOptions>(
     (options = {}) =>
-      ({ addBase, addUtilities, matchUtilities }) => {
+      ({ addBase, addUtilities, matchUtilities, theme }) => {
         const prefix = options.prefix ?? "squircle-pill";
 
         // The utility has to carry the registrations itself rather than lean
@@ -89,6 +92,28 @@ const squirclePill: ReturnType<typeof plugin.withOptions<SquirclePillPluginOptio
                 : {},
           },
           { type: ["number", "any"], values: numbers },
+        );
+
+        // Drop none/full from the theme's radii (the v3-compat theme still
+        // carries them): both lift the cap, so they map to FULL_RADIUS.
+        const { none: _none, full: _full, ...radiusValues } = theme("borderRadius") ?? {};
+        const themeRadii = new Set<string>(Object.values(radiusValues));
+        // A length, but never a percentage, which has no box to resolve against.
+        const length = /^[+-]?(?:\d*\.)?\d+(?:e[+-]?\d+)?([a-z]+)$/i;
+        matchUtilities(
+          {
+            [`${prefix}-max`]: (value: string) =>
+              themeRadii.has(value) ||
+              value === FULL_RADIUS ||
+              length.test(value) ||
+              expression.test(value)
+                ? { [PILL_MAX_RADIUS_VAR_NAME]: value }
+                : {},
+          },
+          {
+            type: ["length", "any"],
+            values: { ...radiusValues, none: FULL_RADIUS, full: FULL_RADIUS },
+          },
         );
       },
   );

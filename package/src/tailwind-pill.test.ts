@@ -387,9 +387,59 @@ describe("tailwind-pill.ts utilities", () => {
   });
 
   it("honours a custom prefix", async () => {
-    const css = await compilePill(["pillbox", "pillbox-arc-setback-3"], 'prefix: "pillbox";');
+    const css = await compilePill(
+      ["pillbox", "pillbox-arc-setback-3", "pillbox-max-lg"],
+      'prefix: "pillbox";',
+    );
     expect(css).toContain(".pillbox");
     expect(css).toContain(`border-radius: ${M}`);
     expect(css).toContain(`${PILL_ARC_SETBACK_VAR_NAME}: 3deg`);
+    expect(css).toContain(`${PILL_MAX_RADIUS_VAR_NAME}: 0.5rem`);
+  });
+
+  describe("max radius", () => {
+    const max = PILL_MAX_RADIUS_VAR_NAME;
+
+    it("takes the theme's radius keys", async () => {
+      const css = await compilePill(["squircle-pill-max-lg", "squircle-pill-max-3xl"]);
+      expect(css).toContain(`${max}: 0.5rem`);
+      expect(css).toContain(`${max}: 1.5rem`);
+    });
+
+    it("takes lengths, expressions and references", async () => {
+      const css = await compilePill([
+        "squircle-pill-max-[26px]",
+        "squircle-pill-max-[1.625rem]",
+        "squircle-pill-max-[calc(1lh+12px)]",
+        "squircle-pill-max-(--field-radius)",
+      ]);
+      expect(css).toContain(`${max}: 26px`);
+      expect(css).toContain(`${max}: 1.625rem`);
+      expect(css).toContain(`${max}: calc(1lh + 12px)`);
+      expect(css).toContain(`${max}: var(--field-radius)`);
+    });
+
+    it("-none and -full lift the cap", async () => {
+      const css = await compilePill(["squircle-pill-max-none", "squircle-pill-max-full"]);
+      expect(css.split(`${max}: ${FULL};`)).toHaveLength(3);
+    });
+
+    it("rejects values that are not a length", async () => {
+      for (const c of [
+        "squircle-pill-max-6",
+        "squircle-pill-max-[50%]",
+        "squircle-pill-max-[foo]",
+        "squircle-pill-max-[2]",
+      ]) {
+        expect(await compilePill([c])).toBe("");
+      }
+    });
+
+    it("sets only the custom property", async () => {
+      const css = await compilePill(["squircle-pill-max-[26px]"]);
+      expect(css).not.toContain("border-radius");
+      expect(css).not.toContain("mask-image");
+      expect(css).not.toContain(":where(");
+    });
   });
 });
