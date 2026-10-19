@@ -1,0 +1,324 @@
+---
+// Chat composers that grow past one line without turning into blobs, in
+// whichever mode the URL asks for. Off the site layout for the same reason as
+// the pill gallery: the worklet can never be unregistered, so each mode is a
+// page load that chooses for itself.
+import "../../styles/global.css";
+import PillMaxRadiusControls from "../../components/PillMaxRadiusControls";
+
+type Field = "input" | "textarea";
+type Actions = "none" | "send" | "icons";
+
+interface Composer {
+  field: Field;
+  actions: Actions;
+  /** What the field opens with. */
+  value?: string;
+  /** Extra classes on the composer, shown in its caption. */
+  classes?: string;
+  caption: string;
+  /** The one-line composer the controls measure for their default. */
+  oneLine?: boolean;
+}
+
+const TWO_LINES =
+  "Summarise this thread for the team, and pull out every decision we made along with who owns it.";
+const THREE_LINES =
+  "Draft a reply to the vendor.\nThank them for the quote, and ask whether the price holds for a two-year term.\nKeep it short and friendly.";
+const FIVE_LINES = [
+  "Plan a three-day trip to Lisbon.",
+  "Day one: the old town and a tram ride.",
+  "Day two: Belém, pastries, the river.",
+  "Day three: a day trip to Sintra.",
+  "Keep the evenings free for dinner.",
+].join("\n");
+
+const columns: [Actions, string][] = [
+  ["none", "No actions"],
+  ["send", "Send"],
+  ["icons", "Icons and Send"],
+];
+
+const matrix: Composer[] = [
+  { field: "input", actions: "none", caption: "Input", oneLine: true },
+  { field: "input", actions: "send", caption: "Input" },
+  { field: "input", actions: "icons", caption: "Input" },
+  { field: "textarea", actions: "none", value: TWO_LINES, caption: "Textarea, two lines" },
+  { field: "textarea", actions: "send", value: TWO_LINES, caption: "Textarea, two lines" },
+  { field: "textarea", actions: "icons", value: TWO_LINES, caption: "Textarea, two lines" },
+];
+
+const grown: Composer[] = [
+  { field: "textarea", actions: "icons", value: THREE_LINES, caption: "With the max radius." },
+  {
+    field: "textarea",
+    actions: "icons",
+    value: THREE_LINES,
+    classes: "squircle-pill-max-none",
+    caption: "the same composer with no limit, as it was before.",
+  },
+];
+
+const modes = [
+  ["auto", "Auto: worklet, or the polyfill"],
+  ["worklet", "Worklet only"],
+  ["polyfill", "Polyfill"],
+  ["none", "No shaping"],
+] as const;
+
+const COMPOSER = "squircle-pill border border-zinc-300 bg-white";
+/** Layout on top of `COMPOSER`, kept out of the labels. */
+const ROW = "relative flex items-end gap-1 py-1.5 pr-1.5 pl-5 text-zinc-900";
+const FIELD =
+  "min-w-0 flex-1 bg-transparent py-1.5 text-sm/6 text-zinc-900 outline-none placeholder:text-zinc-400";
+const GROWS = "resize-none field-sizing-content";
+const SEND =
+  "squircle-pill h-9 shrink-0 bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700";
+const ICON =
+  "squircle-pill grid size-9 shrink-0 place-items-center text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700";
+const PANEL = "rounded-xl bg-zinc-100 p-6 text-zinc-900";
+const CAPTION = "mt-2 text-xs text-zinc-500";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pill max radius</title>
+    <style is:global>
+      /* The fallback's rounded rectangle, drawn over each composer on request. */
+      .fallback-outline {
+        position: absolute;
+        inset: -1px;
+        display: none;
+        pointer-events: none;
+        border: 1.5px dashed #e11d48;
+        border-radius: var(--squircle-pill-max-radius, calc(infinity * 1px));
+      }
+      :root[data-show-fallback] .fallback-outline {
+        display: block;
+      }
+    </style>
+  </head>
+  <body class="bg-zinc-950 px-4 py-8 text-zinc-100 sm:px-8">
+    <main class="mx-auto max-w-6xl">
+      <p class="mb-2 text-sm"><a href="/demos" class="text-indigo-400 hover:underline">← Demos</a></p>
+      <h1 class="mb-2 text-3xl font-bold">Pill max radius</h1>
+      <p class="mb-4 max-w-3xl text-sm text-zinc-400">
+        A chat composer is a pill while it's one line tall. Give it a max radius and, as it grows,
+        its corners stay as round as they were: a rounded rectangle with the pill's own corners,
+        not a fat blob. Every composer below is
+        <code class="text-zinc-300">{COMPOSER}</code>, under a max radius the controls set on the
+        page root, as <code class="text-zinc-300">squircle-pill-max-[25px]</code> would. Switch modes
+        to compare how each is drawn; each loads the page afresh. With no shaping, the fallback is
+        the rounded rectangle "Show fallback" outlines.
+      </p>
+      <nav class="mb-2 flex flex-wrap gap-2 text-sm" aria-label="Drawing mode">
+        {
+          modes.map(([mode, label]) => (
+            <a
+              href={`?mode=${mode}`}
+              data-mode={mode}
+              class="rounded border border-zinc-700 px-3 py-1 hover:border-indigo-500"
+            >
+              {label}
+            </a>
+          ))
+        }
+      </nav>
+      <p class="mb-4 text-sm text-zinc-400">
+        Drawn by <span id="drawn-by" class="text-zinc-200">…</span>
+      </p>
+      <PillMaxRadiusControls client:only="react" />
+
+      <section class="mb-12">
+        <h2 class="mb-1 text-xl font-semibold">The composer</h2>
+        <p class="mb-5 max-w-3xl text-sm text-zinc-400">
+          Type a few lines, or paste a paragraph, and watch it grow.
+        </p>
+        <div class={PANEL}>
+          <div class={`${COMPOSER} ${ROW} mx-auto max-w-2xl`}>
+            <textarea
+              rows="1"
+              data-grow
+              aria-label="Message"
+              placeholder="Ask anything"
+              class={`${FIELD} ${GROWS}`}></textarea>
+            <button type="button" class={ICON} aria-label="New chat">
+              <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /></svg>
+            </button>
+            <button type="button" class={SEND}>Send</button>
+            <div class="fallback-outline" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-1 text-xl font-semibold">Field × actions</h2>
+        <p class="mb-5 max-w-3xl text-sm text-zinc-400">
+          An input and a two-line textarea, with no actions, a Send pill, and icon buttons before
+          it. The one-line composers are the pills they always were; the textareas keep those
+          corners.
+        </p>
+        <div class:list={[PANEL, "grid gap-x-6 gap-y-8 md:grid-cols-3"]}>
+          {
+            columns.map(([, label]) => (
+              <p class="hidden text-sm font-medium text-zinc-600 md:block">{label}</p>
+            ))
+          }
+          {
+            matrix.map((composer) => (
+              <figure>
+                <div
+                  class={`${COMPOSER} ${ROW} ${composer.classes ?? ""}`}
+                  data-one-line={composer.oneLine ? "" : undefined}
+                >
+                  {composer.field === "input" ? (
+                    <input aria-label="Message" placeholder="Ask anything" class={FIELD} />
+                  ) : (
+                    <textarea
+                      rows="1"
+                      data-grow
+                      aria-label="Message"
+                      placeholder="Ask anything"
+                      class={`${FIELD} ${GROWS}`}
+                    >{composer.value}</textarea>
+                  )}
+                  {composer.actions === "icons" && (
+                    <>
+                      <button type="button" class={ICON} aria-label="Attach">
+                        <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 11-8.6 8.6a5 5 0 0 1-7-7L14 4a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4L15.6 7" /></svg>
+                      </button>
+                      <button type="button" class={ICON} aria-label="New chat">
+                        <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /></svg>
+                      </button>
+                    </>
+                  )}
+                  {composer.actions !== "none" && <button type="button" class={SEND}>Send</button>}
+                  <div class="fallback-outline" aria-hidden="true" />
+                </div>
+                <figcaption class={CAPTION}>
+                  {composer.caption}
+                  <span class="md:hidden">, {columns.find(([a]) => a === composer.actions)?.[1].toLowerCase()}</span>
+                </figcaption>
+              </figure>
+            ))
+          }
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-1 text-xl font-semibold">Grown textarea</h2>
+        <p class="mb-5 max-w-3xl text-sm text-zinc-400">
+          Three lines in, with the actions at the end of the last line. Without a max radius the
+          caps grow with the height, and the corners swallow the text.
+        </p>
+        <div class:list={[PANEL, "grid gap-x-6 gap-y-8 md:grid-cols-2"]}>
+          {
+            grown.map((composer) => (
+              <figure>
+                <div class={`${COMPOSER} ${ROW} ${composer.classes ?? ""}`}>
+                  <textarea
+                    rows="1"
+                    data-grow
+                    aria-label="Message"
+                    class={`${FIELD} ${GROWS}`}
+                  >{composer.value}</textarea>
+                  <button type="button" class={ICON} aria-label="Attach">
+                    <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 11-8.6 8.6a5 5 0 0 1-7-7L14 4a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4L15.6 7" /></svg>
+                  </button>
+                  <button type="button" class={SEND}>Send</button>
+                  <div class="fallback-outline" aria-hidden="true" />
+                </div>
+                <figcaption class={CAPTION}>
+                  {composer.classes && <><code class="text-zinc-700">{composer.classes}</code>: </>}
+                  {composer.caption}
+                </figcaption>
+              </figure>
+            ))
+          }
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-1 text-xl font-semibold">Stack</h2>
+        <p class="mb-5 max-w-3xl text-sm text-zinc-400">
+          The field over a row holding a Model chip, with Send in a column of its own. Two rows
+          tall before anything is typed, so a plain pill would already be a blob.
+        </p>
+        <div class={PANEL}>
+          <div class={`${COMPOSER} relative mx-auto grid max-w-2xl grid-cols-[minmax(0,1fr)_auto] gap-x-2 p-2 pl-5 text-zinc-900`}>
+            <div class="flex min-w-0 flex-col gap-1">
+              <textarea
+                rows="1"
+                data-grow
+                aria-label="Message"
+                placeholder="Ask anything"
+                class={`${FIELD} ${GROWS}`}
+              >{TWO_LINES}</textarea>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="squircle-pill flex h-8 items-center gap-1 border border-zinc-300 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Model
+                  <svg viewBox="0 0 20 20" class="size-4" fill="currentColor" aria-hidden="true"><path d="M5.2 7.8a.75.75 0 0 1 1.06 0L10 11.5l3.74-3.7a.75.75 0 1 1 1.06 1.06l-4.27 4.27a.75.75 0 0 1-1.06 0L5.2 8.86a.75.75 0 0 1 0-1.06Z" /></svg>
+                </button>
+              </div>
+            </div>
+            <button type="button" class={`${SEND} self-end`}>Send</button>
+            <div class="fallback-outline" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="mb-1 text-xl font-semibold">Height scrubber</h2>
+        <p class="mb-5 max-w-3xl text-sm text-zinc-400">
+          One composer swept from one line to five, smoothly rather than a line at a time, so the
+          growth between steps shows: the corners round out until they reach the max radius, then
+          hold while the edges lengthen.
+        </p>
+        <div class={PANEL}>
+          <div class="mb-6 flex flex-wrap items-center gap-3 text-sm text-zinc-700">
+            <button
+              type="button"
+              id="scrub-play"
+              class="squircle-pill h-8 w-20 border border-zinc-300 bg-white text-sm font-medium hover:bg-zinc-50"
+            >
+              Play
+            </button>
+            <label for="scrub-lines">Lines</label>
+            <input
+              id="scrub-lines"
+              type="range"
+              min="1"
+              max="5"
+              step="0.01"
+              value="1"
+              class="w-64 accent-teal-600"
+            />
+            <output id="scrub-value" for="scrub-lines" class="w-10 font-mono text-xs">1.00</output>
+          </div>
+          <div class={`${COMPOSER} ${ROW} mx-auto max-w-2xl`}>
+            <textarea
+              id="scrub-field"
+              aria-label="Message"
+              class={`${FIELD} h-9 resize-none overflow-hidden`}
+            >{FIVE_LINES}</textarea>
+            <button type="button" class={ICON} aria-label="New chat">
+              <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /></svg>
+            </button>
+            <button type="button" class={SEND}>Send</button>
+            <div class="fallback-outline" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      import "../../lib/pill-gallery";
+      import "../../lib/pill-max-radius";
+    </script>
+  </body>
+</html>
