@@ -10,8 +10,10 @@ import { pillDecoration, polyfillPills, type PillPolyfill } from "./pill-polyfil
 import {
   PILL_BORDER_COLOR_VAR_NAME,
   PILL_BORDER_WIDTH_VAR_NAME,
+  PILL_CLIP_VAR_NAME,
   PILL_DECORATION_CLIP_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
+  PILL_MAX_RADIUS_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
   PILL_OUTLINE_OFFSET_VAR_NAME,
   PILL_OUTLINE_WIDTH_VAR_NAME,
@@ -168,5 +170,61 @@ describe("polyfillPills re-reading settings", () => {
     polyfill?.disconnect();
     expect(pill.style.getPropertyValue(PILL_POLYFILL_BORDER_VAR_NAME)).toBe("");
     expect(pill.style.getPropertyValue(PILL_POLYFILL_REACH_VAR_NAME)).toBe("");
+  });
+});
+
+describe("polyfillPills max radius", () => {
+  let polyfill: PillPolyfill | null = null;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    observed = [];
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    // The property is registered to inherit, which happy-dom's computed style
+    // doesn't do for custom properties: take it from the nearest ancestor
+    // that sets it.
+    const computed = window.getComputedStyle.bind(window);
+    vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
+      const style = computed(el, pseudo);
+      const own = style.getPropertyValue.bind(style);
+      style.getPropertyValue = (name: string) => {
+        if (name !== PILL_MAX_RADIUS_VAR_NAME) return own(name);
+        for (let at: Element | null = el; at; at = at.parentElement) {
+          const value = (at as HTMLElement).style.getPropertyValue(name);
+          if (value) return value;
+        }
+        return "";
+      };
+      return style;
+    });
+    document.body.innerHTML = `
+      <div id="limit" style="${PILL_MAX_RADIUS_VAR_NAME}: 12px"><div class="squircle-pill" id="limited"></div></div>
+      <div><div class="squircle-pill" id="free"></div></div>`;
+    polyfill = polyfillPills({ force: true });
+    resizeAll(300, 100);
+  });
+
+  afterEach(() => {
+    polyfill?.disconnect();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("draws the max radius an ancestor sets, and redraws when it changes", () => {
+    const clip = (id: string) =>
+      (document.getElementById(id) as HTMLElement).style.getPropertyValue(PILL_CLIP_VAR_NAME);
+    const free = clip("free");
+    const limited = clip("limited");
+    expect(free).toMatch(/^path\("M/);
+    expect(limited).toMatch(/^path\("M/);
+    expect(limited).not.toBe(free);
+    (document.getElementById("limit") as HTMLElement).style.setProperty(
+      PILL_MAX_RADIUS_VAR_NAME,
+      "30px",
+    );
+    polyfill?.refresh();
+    expect(clip("limited")).not.toBe(limited);
+    expect(clip("limited")).not.toBe(free);
   });
 });

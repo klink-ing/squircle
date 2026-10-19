@@ -23,6 +23,7 @@ import {
   PILL_EDGE_SETBACK_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
+  PILL_MAX_RADIUS_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
   PILL_OUTLINE_OFFSET_VAR_NAME,
   PILL_OUTLINE_STYLE_VAR_NAME,
@@ -207,6 +208,100 @@ describe("pill polyfill", () => {
     });
   });
 
+  describe("max radius", () => {
+    const maxRadius = "26px";
+    /** The worklet's `boxOutline`, without its repeats and its return to the start. */
+    const boxOutline = (width: number, height: number) => {
+      const values: Record<string, string> = { [PILL_MAX_RADIUS_VAR_NAME]: maxRadius };
+      const points = new (paintDef as unknown as new () => {
+        boxOutline(w: number, h: number, p: unknown): Point[];
+      })().boxOutline(width, height, {
+        get: (n: string) => (values[n] ? { toString: () => values[n] } : undefined),
+      });
+      const out: Point[] = [];
+      for (const q of points) {
+        const last = out.at(-1);
+        if (!last || Math.abs(last.x - q.x) > 1e-6 || Math.abs(last.y - q.y) > 1e-6) out.push(q);
+      }
+      const first = out[0] as Point;
+      const last = out.at(-1) as Point;
+      if (Math.abs(first.x - last.x) < 1e-6 && Math.abs(first.y - last.y) < 1e-6) out.pop();
+      return out;
+    };
+
+    it("traces the worklet's outline past the limit", () => {
+      const ours = pillOutlinePoints(400, 120, { maxRadius });
+      const theirs = boxOutline(400, 120);
+      expect(ours.length).toBe(theirs.length);
+      ours.forEach((p, i) => {
+        expect(p.x).toBeCloseTo((theirs[i] as Point).x, 6);
+        expect(p.y).toBeCloseTo((theirs[i] as Point).y, 6);
+      });
+      expect(ours).not.toEqual(pillOutlinePoints(400, 120));
+    });
+
+    it("writes a pill with straight sides from its pieces, each at its own height", () => {
+      const worklet = new (paintDef as unknown as new () => {
+        offsetOutline(points: Point[], distance: number): Point[];
+        decorationBands(p: unknown): { from: number; to: number }[];
+        decorationOutset(p: unknown): number;
+      })();
+      const outlined: Record<string, string> = {
+        [PILL_OUTLINE_WIDTH_VAR_NAME]: "2px",
+        [PILL_OUTLINE_STYLE_VAR_NAME]: "solid",
+        [PILL_OUTLINE_COLOR_VAR_NAME]: "red",
+        [PILL_REACH_VAR_NAME]: "2px",
+      };
+      const props = {
+        get: (n: string) => (outlined[n] ? { toString: () => outlined[n] } : undefined),
+      };
+      const band = worklet.decorationBands(props)[0] as { from: number; to: number };
+      const outset = worklet.decorationOutset(props);
+      const quoted = (clip: string | null | undefined) => /"([^"]*)"/.exec(clip ?? "")?.[1] ?? "";
+      // 140 and 160 tall share one fully grown corner; each still needs its
+      // own sides.
+      for (const height of [120, 140, 160]) {
+        const outline = pillOutlinePoints(400, height, { maxRadius });
+        const shifted = outline.map((p) => ({ x: p.x + outset, y: p.y + outset }));
+        const cases: [string, string, Point[]][] = [
+          ["0", pillOutlinePath(400, height, { maxRadius }), outline],
+          [
+            "-2",
+            quoted(pillClipPath(400, height, { maxRadius }, 2)),
+            worklet.offsetOutline(outline, -2),
+          ],
+          [
+            `${band.to}`,
+            quoted(pillDecoration(400, height, outlined, { maxRadius })?.clip),
+            worklet.offsetOutline(shifted, band.to),
+          ],
+        ];
+        for (const [distance, d, expected] of cases) {
+          const label = `400x${height} at ${distance}`;
+          // Written from relative runs, not point by point.
+          expect(d, label).toMatch(/^M[^L]*$/);
+          const traced = parse(d)[0] as Point[];
+          expect(traced.length, label).toBe(expected.length);
+          traced.forEach((p, i) => {
+            const q = expected[i] as Point;
+            expect(
+              Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)),
+              `${label} #${i}`,
+            ).toBeLessThan(0.011);
+          });
+        }
+        // The band's inner edge, written backwards, is the same outline the
+        // other way round.
+        const decoration = quoted(pillDecoration(400, height, outlined, { maxRadius })?.clip);
+        const inner = parse(decoration)[1] as Point[];
+        const expected = worklet.offsetOutline(shifted, band.from);
+        expect(inner.length, `400x${height} inner`).toBe(expected.length);
+        for (const p of inner) expect(distanceTo(p, expected)).toBeLessThan(0.011);
+        expect(new Set(inner.map((p) => `${p.x},${p.y}`)).size).toBe(inner.length);
+      }
+    });
+  });
+
   describe("background clip", () => {
     it("pulls back half a pixel under a border or inset ring, as the worklet's mask does", () => {
       expect(pillBackgroundInset({})).toBe(0);
@@ -235,6 +330,9 @@ describe("pill polyfill", () => {
     it("is not needed for a square, whose stadium is already its circle", () => {
       expect(pillClipPath(48, 48)).toBeNull();
       expect(pillClipPath(48, 47)).not.toBeNull();
+      // Unless it is past its max radius, and rounder than its `border-radius`.
+      expect(pillClipPath(48, 48, { maxRadius: "24px" })).toBeNull();
+      expect(pillClipPath(48, 48, { maxRadius: "12px" })).toMatch(/^path\("M/);
       expect(pillClipPath(0, 60)).toBeNull();
     });
   });
