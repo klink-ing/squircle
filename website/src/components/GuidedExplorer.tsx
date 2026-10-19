@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AnimatePresence,
-  useMotionValue,
-  useSpring,
-  type SpringOptions,
-} from "framer-motion";
+import { useCallback, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Player } from "@remotion/player";
+import { Easing, interpolate, useCurrentFrame } from "remotion";
 import { SlideStepProvider } from "./Animate";
 import ExplorerGraphic, { type ArcStyle, type GraphicState } from "./ExplorerGraphic";
 import FreeExplorer from "./FreeExplorer";
 import { slides } from "./slides";
 
+const FPS = 60;
 const HIDDEN_ARC: ArcStyle = { visible: false, showFill: false, showOutline: false };
 
 const INITIAL_GRAPHIC_STATE: GraphicState = {
@@ -54,151 +52,176 @@ function computeGraphicState(slideIndex: number, stepIndex: number): GraphicStat
   return state;
 }
 
-export default function GuidedExplorer() {
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [mode, setMode] = useState<"tour" | "explore">("tour");
-  const [exploreState, setExploreState] = useState<GraphicState | null>(null);
-  const [userAmount, setUserAmount] = useState<number | null>(null);
+type TourFrameProps = {
+  from: GraphicState;
+  target: GraphicState;
+  slideIndex: number;
+  stepIndex: number;
+  contentHost: HTMLDivElement;
+  userAmount: number | null;
+  onAmountChange: (amount: number) => void;
+  onNext: () => void;
+  onBack: () => void;
+  displayed: { current: GraphicState };
+  reducedMotion: boolean;
+};
 
-  // Compute the target graphic state from the current position
-  const targetState = useMemo(
-    () => computeGraphicState(slideIndex, stepIndex),
-    [slideIndex, stepIndex],
-  );
-
-  // Animated amount using framer-motion spring
-  const amountMV = useMotionValue(targetState.amount);
-  const currentStep = slides[slideIndex]?.steps[stepIndex];
-  const transitionDuration = currentStep?.transition?.duration ?? 0.4;
-  const springConfig: SpringOptions = {
-    stiffness: Math.max(20, 200 / transitionDuration),
-    damping: 30,
-    mass: 1,
+function TourFrame({
+  from,
+  target,
+  slideIndex,
+  stepIndex,
+  contentHost,
+  userAmount,
+  onAmountChange,
+  onNext,
+  onBack,
+  displayed,
+  reducedMotion,
+}: TourFrameProps) {
+  const frame = useCurrentFrame();
+  const duration = slides[slideIndex]!.steps[stepIndex]!.transition?.duration ?? 0.4;
+  const progress = reducedMotion
+    ? 1
+    : interpolate(frame, [0, duration * FPS], [0, 1], {
+        extrapolateRight: "clamp",
+        easing: Easing.inOut(Easing.cubic),
+      });
+  const mix = (a: number, b: number) => a + (b - a) * progress;
+  const arc = (a: ArcStyle, b: ArcStyle): ArcStyle => ({
+    visible: mix(Number(a.visible), Number(b.visible)),
+    showFill: mix(Number(a.showFill), Number(b.showFill)),
+    showOutline: mix(Number(a.showOutline), Number(b.showOutline)),
+  });
+  const state: GraphicState = {
+    ...target,
+    amount: userAmount ?? mix(from.amount, target.amount),
+    correctionAmount: mix(from.correctionAmount, target.correctionAmount),
+    zoom: mix(from.zoom, target.zoom),
+    arcRounded: arc(from.arcRounded, target.arcRounded),
+    arcSuperellipse: arc(from.arcSuperellipse, target.arcSuperellipse),
+    showRefLine: mix(Number(from.showRefLine), Number(target.showRefLine)),
+    showMeasurement: mix(Number(from.showMeasurement), Number(target.showMeasurement)),
   };
-  const amountSpring = useSpring(amountMV, springConfig);
-  const [animatedAmount, setAnimatedAmount] = useState(targetState.amount);
+  // Capture the rendered frame so rapid navigation starts from the visible geometry.
+  displayed.current = state;
+  return (
+    <>
+      <ExplorerGraphic {...state} />
+      {createPortal(
+        <SlideStepProvider
+          step={stepIndex}
+          onAmountChange={onAmountChange}
+          onNext={onNext}
+          onBack={onBack}
+        >
+          {slides[slideIndex]!.content}
+        </SlideStepProvider>,
+        contentHost,
+      )}
+    </>
+  );
+}
 
-  useEffect(() => {
-    if (userAmount != null) {
-      // Slider: bypass spring, update instantly
-      amountMV.jump(userAmount);
-    } else {
-      // Step transition: animate via spring
-      amountMV.set(targetState.amount);
-    }
-  }, [targetState.amount, userAmount, amountMV]);
-
-  useEffect(() => {
-    const unsubscribe = amountSpring.on("change", (v) => {
-      setAnimatedAmount(v);
-    });
-    return unsubscribe;
-  }, [amountSpring]);
-
-  // Animated correctionAmount using framer-motion spring
-  const correctionMV = useMotionValue(targetState.correctionAmount);
-  const correctionSpring = useSpring(correctionMV, { stiffness: 80, damping: 20, mass: 1 });
-  const [animatedCorrection, setAnimatedCorrection] = useState(targetState.correctionAmount);
-
-  useEffect(() => {
-    correctionMV.set(targetState.correctionAmount);
-  }, [targetState.correctionAmount, correctionMV]);
-
-  useEffect(() => {
-    const unsubscribe = correctionSpring.on("change", (v) => {
-      setAnimatedCorrection(v);
-    });
-    return unsubscribe;
-  }, [correctionSpring]);
-
-  const currentSlide = slides[slideIndex]!;
-  const isLastSlide = slideIndex === slides.length - 1;
-  const isLastStep = stepIndex === currentSlide.steps.length - 1;
-  const isLastStepOfLastSlide = isLastSlide && isLastStep;
-
-  const handleNext = useCallback(() => {
+export default function GuidedExplorer() {
+  const [position, setPosition] = useState({ slide: 0, step: 0, revision: 0 });
+  const [mode, setMode] = useState<"tour" | "explore">("tour");
+  const [contentHost, setContentHost] = useState<HTMLDivElement | null>(null);
+  const [userAmount, setUserAmount] = useState<number | null>(null);
+  const [exploreState, setExploreState] = useState(() => computeGraphicState(0, 0));
+  const [from, setFrom] = useState(() => computeGraphicState(0, 0));
+  const displayed = useRef(from);
+  const target = computeGraphicState(position.slide, position.step);
+  const reducedMotion =
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const navigate = useCallback((slide: number, step: number) => {
+    setFrom(displayed.current);
     setUserAmount(null);
-    if (!isLastStep) {
-      setStepIndex((s) => s + 1);
-    } else if (isLastStepOfLastSlide) {
-      const finalState = computeGraphicState(slideIndex, stepIndex);
-      setExploreState(finalState);
+    setPosition((prev) => ({ slide, step, revision: prev.revision + 1 }));
+  }, []);
+  const handleNext = () => {
+    if (position.step < slides[position.slide]!.steps.length - 1) {
+      navigate(position.slide, position.step + 1);
+    } else if (position.slide < slides.length - 1) {
+      navigate(position.slide + 1, 0);
+    } else {
+      setExploreState({ ...target, amount: userAmount ?? target.amount });
       setMode("explore");
-    } else {
-      setSlideIndex((s) => s + 1);
-      setStepIndex(0);
     }
-  }, [isLastStep, isLastStepOfLastSlide, slideIndex, stepIndex]);
-
-  const handleBack = useCallback(() => {
-    setUserAmount(null);
+  };
+  const handleBack = () => {
     if (mode === "explore") {
+      setFrom(target);
       setMode("tour");
-    } else if (stepIndex > 0) {
-      setStepIndex((s) => s - 1);
-    } else if (slideIndex > 0) {
-      const prevSlide = slides[slideIndex - 1]!;
-      setSlideIndex((s) => s - 1);
-      setStepIndex(prevSlide.steps.length - 1);
+    } else if (position.step > 0) {
+      navigate(position.slide, position.step - 1);
+    } else if (position.slide > 0) {
+      navigate(position.slide - 1, slides[position.slide - 1]!.steps.length - 1);
     }
-  }, [mode, stepIndex, slideIndex]);
-
-  // Graphic state to pass to ExplorerGraphic
-  const graphicStateForDisplay: GraphicState =
-    mode === "explore" && exploreState
-      ? exploreState
-      : { ...targetState, amount: animatedAmount, correctionAmount: animatedCorrection };
-
+  };
+  const duration = slides[position.slide]!.steps[position.step]!.transition?.duration ?? 0.4;
   return (
     <div className="grid gap-8 md:grid-cols-2 md:items-start">
-      {/* Left: graphic */}
       <div className="md:-mt-[10%]">
-        <ExplorerGraphic {...graphicStateForDisplay} />
-      </div>
-      {/* Right: content panel */}
-      <div className="flex h-full min-h-[500px] flex-col md:h-full md:min-h-0">
         {mode === "tour" ? (
-          <>
-            <div className="flex-1 grow">
-              <AnimatePresence initial={false} mode="popLayout">
-                <motion.div key={slideIndex} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
-                  <SlideStepProvider
-                    step={stepIndex}
-                    onAmountChange={setUserAmount}
-                    onNext={handleNext}
-                    onBack={handleBack}
-                  >
-                    {currentSlide.content}
-                  </SlideStepProvider>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </>
+          contentHost && (
+            <Player
+              key={position.revision}
+              component={TourFrame}
+              inputProps={{
+                from,
+                target,
+                slideIndex: position.slide,
+                stepIndex: position.step,
+                contentHost,
+                userAmount,
+                onAmountChange: setUserAmount,
+                onNext: handleNext,
+                onBack: handleBack,
+                displayed,
+                reducedMotion,
+              }}
+              compositionWidth={440}
+              compositionHeight={440}
+              fps={FPS}
+              durationInFrames={Math.ceil(Math.max(duration, 0.8) * FPS) + 1}
+              initialFrame={reducedMotion ? Math.ceil(Math.max(duration, 0.8) * FPS) : 0}
+              autoPlay={!reducedMotion}
+              controls={false}
+              clickToPlay={false}
+              doubleClickToFullscreen={false}
+              spaceKeyToPlayOrPause={false}
+              moveToBeginningWhenEnded={false}
+              style={{ width: "100%", maxWidth: 448, overflow: "visible" }}
+            />
+          )
         ) : (
-          <>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-zinc-100">Explore</h2>
-              {exploreState && (
-                <FreeExplorer
-                  graphicState={exploreState}
-                  onGraphicStateChange={(partial) =>
-                    setExploreState((prev) => (prev ? mergeGraphicState(prev, partial) : prev))
-                  }
-                />
-              )}
-            </div>
-
-            <div className="pt-4">
-              <button
-                onClick={handleBack}
-                className="text-sm text-zinc-400 transition-colors hover:text-zinc-200"
-              >
-                &larr; Back to tour
-              </button>
-            </div>
-          </>
+          <ExplorerGraphic {...exploreState} />
         )}
+      </div>
+      <div className="flex min-h-[500px] flex-col">
+        {/* A portal preserves Remotion context while keeping text and controls unscaled. */}
+        <div ref={setContentHost} className="flex-1" />
+        {mode === "explore" && (
+          <div className="flex-1">
+            <h2 className="text-xl font-bold text-zinc-100">Explore</h2>
+            <FreeExplorer
+              graphicState={exploreState}
+              onGraphicStateChange={(partial) =>
+                setExploreState((prev) => mergeGraphicState(prev, partial))
+              }
+            />
+          </div>
+        )}
+        <div className="pt-4">
+          <button
+            onClick={handleBack}
+            disabled={mode === "tour" && position.slide === 0 && position.step === 0}
+            className="text-sm text-zinc-400 hover:text-zinc-200 disabled:opacity-30"
+          >
+            {mode === "explore" ? "← Back to tour" : "← Back"}
+          </button>
+        </div>
       </div>
     </div>
   );

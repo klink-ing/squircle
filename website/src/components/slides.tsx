@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { useEntranceStyle } from "./Animate";
 import { Animate, NextButton, useAmountControl } from "./Animate";
 import type { GraphicState } from "./ExplorerGraphic";
 
@@ -39,29 +39,17 @@ export type Slide = {
 
 const SlideHeading = ({ children }: { children: React.ReactNode }) => {
   return (
-    <motion.h2
-      className="type-step-heading pb-6"
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -24 }}
-      transition={{ duration: 0.5 }}
-    >
+    <h2 className="type-step-heading pb-6" style={useEntranceStyle()}>
       {children}
-    </motion.h2>
+    </h2>
   );
 };
 
 const SlideP = ({ children }: { children: React.ReactNode }) => {
   return (
-    <motion.p
-      className="type-step-body"
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -24 }}
-      transition={{ duration: 0.5 }}
-    >
+    <p className="type-step-body" style={useEntranceStyle()}>
       {children}
-    </motion.p>
+    </p>
   );
 };
 

@@ -8,10 +8,11 @@
   },
   "dependencies": {
     "@astrojs/react": "^4",
+    "@remotion/player": "catalog:",
     "astro": "^5",
-    "framer-motion": "^12.38.0",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "remotion": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",

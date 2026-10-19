@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { AnimatePresence, motion, type MotionProps } from "framer-motion";
+import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 interface SlideContext {
   step: number;
@@ -7,72 +7,46 @@ interface SlideContext {
   onNext?: () => void;
   onBack?: () => void;
 }
-
 const SlideStepContext = createContext<SlideContext>({ step: 0 });
-
 export function SlideStepProvider({
-  step,
-  onAmountChange,
-  onNext,
-  onBack,
   children,
-}: {
-  step: number;
-  onAmountChange?: (amount: number) => void;
-  onNext?: () => void;
-  onBack?: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <SlideStepContext.Provider value={{ step, onAmountChange, onNext, onBack }}>
-      {children}
-    </SlideStepContext.Provider>
-  );
+  ...value
+}: SlideContext & { children: React.ReactNode }) {
+  return <SlideStepContext.Provider value={value}>{children}</SlideStepContext.Provider>;
 }
-
 export function useSlideStep() {
   return useContext(SlideStepContext).step;
 }
-
 export function useAmountControl() {
   return useContext(SlideStepContext).onAmountChange;
 }
-
 export function useSlideNav() {
-  const ctx = useContext(SlideStepContext);
-  return { onNext: ctx.onNext, onBack: ctx.onBack };
+  const { onNext, onBack } = useContext(SlideStepContext);
+  return { onNext, onBack };
 }
-
-export function NextButton({
-  children,
-  initial,
-  animate,
-  exit,
-}: {
-  children: React.ReactNode;
-  initial?: MotionProps["initial"];
-  animate?: MotionProps["animate"];
-  exit?: MotionProps["exit"];
-}) {
+export function useEntranceStyle(delay = 0) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const progress = interpolate(frame, [delay * fps, (delay + 0.5) * fps], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.cubic),
+  });
+  return { opacity: progress, transform: `translateX(${24 * (1 - progress)}px)` };
+}
+export function NextButton({ children }: { children: React.ReactNode }) {
   const { onNext } = useSlideNav();
-
   return (
-    <motion.div
-      className="flex w-full justify-end pt-4"
-      initial={initial ?? { opacity: 0, x: 20 }}
-      animate={animate ?? { opacity: 1, x: 0, transition: { duration: 0.3, delay: 0.3 } }}
-      exit={exit ?? { opacity: 0, x: -20, transition: { duration: 0.2, delay: 0.2 } }}
-    >
+    <div className="flex w-full justify-end pt-4" style={useEntranceStyle(0.3)}>
       <button
         onClick={onNext}
         className="type-button rounded-md bg-zinc-800 px-6 py-3 transition-colors hover:bg-zinc-700"
       >
         {children}
       </button>
-    </motion.div>
+    </div>
   );
 }
-
 export function Animate({
   inStep,
   outStep,
@@ -82,16 +56,6 @@ export function Animate({
   outStep?: number;
   children: React.ReactNode;
 }) {
-  const currentStep = useSlideStep();
-  const visible = currentStep >= inStep && (outStep == null || currentStep < outStep);
-
-  return (
-    <AnimatePresence propagate mode="popLayout">
-      {visible && (
-        <motion.div key={`animate-${inStep}`} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
+  const step = useSlideStep();
+  return step >= inStep && (outStep == null || step < outStep) ? <>{children}</> : null;
 }

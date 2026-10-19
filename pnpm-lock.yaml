@@ -9,6 +9,9 @@ catalogs:
     '@anolilab/semantic-release-pnpm':
       specifier: ^3.2.2
       version: 3.2.2
+    '@remotion/player':
+      specifier: 4.0.537
+      version: 4.0.537
     '@semantic-release/commit-analyzer':
       specifier: ^13.0.1
       version: 13.0.1
@@ -24,6 +27,9 @@ catalogs:
     conventional-changelog-conventionalcommits:
       specifier: ^9.3.1
       version: 9.3.1
+    remotion:
+      specifier: 4.0.537
+      version: 4.0.537
     semantic-release:
       specifier: ^25.0.3
       version: 25.0.3
@@ -103,18 +109,21 @@ importers:
       '@astrojs/react':
         specifier: ^4
         version: 4.4.2(@types/node@25.5.2)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(esbuild@0.27.7)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      '@remotion/player':
+        specifier: 'catalog:'
+        version: 4.0.537(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       astro:
         specifier: ^5
         version: 5.18.1(@types/node@25.5.2)(jiti@2.6.1)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
-      framer-motion:
-        specifier: ^12.38.0
-        version: 12.38.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react:
         specifier: ^19
         version: 19.2.4
       react-dom:
         specifier: ^19
         version: 19.2.4(react@19.2.4)
+      remotion:
+        specifier: 'catalog:'
+        version: 4.0.537(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.2.2
@@ -1023,6 +1032,12 @@ packages:
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
+
+  '@remotion/player@4.0.537':
+    resolution: {integrity: sha512-zXY13uIqBr6q1fHAaiDvnXVMB8Wqs2BVoJTcXHlhhpoPoH4tGByzLc+961hhxMJjUR4Ubc2JRIaNbUckHEh46A==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
 
   '@rolldown/binding-android-arm64@1.0.0-rc.12':
     resolution: {integrity: sha512-pv1y2Fv0JybcykuiiD3qBOBdz6RteYojRFY1d+b95WVuzx211CRh+ytI/+9iVyWQ6koTh5dawe4S/yRfOFjgaA==}
@@ -2034,20 +2049,6 @@ packages:
     resolution: {integrity: sha512-Wp1zXWPVUPBmfoa3Cqc9ctaKuzKAV6uLstRqlR56kSjplf5uAce+qeyYym7F+PHbGTk+tCEdkCW6RD7DX/gBZw==}
     engines: {node: '>=20'}
 
-  framer-motion@12.38.0:
-    resolution: {integrity: sha512-rFYkY/pigbcswl1XQSb7q424kSTQ8q6eAC+YUsSKooHQYuLdzdHjrt6uxUC+PRAO++q5IS7+TamgIw1AphxR+g==}
-    peerDependencies:
-      '@emotion/is-prop-valid': '*'
-      react: ^18.0.0 || ^19.0.0
-      react-dom: ^18.0.0 || ^19.0.0
-    peerDependenciesMeta:
-      '@emotion/is-prop-valid':
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
-
   from2@2.3.0:
     resolution: {integrity: sha512-OMcX/4IC/uqEPVgGeyfN22LJk6AZrMkRZHxcHBMBvHScDGgwTm2GT2Wkgtocyd3JfZffjj2kYUDXXII0Fk9W0g==}
 
@@ -2620,12 +2621,6 @@ packages:
   minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
 
-  motion-dom@12.38.0:
-    resolution: {integrity: sha512-pdkHLD8QYRp8VfiNLb8xIBJis1byQ9gPT3Jnh2jqfFtAsWUA3dEepDlsWe/xMpO8McV+VdpKVcp+E+TGJEtOoA==}
-
-  motion-utils@12.36.0:
-    resolution: {integrity: sha512-eHWisygbiwVvf6PZ1vhaHCLamvkSbPIeAYxWUuL3a2PD/TROgE7FvfHWTIH4vMl798QLfMw15nRqIaRDXTlYRg==}
-
   mrmime@2.0.1:
     resolution: {integrity: sha512-Y3wQdFg2Va6etvQ5I82yUhGdsKrcYox6p7FfL1LbK2J4V01F9TGlepTIhnK24t7koZibmg82KGglhA1XK5IsLQ==}
     engines: {node: '>=10'}
@@ -3055,6 +3050,12 @@ packages:
 
   remark-stringify@11.0.0:
     resolution: {integrity: sha512-1OSmLd3awB/t8qdoEOMazZkNsfVTeY4fTsgzcQFdXNq8ToTN4ZGwrMnlda4K6smTFKD+GRV6O48i6Z4iKgPPpw==}
+
+  remotion@4.0.537:
+    resolution: {integrity: sha512-chlB4+lnCWnDr6Pk+fDh3vWgac/ntGduq4VUpDsXzY1Pzu6URdnl40LUClK4ZlS3mwMv2U0oflE7qjZ9LGpVWg==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
 
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
@@ -4458,6 +4459,12 @@ snapshots:
 
   '@polka/url@1.0.0-next.29': {}
 
+  '@remotion/player@4.0.537(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      remotion: 4.0.537(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+
   '@rolldown/binding-android-arm64@1.0.0-rc.12':
     optional: true
 
@@ -5574,15 +5581,6 @@ snapshots:
     dependencies:
       tiny-inflate: 1.0.3
 
-  framer-motion@12.38.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
-    dependencies:
-      motion-dom: 12.38.0
-      motion-utils: 12.36.0
-      tslib: 2.8.1
-    optionalDependencies:
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-
   from2@2.3.0:
     dependencies:
       inherits: 2.0.4
@@ -6328,12 +6326,6 @@ snapshots:
 
   minimist@1.2.8: {}
 
-  motion-dom@12.38.0:
-    dependencies:
-      motion-utils: 12.36.0
-
-  motion-utils@12.36.0: {}
-
   mrmime@2.0.1: {}
 
   ms@2.1.3: {}
@@ -6758,6 +6750,11 @@ snapshots:
       mdast-util-to-markdown: 2.1.2
       unified: 11.0.5
 
+  remotion@4.0.537(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+
   require-directory@2.1.1: {}
 
   resolve-from@4.0.0: {}
@@ -7096,7 +7093,8 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  tslib@2.8.1: {}
+  tslib@2.8.1:
+    optional: true
 
   tsx@4.21.0:
     dependencies:

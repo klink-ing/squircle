@@ -78,7 +78,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={arcRounded.visible}
+            checked={Boolean(arcRounded.visible)}
             onChange={(e) =>
               onGraphicStateChange({ arcRounded: { ...arcRounded, visible: e.target.checked } })
             }
@@ -88,7 +88,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={arcSuperellipse.visible}
+            checked={Boolean(arcSuperellipse.visible)}
             onChange={(e) =>
               onGraphicStateChange({
                 arcSuperellipse: { ...arcSuperellipse, visible: e.target.checked },
