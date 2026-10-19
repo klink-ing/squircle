@@ -9,6 +9,8 @@ import {
   DEFAULT_PILL_SIDE,
   DEFAULT_PILL_EDGE_SETBACK,
   FULL_RADIUS,
+  PILL_MAX_RADIUS_CSS,
+  PILL_MAX_RADIUS_VAR_NAME,
   PILL_ARC_SETBACK_VAR_NAME,
   PILL_EDGE_SETBACK_VAR_NAME,
   PILL_BACKGROUND_INSET_VAR_NAME,
@@ -55,10 +57,10 @@ type PillSide = "t" | "r" | "b" | "l";
 
 /** The stadium fallback for each side: full on the capped corners, square on the others. */
 const SIDE_RADII: Record<PillSide, string> = {
-  t: `${FULL_RADIUS} ${FULL_RADIUS} 0 0`,
-  r: `0 ${FULL_RADIUS} ${FULL_RADIUS} 0`,
-  b: `0 0 ${FULL_RADIUS} ${FULL_RADIUS}`,
-  l: `${FULL_RADIUS} 0 0 ${FULL_RADIUS}`,
+  t: `${PILL_MAX_RADIUS_CSS} ${PILL_MAX_RADIUS_CSS} 0 0`,
+  r: `0 ${PILL_MAX_RADIUS_CSS} ${PILL_MAX_RADIUS_CSS} 0`,
+  b: `0 0 ${PILL_MAX_RADIUS_CSS} ${PILL_MAX_RADIUS_CSS}`,
+  l: `${PILL_MAX_RADIUS_CSS} 0 0 ${PILL_MAX_RADIUS_CSS}`,
 };
 
 const RTL = '&:where(:dir(rtl), [dir="rtl"], [dir="rtl"] *)';
@@ -155,6 +157,12 @@ export function pillPropertyRegistrations(): Record<string, Record<string, strin
     [`@property ${PILL_SIDE_VAR_NAME}`]: {
       syntax: '"auto | t | r | b | l"',
       "initial-value": DEFAULT_PILL_SIDE,
+      inherits: "true",
+    },
+    // No limit to start with. A length, so `calc(infinity * 1px)` is valid.
+    [`@property ${PILL_MAX_RADIUS_VAR_NAME}`]: {
+      syntax: '"<length>"',
+      "initial-value": FULL_RADIUS,
       inherits: "true",
     },
     ...Object.fromEntries(
@@ -273,7 +281,7 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     // would beat it; its side rules match that and come later.
     ...(flavor === "standalone"
       ? {
-          "border-radius": FULL_RADIUS,
+          "border-radius": PILL_MAX_RADIUS_CSS,
           "border-width": `var(${PILL_BORDER_WIDTH_VAR_NAME})`,
           "border-style": `var(${PILL_BORDER_STYLE_VAR_NAME}, ${PILL_BORDER_STYLE_FALLBACK})`,
           "border-color": `var(${PILL_BORDER_COLOR_VAR_NAME})`,
@@ -288,7 +296,7 @@ export function pillCssObj(flavor: PillCssFlavor): PillCss {
     ":where(&)": {
       // With Tailwind, the stadium is here, so a side utility's radius wins
       // whatever the order; see below.
-      ...(flavor === "tailwind" ? { "border-radius": FULL_RADIUS } : {}),
+      ...(flavor === "tailwind" ? { "border-radius": PILL_MAX_RADIUS_CSS } : {}),
       // Every pill starts with both ends capped, rather than taking a side
       // from a pill it is nested in.
       [PILL_SIDE_VAR_NAME]: DEFAULT_PILL_SIDE,

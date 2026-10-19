@@ -12,10 +12,12 @@ import {
   DEFAULT_PILL_ARC_SETBACK,
   DEFAULT_PILL_CONTINUITY,
   DEFAULT_PILL_EDGE_SETBACK,
+  DEFAULT_PILL_MAX_RADIUS,
   DEFAULT_PILL_SIDE,
   PILL_ARC_SETBACK_VAR_NAME,
   PILL_EDGE_SETBACK_VAR_NAME,
   PILL_CONTINUITY_VAR_NAME,
+  PILL_MAX_RADIUS_VAR_NAME,
   PILL_SIDE_VAR_NAME,
   PILL_WORKLET_ATTRIBUTE,
 } from "./variants";
@@ -24,7 +26,7 @@ export { PILL_WORKLET_ATTRIBUTE };
 
 /**
  * The pill's shape settings — the custom properties `squircle-pill-arc-setback-*`,
- * `squircle-pill-edge-setback-*`, `squircle-pill-g2`/`-g3` and the side utilities
+ * `squircle-pill-edge-setback-*`, `squircle-pill-g2`/`-g3`, `squircle-pill-max-*` and the side utilities
  * (`squircle-pill-t`, …) set — and the values
  * they start at, for scripts that set or show them: a settings panel, a
  * preview. The same constants the stylesheet's registrations and the
@@ -37,6 +39,8 @@ export const PILL_SHAPE_PROPERTIES = {
   edgeSetback: { name: PILL_EDGE_SETBACK_VAR_NAME, default: DEFAULT_PILL_EDGE_SETBACK },
   continuity: { name: PILL_CONTINUITY_VAR_NAME, default: DEFAULT_PILL_CONTINUITY },
   side: { name: PILL_SIDE_VAR_NAME, default: DEFAULT_PILL_SIDE },
+  /** Longest cap radius in px; `Infinity` is no limit. Write CSS values with a length unit. */
+  maxRadius: { name: PILL_MAX_RADIUS_VAR_NAME, default: DEFAULT_PILL_MAX_RADIUS },
 } as const;
 
 /**

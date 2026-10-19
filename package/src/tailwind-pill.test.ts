@@ -17,6 +17,8 @@ import {
   PILL_DECORATED_VAR_NAME,
   PILL_DECORATION_VAR_NAME,
   PILL_EDGE_SETBACK_VAR_NAME,
+  PILL_MAX_RADIUS_CSS,
+  PILL_MAX_RADIUS_VAR_NAME,
   PILL_POLYFILL_ATTRIBUTE,
   PILL_POLYFILL_BORDER_VAR_NAME,
   PILL_POLYFILL_REACH_VAR_NAME,
@@ -35,6 +37,7 @@ const compilePillAll = (candidates: string[], block = "") =>
 const LOADED = `:where(:root[${PILL_WORKLET_ATTRIBUTE}]) &`;
 
 const FULL = FULL_RADIUS;
+const M = PILL_MAX_RADIUS_CSS;
 /** The declarations directly in `.name { … }`, before any nested rule. */
 const ownBlock = (css: string, name: string) => {
   const start = css.indexOf(`.${name} {`);
@@ -158,6 +161,24 @@ describe("tailwind-pill.ts utilities", () => {
     }
   });
 
+  describe("the max radius", () => {
+    it("registers the max radius as an inherited length with no limit", async () => {
+      const css = await compilePillAll(["squircle-pill"]);
+      expect(css).toMatch(
+        new RegExp(
+          `@property ${PILL_MAX_RADIUS_VAR_NAME} \\{[^}]*syntax: "<length>";[^}]*initial-value: calc\\(infinity \\* 1px\\);[^}]*inherits: true;`,
+        ),
+      );
+    });
+
+    it("does not reset the max radius on each pill", async () => {
+      // It inherits, so a container's limit reaches the pills inside it.
+      const css = await compilePill(["squircle-pill"]);
+      const own = /:where\(&\) \{([^}]*)\}/.exec(css)?.[1];
+      expect(own).not.toContain(`${PILL_MAX_RADIUS_VAR_NAME}:`);
+    });
+  });
+
   describe("the stadium underneath", () => {
     it("is a plain fully-rounded rectangle, at zero specificity", async () => {
       // The whole fallback without the worklet: the same radius the `-full`
@@ -165,7 +186,8 @@ describe("tailwind-pill.ts utilities", () => {
       // utility's radius wins whichever is emitted first.
       const css = await compilePill(["squircle-pill"]);
       const own = /:where\(&\) \{([^}]*)\}/.exec(css)?.[1];
-      expect(own).toContain(`border-radius: ${FULL};`);
+      expect(own).toContain(`border-radius: ${M};`);
+      expect(own).not.toContain(`border-radius: ${FULL};`);
       expect(ownBlock(css, "squircle-pill")).not.toContain("border-radius");
     });
 
@@ -301,10 +323,10 @@ describe("tailwind-pill.ts utilities", () => {
 
   describe("sides", () => {
     const radii: Record<string, string> = {
-      t: `${FULL} ${FULL} 0 0`,
-      r: `0 ${FULL} ${FULL} 0`,
-      b: `0 0 ${FULL} ${FULL}`,
-      l: `${FULL} 0 0 ${FULL}`,
+      t: `${M} ${M} 0 0`,
+      r: `0 ${M} ${M} 0`,
+      b: `0 0 ${M} ${M}`,
+      l: `${M} 0 0 ${M}`,
     };
 
     for (const [side, radius] of Object.entries(radii)) {
@@ -365,9 +387,69 @@ describe("tailwind-pill.ts utilities", () => {
   });
 
   it("honours a custom prefix", async () => {
-    const css = await compilePill(["pillbox", "pillbox-arc-setback-3"], 'prefix: "pillbox";');
+    const css = await compilePill(
+      ["pillbox", "pillbox-arc-setback-3", "pillbox-max-lg"],
+      'prefix: "pillbox";',
+    );
     expect(css).toContain(".pillbox");
-    expect(css).toContain(`border-radius: ${FULL_RADIUS}`);
+    expect(css).toContain(`border-radius: ${M}`);
     expect(css).toContain(`${PILL_ARC_SETBACK_VAR_NAME}: 3deg`);
+    expect(css).toContain(`${PILL_MAX_RADIUS_VAR_NAME}: 0.5rem`);
+  });
+
+  describe("max radius", () => {
+    const max = PILL_MAX_RADIUS_VAR_NAME;
+
+    it("takes the theme's radius keys", async () => {
+      const css = await compilePill(["squircle-pill-max-lg", "squircle-pill-max-3xl"]);
+      expect(css).toContain(`${max}: 0.5rem`);
+      expect(css).toContain(`${max}: 1.5rem`);
+    });
+
+    it("takes lengths, expressions and references", async () => {
+      const css = await compilePill([
+        "squircle-pill-max-[26px]",
+        "squircle-pill-max-[1.625rem]",
+        "squircle-pill-max-[calc(1lh+12px)]",
+        "squircle-pill-max-(--field-radius)",
+      ]);
+      expect(css).toContain(`${max}: 26px`);
+      expect(css).toContain(`${max}: 1.625rem`);
+      expect(css).toContain(`${max}: calc(1lh + 12px)`);
+      expect(css).toContain(`${max}: var(--field-radius)`);
+    });
+
+    it("-none and -full lift the cap", async () => {
+      const css = await compilePill(["squircle-pill-max-none", "squircle-pill-max-full"]);
+      expect(css.split(`${max}: ${FULL};`)).toHaveLength(3);
+    });
+
+    it("rejects values that are not a length", async () => {
+      for (const c of [
+        "squircle-pill-max-6",
+        "squircle-pill-max-[50%]",
+        "squircle-pill-max-[foo]",
+        "squircle-pill-max-[2]",
+      ]) {
+        expect(await compilePill([c])).toBe("");
+      }
+    });
+
+    it("accepts only CSS lengths, and a bare 0", async () => {
+      for (const c of ["squircle-pill-max-[3deg]", "squircle-pill-max-[2foo]"]) {
+        expect(await compilePill([c])).toBe("");
+      }
+      expect(await compilePill(["squircle-pill-max-[0]"])).toContain(`${max}: 0`);
+      const css = await compilePill(["squircle-pill-max-[2vh]", "squircle-pill-max-[1lh]"]);
+      expect(css).toContain(`${max}: 2vh`);
+      expect(css).toContain(`${max}: 1lh`);
+    });
+
+    it("sets only the custom property", async () => {
+      const css = await compilePill(["squircle-pill-max-[26px]"]);
+      expect(css).not.toContain("border-radius");
+      expect(css).not.toContain("mask-image");
+      expect(css).not.toContain(":where(");
+    });
   });
 });
