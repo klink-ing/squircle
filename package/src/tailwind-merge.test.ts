@@ -106,6 +106,19 @@ describe("squircleMergeConfig", () => {
       );
     });
 
+    it("its max radius replaces itself and nothing else", () => {
+      expect(twMerge("squircle-pill-max-lg squircle-pill-max-[26px]")).toBe(
+        "squircle-pill-max-[26px]",
+      );
+      const kept =
+        "squircle-pill squircle-pill-max-lg squircle-pill-edge-setback-1 squircle-pill-l";
+      expect(twMerge(kept)).toBe(kept);
+      expect(twMerge("squircle-pill-max-lg squircle-lg")).toBe("squircle-pill-max-lg squircle-lg");
+      expect(twMerge("squircle-pill-max-none md:squircle-pill-max-lg")).toBe(
+        "squircle-pill-max-none md:squircle-pill-max-lg",
+      );
+    });
+
     it("never takes an unknown squircle-pill-* class for a radius", () => {
       // The catch-all `squircle-*` group would otherwise claim it, and cancel
       // the pill along with any radius.

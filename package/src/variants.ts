@@ -121,6 +121,16 @@ export const DEFAULT_PILL_CONTINUITY = 3 as const;
 export const PILL_SIDE_VAR_NAME: string = pillVar("side");
 export const DEFAULT_PILL_SIDE = "auto" as const;
 /**
+ * The longest radius a pill's caps may take, as a length. The caps are
+ * normally as round as the pill is short; a limit rounds them no further, so a
+ * tall pill reads as a rounded rectangle rather than a capsule. It starts
+ * without one (`Infinity`), inherits so a container can set it for the pills
+ * inside it, and is never reset per pill. The stadium fallback reads it too,
+ * falling back to `FULL_RADIUS` wherever it isn't set.
+ */
+export const PILL_MAX_RADIUS_VAR_NAME: string = pillVar("max-radius");
+export const DEFAULT_PILL_MAX_RADIUS = Infinity;
+/**
  * Attribute `registerPillWorklet()` sets on `<html>` once the worklet has
  * loaded. `@supports (mask-image: paint(pill-shape))` is true for any paint
  * name, loaded or not, so the mask is gated on this instead; until it appears
@@ -154,6 +164,8 @@ export const DEFAULT_AMOUNT_VAR_NAME: string = coreVar("amt");
 export const DEFAULT_R_VAR_NAME: string = coreVar("r");
 /** Static value for `squircle-full`; matches Tailwind's `rounded-full`. */
 export const FULL_RADIUS = "calc(infinity * 1px)" as const;
+/** The stadium radius, held to the pill's max radius when one is set. */
+export const PILL_MAX_RADIUS_CSS = `var(${PILL_MAX_RADIUS_VAR_NAME}, ${FULL_RADIUS})` as const;
 /** Static value for `squircle-none`; matches Tailwind's `rounded-none`. */
 export const NONE_RADIUS = "0" as const;
 export const DEFAULT_AMT_CSS = `var(${DEFAULT_AMOUNT_VAR_NAME}, ${DEFAULT_AMT})` as const;

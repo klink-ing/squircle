@@ -20,6 +20,7 @@ import {
   PILL_EDGE_SETBACK_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
+  PILL_MAX_RADIUS_VAR_NAME,
   PILL_OUTLINE_COLOR_VAR_NAME,
   PILL_OUTLINE_OFFSET_VAR_NAME,
   PILL_OUTLINE_STYLE_VAR_NAME,
@@ -50,22 +51,26 @@ export interface PillShapeInput {
   edgeSetback?: string;
   continuity?: string;
   side?: string;
+  /** A computed CSS length, for example "24px". */
+  maxRadius?: string;
 }
 
 interface PillGeometry {
   boxOutline(width: number, height: number, props: Lookup): Point[];
   outline(long: number, short: number, quadrant: Point[]): Point[];
-  fittedQuadrant(
-    long: number,
-    short: number,
-    angle: number,
-    exponent: number,
-    continuity: number,
-  ): Point[];
   resolveAngle(props: Lookup): number;
   resolveExponent(props: Lookup): number;
   resolveContinuity(props: Lookup): number;
   resolveSide(props: Lookup): string;
+  resolveMaxRadius(props: Lookup): number;
+  corner(
+    longRoom: number,
+    shortRoom: number,
+    maxRadius: number,
+    angle: number,
+    exponent: number,
+    continuity: number,
+  ): Point[];
   offsetOutline(points: Point[], distance: number): Point[];
   shadowCutout(points: Point[]): Point[];
   resolveLength(props: Lookup, name: string): number;
@@ -105,6 +110,7 @@ export function pillOutlinePoints(
     [PILL_EDGE_SETBACK_VAR_NAME]: shape.edgeSetback,
     [PILL_CONTINUITY_VAR_NAME]: shape.continuity,
     [PILL_SIDE_VAR_NAME]: shape.side,
+    [PILL_MAX_RADIUS_VAR_NAME]: shape.maxRadius,
   });
   const out: Point[] = [];
   for (const q of geometry.boxOutline(width, height, props)) {
@@ -222,14 +228,16 @@ function pillPath(
     [PILL_EDGE_SETBACK_VAR_NAME]: shape.edgeSetback,
     [PILL_CONTINUITY_VAR_NAME]: shape.continuity,
     [PILL_SIDE_VAR_NAME]: shape.side,
+    [PILL_MAX_RADIUS_VAR_NAME]: shape.maxRadius,
   });
   if (geometry.resolveSide(props) !== "auto") return null;
   const vertical = height > width;
   const long = vertical ? height : width;
   const short = vertical ? width : height;
-  const quadrant = geometry.fittedQuadrant(
-    long,
-    short,
+  const quadrant = geometry.corner(
+    long / 2,
+    short / 2,
+    geometry.resolveMaxRadius(props),
     geometry.resolveAngle(props),
     geometry.resolveExponent(props),
     geometry.resolveContinuity(props),
@@ -239,7 +247,9 @@ function pillPath(
 
   let byOffset = piecesCache.get(quadrant);
   if (!byOffset) piecesCache.set(quadrant, (byOffset = new Map()));
-  const key = `${distance},${vertical}`;
+  // A corner grown in full is the same for every taller box, but where it
+  // starts across the short axis, and the step between the halves, are not.
+  const key = `${distance},${vertical},${short}`;
   let pieces = byOffset.get(key);
   if (!pieces) {
     const made = makePieces(quadrant, long, short, distance, vertical);
@@ -268,6 +278,9 @@ function makePieces(
   vertical: boolean,
 ): Pieces | null {
   const n = quadrant.length;
+  // Where the corner is limited, a straight side separates it from its
+  // mirror image across the short axis, rather than the two meeting.
+  const sided = (quadrant[0] as Point).y < short / 2 - 1e-6;
   let points = quadrant;
   if (distance !== 0) {
     // Offset the whole outline, at this length, and keep the first
@@ -279,9 +292,11 @@ function makePieces(
       if (!last || Math.abs(last.x - q.x) > 1e-6 || Math.abs(last.y - q.y) > 1e-6) ring.push(q);
     }
     const moved = geometry.offsetOutline(ring, distance);
-    // Anything other than the quadrant's own points first means repeats
-    // were dropped from it; build the path point by point instead.
-    if (moved.length !== 4 * n - 2) return null;
+    // The halves share a point at each end where the corners meet there,
+    // and none where a straight side separates them. Anything else first
+    // means repeats were dropped from the quadrant; build the path point by
+    // point instead.
+    if (moved.length !== (sided ? 4 * n : 4 * n - 2)) return null;
     points = moved.slice(0, n);
   }
   const xs = points.map((p) => Math.round(p.x * 100));
@@ -321,14 +336,20 @@ function makePieces(
     xj: xs[n - 1] as number,
     y1: middle - (ys[0] as number),
     join: -2 * (ys[0] as number),
-    // Each way round, the last step returns to where the path began, which
-    // `Z` does instead.
-    runs: [run(a, vertical), run(b, vertical), run(c, vertical), run(d.slice(0, -2), vertical)],
+    // Each way round, where the corners meet, the last step returns to
+    // where the path began, which `Z` does instead; a straight side is that
+    // return.
+    runs: [
+      run(a, vertical),
+      run(b, vertical),
+      run(c, vertical),
+      run(sided ? d : d.slice(0, -2), vertical),
+    ],
     reversed: [
       run(back(d), vertical),
       run(back(c), vertical),
       run(back(b), vertical),
-      run(back(a).slice(0, -2), vertical),
+      run(sided ? back(a) : back(a).slice(0, -2), vertical),
     ],
   };
 }
@@ -345,7 +366,8 @@ export function pillOutlinePath(width: number, height: number, shape: PillShapeI
  * The `clip-path` for the copy of the element's background the pill shows:
  * the pill's outline, pulled in by `inset`. `null` for a square pill that
  * needs no pulling in, whose stadium `border-radius` is already the circle it
- * has to be; a square capped at one end is an arch, and needs its clip.
+ * has to be; a square capped at one end is an arch, and one past its max
+ * radius a rounder square than its `border-radius`, and both need their clip.
  */
 export function pillClipPath(
   width: number,
@@ -354,8 +376,13 @@ export function pillClipPath(
   inset = 0,
 ): string | null {
   // The worklet's own reading of the side, so a value it ignores is `auto` here too.
-  const auto = geometry.resolveSide(lookup({ [PILL_SIDE_VAR_NAME]: shape?.side })) === "auto";
-  if (width <= 0 || height <= 0 || (width === height && inset <= 0 && auto)) return null;
+  const props = lookup({
+    [PILL_SIDE_VAR_NAME]: shape?.side,
+    [PILL_MAX_RADIUS_VAR_NAME]: shape?.maxRadius,
+  });
+  const circle =
+    geometry.resolveSide(props) === "auto" && geometry.resolveMaxRadius(props) >= width / 2;
+  if (width <= 0 || height <= 0 || (width === height && inset <= 0 && circle)) return null;
   if (inset <= 0) return `path("${pillOutlinePath(width, height, shape)}")`;
   const fast = pillPath(width, height, shape ?? {}, -inset);
   if (fast !== null) return `path("${fast}")`;
@@ -701,6 +728,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
         edgeSetback: style.getPropertyValue(PILL_EDGE_SETBACK_VAR_NAME),
         continuity: style.getPropertyValue(PILL_CONTINUITY_VAR_NAME),
         side: style.getPropertyValue(PILL_SIDE_VAR_NAME),
+        maxRadius: style.getPropertyValue(PILL_MAX_RADIUS_VAR_NAME),
       },
       decoration: decorated ? values : {},
       decorationKey: decorated ? Object.values(values).join("|") : "",
@@ -743,7 +771,7 @@ export function polyfillPills(options: PillPolyfillOptions = {}): PillPolyfill |
       if (!size) continue;
       const { width, height } = size;
       const { shape, decoration, decorationKey, inset, border, reach } = read(el);
-      const shapeKey = `${width},${height},${shape.arcSetback},${shape.edgeSetback},${shape.continuity},${shape.side}`;
+      const shapeKey = `${width},${height},${shape.arcSetback},${shape.edgeSetback},${shape.continuity},${shape.side},${shape.maxRadius}`;
       const key = `${shapeKey},${inset},${border},${reach},${decorationKey}`;
       if (lastKey.get(el) === key) continue;
       lastKey.set(el, key);

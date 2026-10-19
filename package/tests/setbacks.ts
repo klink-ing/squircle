@@ -19,22 +19,38 @@ for (const cell of fixture.querySelectorAll<HTMLElement>(".cell")) {
 }
 const literal = fixture.querySelectorAll("button")[1]!;
 const reference = fixture.querySelector("svg")!;
-async function setSetbacks(arc: string, edge: string, degrees: number, width = 120) {
+async function setSetbacks(
+  arc: string,
+  edge: string,
+  degrees: number,
+  width = 120,
+  height = 40,
+  max = "",
+) {
+  if (max) fixture.style.setProperty("--squircle-pill-max-radius", max);
+  else fixture.style.removeProperty("--squircle-pill-max-radius");
   fixture.style.setProperty("--arc", arc);
   fixture.style.setProperty("--edge", edge);
   literal.style.setProperty("--squircle-pill-arc-setback", `${degrees}deg`);
   literal.style.setProperty("--squircle-pill-edge-setback", edge);
-  for (const button of fixture.querySelectorAll("button")) button.style.width = `${width}px`;
+  for (const button of fixture.querySelectorAll("button")) {
+    button.style.width = `${width}px`;
+    button.style.height = `${height}px`;
+  }
   reference.setAttribute("width", String(width));
-  reference.setAttribute("viewBox", `0 0 ${width} 40`);
-  const points = pillOutlinePoints(width, 40, {
+  reference.setAttribute("height", String(height));
+  reference.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const points = pillOutlinePoints(width, height, {
     arcSetback: `${degrees}deg`,
     edgeSetback: edge,
     continuity,
+    maxRadius: max || undefined,
   });
   const path = points.map((p, i) => `${i ? "L" : "M"}${p.x} ${p.y}`).join("");
   reference.innerHTML =
-    mode === "native" ? `<rect width="${width}" height="40" rx="20"/>` : `<path d="${path}Z"/>`;
+    mode === "native"
+      ? `<rect width="${width}" height="${height}" rx="${Math.min(max ? parseFloat(max) : Infinity, height / 2)}"/>`
+      : `<path d="${path}Z"/>`;
   await new Promise((resolve) =>
     requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 40))),
   );

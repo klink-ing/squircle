@@ -37,6 +37,7 @@ const RESOLVED_SHADOW_VAR = `${NS}-resolved-shadow`;
 const PAINT_ZOOM_VAR = `${NS}-paint-zoom`;
 const REACH_VAR = `${NS}-reach`;
 const BACKGROUND_INSET_VAR = `${NS}-background-inset`;
+const MAX_RADIUS_VAR = `${NS}-max-radius`;
 /** What decides the decoration; see `decorationBands` and `decorationShadows`. */
 const DECORATION_INPUTS = [
   REACH_VAR,
@@ -418,13 +419,35 @@ const MAX_SAGITTA = 0.03;
 const MIN_SEGMENTS = 4;
 const MAX_SEGMENTS = 256;
 
+/**
+ * The least exponent a corner grown past its max radius is given, by
+ * continuity: a superellipse meets a straight edge with G3 only for exponents
+ * above 3, and with G2 only above 2. Where it applies, the grown corner is a
+ * little less round than its cap, never less smooth.
+ */
+const ROUNDNESS_FLOOR: Record<Continuity, number> = { 2: 2.25, 3: 3.25 };
+/** Each request's superellipse exponent; see `roundnessExponent`. */
+const roundnessCache = new Map<string, number>();
+/**
+ * Equal steps of tangent direction a corner past its max radius is evaluated
+ * at, before `MAX_SAGITTA` picks its vertices from them; see `corner`.
+ */
+const CORNER_STEPS = 1024;
+
 export const paintDef = class PillShape implements PaintWorklet {
   /*
    * As few as it can do with: every input is gathered for every pill on every
    * resize, which adds up over hundreds of them.
    */
   static get inputProperties() {
-    return [ARC_SETBACK_VAR, EDGE_SETBACK_VAR, CONTINUITY_VAR, SIDE_VAR, BACKGROUND_INSET_VAR];
+    return [
+      ARC_SETBACK_VAR,
+      EDGE_SETBACK_VAR,
+      CONTINUITY_VAR,
+      SIDE_VAR,
+      MAX_RADIUS_VAR,
+      BACKGROUND_INSET_VAR,
+    ];
   }
 
   /**
@@ -505,6 +528,15 @@ export const paintDef = class PillShape implements PaintWorklet {
   resolveSide(props?: PaintProperties): Side | "auto" {
     const value = props?.get(SIDE_VAR)?.toString().trim();
     return value === "t" || value === "r" || value === "b" || value === "l" ? value : "auto";
+  }
+
+  /**
+   * The max radius in px: no limit where it is unset, not a number or not
+   * finite — `calc(infinity * 1px)` unregistered — and none below 0.
+   */
+  resolveMaxRadius(props?: PaintProperties): number {
+    const value = Number.parseFloat(props?.get(MAX_RADIUS_VAR)?.toString() ?? "");
+    return Number.isFinite(value) ? Math.max(0, value) : Infinity;
   }
 
   /**
@@ -676,14 +708,7 @@ export const paintDef = class PillShape implements PaintWorklet {
     // shape scales with the half-height.
     const ratio = half / r;
     const request = `${wantedBeta},${wantedExponent},${continuity}`;
-    const fitsAsAsked =
-      fitsAsAskedCache.get(request) ??
-      remember(
-        fitsAsAskedCache,
-        FIT_CACHE_SIZE,
-        request,
-        this.junctionRatio(wantedBeta, wantedExponent, continuity),
-      );
+    const fitsAsAsked = this.fitsAsAsked(wantedBeta, wantedExponent, continuity);
     if (ratio >= fitsAsAsked) return { beta: wantedBeta, exponent: wantedExponent };
 
     const key = `${ratio},${request}`;
@@ -741,6 +766,19 @@ export const paintDef = class PillShape implements PaintWorklet {
     const fitted = { beta: wantedBeta, exponent: CIRCULAR_EXPONENT + low };
     if (kept) this.keepTransition(fitted.beta, fitted.exponent, continuity, kept);
     return remember(fitCache, FIT_CACHE_SIZE, key, fitted);
+  }
+
+  /**
+   * `junctionRatio` for a request as asked, unfitted: the narrowest pill that
+   * fits it unchanged, and how far its easing reaches with room to spare.
+   * Cached per request; see `fitsAsAskedCache`.
+   */
+  fitsAsAsked(beta: number, q: number, continuity: Continuity): number {
+    const request = `${beta},${q},${continuity}`;
+    return (
+      fitsAsAskedCache.get(request) ??
+      remember(fitsAsAskedCache, FIT_CACHE_SIZE, request, this.junctionRatio(beta, q, continuity))
+    );
   }
 
   /** Files a transition whose integrals the fit has just computed; see `transition`. */
@@ -1009,6 +1047,195 @@ export const paintDef = class PillShape implements PaintWorklet {
   }
 
   /**
+   * The cap `quadrant` draws for half-height `r`, by tangent direction: the
+   * point where it runs at `phi` from the short edge, 0 where it leaves it and
+   * π/2 where it meets the long one. On the arc that is in closed form; on the
+   * easing, it is where the transition has `(π/2 - phi) / beta` of its turn
+   * left, found among the profile's nodes, where `remaining` falls steadily,
+   * and placed as `quadrant` places its points.
+   */
+  capAt(r: number, beta: number, q: number, continuity: Continuity): (phi: number) => Point {
+    const circular = q === CIRCULAR_EXPONENT || beta <= 0;
+    const eased = circular ? null : this.transition(beta, q, continuity);
+    const radius = eased ? eased.radiusRatio * r : r;
+    const arc = (phi: number): Point => ({
+      x: radius - radius * Math.cos(phi),
+      y: r - radius * Math.sin(phi),
+    });
+    if (!eased || eased.samples.lambda <= 0) return arc;
+    const { samples, fresnel } = eased;
+    const { remaining } = this.profile(q, continuity);
+    const arcEnd = Math.PI / 2 - beta;
+    const length = samples.lambda * radius * beta;
+    const start = arc(arcEnd);
+    return (phi) => {
+      if (phi <= arcEnd) return arc(phi);
+      let k = EASE_STEPS;
+      if (phi < Math.PI / 2) {
+        const left = (Math.PI / 2 - phi) / beta;
+        // remaining[low] >= left > remaining[high]
+        let low = 0;
+        let high = EASE_STEPS;
+        while (high - low > 1) {
+          const mid = (low + high) >> 1;
+          if (remaining[mid]! >= left) low = mid;
+          else high = mid;
+        }
+        const drop = remaining[low]! - remaining[high]!;
+        k = Math.min(low + (drop > 0 ? (remaining[low]! - left) / drop : 0), EASE_STEPS);
+      }
+      return {
+        x: start.x + length * hermite(fresnel.cos, fresnel.dcos, k),
+        y: start.y - length * hermite(fresnel.sin, fresnel.dsin, k),
+      };
+    };
+  }
+
+  /**
+   * The exponent of the superellipse a corner grows into past its max radius:
+   * the one that, reaching as far as the cap's easing does with room to spare,
+   * is exactly as round as the cap — as far in from the box corner along the
+   * diagonal, at the point where its tangent has turned 45°. Both are worked
+   * out at a half-height of 1; the shape scales.
+   *
+   * A superellipse of exponent `n` and extent `S` is `S (1 - 2^(-1/n))` from
+   * each edge at 45°, so its roundness is `√2 S (1 - 2^(-1/n))`, which this
+   * solves for `n`. Held at `ROUNDNESS_FLOOR` or above, so the corner keeps
+   * the pill's continuity where it meets the edges.
+   */
+  roundnessExponent(beta: number, q: number, continuity: Continuity): number {
+    const key = `${beta},${q},${continuity}`;
+    const known = roundnessCache.get(key);
+    if (known !== undefined) return known;
+    const p = this.capAt(1, beta, q, continuity)(Math.PI / 4);
+    const roundness = (p.x + p.y) / Math.SQRT2;
+    const reach = this.fitsAsAsked(beta, q, continuity);
+    const n = -1 / Math.log2(1 - roundness / (Math.SQRT2 * reach));
+    const floor = ROUNDNESS_FLOOR[continuity];
+    return remember(
+      roundnessCache,
+      FIT_CACHE_SIZE,
+      key,
+      Number.isFinite(n) ? Math.max(n, floor) : floor,
+    );
+  }
+
+  /**
+   * One corner of a pill whose radius is limited to `maxRadius`, in the
+   * quadrant's coordinates: from `(0, Y)` on the short edge to `(X, 0)` on the
+   * long one, `longRoom` and `shortRoom` being how far along each it may reach.
+   *
+   * Within the limit, it is the quadrant, the very array `fittedQuadrant`
+   * returns. Past it, it is `cornerCurve`, with vertices placed along it by
+   * `quadrant`'s chord-error bound, and cached as quadrants are. With no
+   * easing to grow into, it stays the cap: an arc of radius `maxRadius`.
+   */
+  corner(
+    longRoom: number,
+    shortRoom: number,
+    maxRadius: number,
+    angle: number,
+    exponent: number,
+    continuity: Continuity = DEFAULT_CONTINUITY,
+  ): Point[] {
+    const r = Math.min(shortRoom, maxRadius);
+    if (r >= shortRoom) {
+      return this.fittedQuadrant(2 * longRoom, 2 * shortRoom, angle, exponent, continuity);
+    }
+    if (!(r > 0)) return [{ x: 0, y: 0 }];
+    const curve = this.cornerCurve(longRoom, shortRoom, maxRadius, angle, exponent, continuity);
+    if (!curve) return this.fittedQuadrant(2 * longRoom, 2 * r, angle, exponent, continuity);
+    const cached = quadrantCache.get(curve.key);
+    if (cached) return cached;
+
+    const steps: Point[] = [];
+    for (let i = 0; i <= CORNER_STEPS; i++)
+      steps.push(curve.at((Math.PI / 2) * (i / CORNER_STEPS)));
+    // Keep a step wherever the chord from the last kept one, skipping it,
+    // would stray from any step it skips by more than `MAX_SAGITTA`.
+    const points: Point[] = [steps[0]!];
+    let anchor = 0;
+    for (let j = 2; j <= CORNER_STEPS; j++) {
+      const a = steps[anchor]!;
+      const b = steps[j]!;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const bound = MAX_SAGITTA * Math.sqrt(dx * dx + dy * dy);
+      for (let i = anchor + 1; i < j; i++) {
+        const p = steps[i]!;
+        if (Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) > bound) {
+          anchor = j - 1;
+          points.push(steps[anchor]!);
+          break;
+        }
+      }
+    }
+    points.push(steps[CORNER_STEPS]!);
+
+    if (quadrantCache.size >= QUADRANT_CACHE_SIZE) {
+      quadrantCache.delete(quadrantCache.keys().next().value as string);
+    }
+    quadrantCache.set(curve.key, points);
+    return points;
+  }
+
+  /**
+   * The curve `corner` draws past the limit, by tangent direction (see
+   * `capAt`), and the key its vertices are cached by; `null` where there is
+   * nothing to blend: within the limit, at a max of 0, or with no easing.
+   *
+   * The cap of half-height `r = maxRadius`, fitted to `longRoom`, is blended
+   * with a superellipse as round as the cap would be unfitted, of extent `J`,
+   * where that cap's easing meets the flat edge with room to spare, or
+   * `longRoom` if that is less. Blending two convex curves at matching
+   * tangents blends their radii of curvature, so the corner keeps both
+   * curves' continuity. The blend leans towards the superellipse as the short
+   * side grows, from none at the limit to all of it at a short room of `J`,
+   * so until then the corner still meets its mirror image in the middle of
+   * the short side; the flat edge starts at `J` all the while.
+   */
+  cornerCurve(
+    longRoom: number,
+    shortRoom: number,
+    maxRadius: number,
+    angle: number,
+    exponent: number,
+    continuity: Continuity = DEFAULT_CONTINUITY,
+  ): { key: string; at: (phi: number) => Point } | null {
+    const r = Math.min(shortRoom, maxRadius);
+    if (r >= shortRoom || !(r > 0) || angle <= 0 || exponent <= CIRCULAR_EXPONENT) return null;
+    const reach = r * this.fitsAsAsked(angle, exponent, continuity);
+    if (reach <= r) return null;
+
+    const fitted = this.fitEasing(r, longRoom, angle, exponent, continuity);
+    const w = Math.min(Math.max((shortRoom - r) / (reach - r), 0), 1);
+    const extent = Math.min(reach, longRoom);
+    const n = this.roundnessExponent(angle, exponent, continuity);
+    const power = n / (2 * n - 2);
+    const cap = this.capAt(r, fitted.beta, fitted.exponent, continuity);
+    const blend = (c: Point, sx: number, sy: number): Point => ({
+      x: (1 - w) * c.x + w * sx,
+      y: (1 - w) * c.y + w * sy,
+    });
+    return {
+      key: `max:${r},${fitted.beta},${fitted.exponent},${w},${extent},${exponent},${continuity}`,
+      at: (phi) => {
+        // Exactly on the edges, where the cap is only to rounding, and the
+        // superellipse to `tan`'s at π/2.
+        if (phi <= 0) return { x: 0, y: (1 - w) * r + w * extent };
+        if (phi >= Math.PI / 2) return { x: blend(cap(Math.PI / 2), extent, 0).x, y: 0 };
+        // The superellipse's point at the same tangent direction as the cap's.
+        const u = Math.atan(Math.tan(phi) ** power);
+        return blend(
+          cap(phi),
+          extent - extent * Math.cos(u) ** (2 / n),
+          extent - extent * Math.sin(u) ** (2 / n),
+        );
+      },
+    };
+  }
+
+  /**
    * The pill's outline in the coordinates of a `width` by `height` box: worked
    * out along the long axis, then transposed for a tall pill, which leaves a
    * tall pill's outline running the other way round.
@@ -1022,9 +1249,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     const outline = this.outline(
       long,
       short,
-      this.fittedQuadrant(
-        long,
-        short,
+      this.corner(
+        long / 2,
+        short / 2,
+        this.resolveMaxRadius(props),
         this.resolveAngle(props),
         this.resolveExponent(props),
         this.resolveContinuity(props),
@@ -1042,9 +1270,10 @@ export const paintDef = class PillShape implements PaintWorklet {
     const vertical = height > width;
     const long = vertical ? height : width;
     const short = vertical ? width : height;
-    const quadrant = this.fittedQuadrant(
-      long,
-      short,
+    const quadrant = this.corner(
+      long / 2,
+      short / 2,
+      this.resolveMaxRadius(props),
       this.resolveAngle(props),
       this.resolveExponent(props),
       this.resolveContinuity(props),
@@ -1086,16 +1315,19 @@ export const paintDef = class PillShape implements PaintWorklet {
     const angle = this.resolveAngle(props);
     const exponent = this.resolveExponent(props);
     const continuity = this.resolveContinuity(props);
+    const maxRadius = this.resolveMaxRadius(props);
 
     // The top-left corner, from the left edge round to the top edge.
+    const longRoom = Math.max(h / 2, w);
+    const shortRoom = Math.min(h / 2, w);
     const corner =
       h / 2 <= w
         ? // The left edge binds: the caps meet halfway down it, and each eases
           // along the whole top edge.
-          this.fittedQuadrant(2 * w, h, angle, exponent, continuity)
+          this.corner(longRoom, shortRoom, maxRadius, angle, exponent, continuity)
         : // The top edge binds: the cap spans it, meeting the square corner,
           // and eases down half the left edge.
-          this.fittedQuadrant(h, 2 * w, angle, exponent, continuity)
+          this.corner(longRoom, shortRoom, maxRadius, angle, exponent, continuity)
             .map((p) => ({ x: p.y, y: p.x }))
             .reverse();
     const left: Point[] = [
@@ -1336,7 +1568,14 @@ declare const registerPaint: ((name: string, def: unknown) => void) | undefined;
  */
 export const decorationDef = class PillDecoration extends paintDef {
   static override get inputProperties() {
-    return [ARC_SETBACK_VAR, EDGE_SETBACK_VAR, CONTINUITY_VAR, SIDE_VAR, ...DECORATION_INPUTS];
+    return [
+      ARC_SETBACK_VAR,
+      EDGE_SETBACK_VAR,
+      CONTINUITY_VAR,
+      SIDE_VAR,
+      MAX_RADIUS_VAR,
+      ...DECORATION_INPUTS,
+    ];
   }
 
   override paint(ctx: CanvasRenderingContext2D, size: PaintSize, props?: PaintProperties): void {
