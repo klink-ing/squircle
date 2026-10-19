@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { renderPillCss } from "./pill-css";
+import { PILL_SHAPE_PROPERTIES } from "./pill-worklet";
 import { decorationDef, paintDef } from "./pill-shape.worklet";
 import {
   CSS_NAMESPACE,
@@ -27,6 +28,7 @@ import {
   PILL_EDGE_SETBACK_VAR_NAME,
   PILL_INSET_RING_COLOR_VAR_NAME,
   PILL_INSET_RING_WIDTH_VAR_NAME,
+  PILL_MAX_RADIUS_CSS,
   PILL_OUTLINE_COLOR_VAR_NAME,
   PILL_OUTLINE_OFFSET_VAR_NAME,
   PILL_OUTLINE_STYLE_VAR_NAME,
@@ -234,6 +236,27 @@ describe("pill-shape worklet contract", () => {
       }
     });
 
+    it("reads the max radius in the stadium fallback and each side's capped corners", () => {
+      const M = PILL_MAX_RADIUS_CSS;
+      expect(stylesheet).toMatch(
+        new RegExp(
+          `\\[${PILL_ATTRIBUTE}\\] \\{[^}]*border-radius: ${M.replace(/[()*]/g, "\\$&")};`,
+        ),
+      );
+      expect(stylesheet).toMatch(
+        new RegExp(
+          `\\[${PILL_ATTRIBUTE}="t"\\] \\{[^}]*border-radius: ${M.replace(/[()*]/g, "\\$&")} ${M.replace(/[()*]/g, "\\$&")} 0 0;`,
+        ),
+      );
+    });
+
+    it("exposes the max radius with no limit as a shape property", () => {
+      expect(PILL_SHAPE_PROPERTIES.maxRadius).toEqual({
+        name: "--squircle-pill-max-radius",
+        default: Infinity,
+      });
+    });
+
     it("caps one end from the attribute's value", () => {
       for (const [value, side] of [
         ["t", "t"],
@@ -379,7 +402,9 @@ describe("pill-shape worklet contract", () => {
       // specificity a plain `button { border-radius: 6px }` would beat it.
       // The side rules match the same specificity and come later, so they
       // still win.
-      expect(ruleBody(stylesheet, SHAPE)).toContain("border-radius: calc(infinity * 1px);");
+      expect(ruleBody(stylesheet, SHAPE)).toContain(
+        "border-radius: var(--squircle-pill-max-radius, calc(infinity * 1px));",
+      );
       expect(stylesheet.indexOf(`\n[${PILL_ATTRIBUTE}="t"] {`)).toBeGreaterThan(
         stylesheet.indexOf(`\n${SHAPE} {`),
       );
