@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guided tour engine comparison</title>
+<style>
+*{box-sizing:border-box}body{margin:0;color:var(--foreground,#202124);font:14px/1.5 var(--font-sans,system-ui,sans-serif)}p{margin:0 0 14px}a{color:var(--accent,#2866c9);text-underline-offset:3px}button{font:inherit;cursor:pointer}code{font-family:var(--font-mono,monospace);font-size:11px;overflow-wrap:anywhere}.intro{font-size:16px;line-height:1.55}.subtle{color:var(--muted-foreground,#657080)}.status{padding:14px 16px;background:var(--secondary,#f1f3f5);border-radius:var(--radius,8px);margin:18px 0}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.card{padding:16px;background:var(--card,#f7f8fa);border:1px solid var(--border,#ddd);border-radius:var(--radius,8px);display:flex;flex-direction:column;gap:10px;min-width:0}.card.recommended{border-color:var(--success,#27945a)}h2{font-size:17px;line-height:1.2;margin:0}.tag{font-size:11px;font-weight:650;color:var(--muted-foreground,#657080)}.recommended .tag{color:var(--success,#23834d)}.card p{margin:0}.card .links{margin-top:auto;padding-top:4px;display:flex;gap:14px}.branch{color:var(--muted-foreground,#657080);line-height:1.65}.label{font-weight:650}.payload{margin:24px 0 16px}h3{font-size:15px;margin:0 0 10px}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}.toggle{display:flex;gap:4px;padding:3px;background:var(--secondary,#f1f3f5);border-radius:6px}.toggle button{border:0;border-radius:4px;background:transparent;color:var(--muted-foreground,#657080);padding:6px 10px;font-size:12px}.toggle button[aria-pressed=true]{background:var(--background,#fff);color:var(--foreground,#202124);box-shadow:0 1px 3px #0001}.barrow{display:grid;grid-template-columns:76px minmax(0,1fr) 70px;align-items:center;gap:12px;margin:11px 0}.track{background:var(--secondary,#edf0f4);height:15px;border-radius:4px;overflow:hidden}.bar{height:100%;min-width:2px;border-radius:4px;transition:width .2s ease}.value{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}.notes{font-size:12px;line-height:1.5;color:var(--muted-foreground,#657080)}details{margin:14px 0;padding-top:12px;border-top:1px solid var(--border,#ddd)}summary{cursor:pointer;font-weight:600}details p{margin:10px 0 0}.footer{border-top:1px solid var(--border,#ddd);padding-top:14px;margin-top:18px}.checks{margin-top:8px} @media(max-width:600px){.cards{grid-template-columns:1fr}.card{gap:8px}.barrow{grid-template-columns:65px minmax(0,1fr) 65px;gap:8px}.intro{font-size:15px}}@media(prefers-reduced-motion:reduce){.bar{transition:none}}
+</style>
+</head>
+<body>
+<p class="intro"><strong>The independent review recommends GSAP for this interactive tour.</strong> Motion is the lightest build. Remotion is the stronger choice when composition authoring and a future rendering workflow matter more.</p>
+<div class="cards">
+<section class="card recommended">
+<div class="tag">RECOMMENDED FOR THIS SITE</div><h2>GSAP + React</h2>
+<p><span class="label">Strength:</span> fluid HTML layout and native timeline labels with play-to-checkpoint navigation.</p>
+<p><span class="label">Tradeoff:</span> retiming is source-based. Its developer transport supports scrubbing, with no visual keyframe editor.</p>
+<div class="branch"><code>feat/tour-gsap</code><br><code>7460ec01</code></div>
+<div class="links"><a href="http://localhost:4432/tour" target="_blank" rel="noopener">Demo ↗</a><a href="http://localhost:4332/tour" target="_blank" rel="noopener">Author transport ↗</a></div>
+</section>
+<section class="card">
+<div class="tag">SMALLEST PAYLOAD</div><h2>Motion sequences</h2>
+<p><span class="label">Strength:</span> responsive HTML, a shared sequence, and a smaller production bundle.</p>
+<p><span class="label">Tradeoff:</span> checkpoint stopping uses application frame polling. Studio omits numeric tracks and misrepresents this sequence’s timing.</p>
+<div class="branch"><code>feat/tour-motion</code><br><code>b1919073</code></div>
+<div class="links"><a href="http://localhost:4335/tour" target="_blank" rel="noopener">Demo ↗</a><a href="http://localhost:4333/tour" target="_blank" rel="noopener">In-page Studio ↗</a></div>
+</section>
+<section class="card">
+<div class="tag">STRONGEST COMPOSITION WORKFLOW</div><h2>Remotion</h2>
+<p><span class="label">Strength:</span> direct frame-based rendering and working Studio tracks, seeking, and input-prop authoring.</p>
+<p><span class="label">Tradeoff:</span> compact/wide presets require manual space budgeting; substantially larger runtime.</p>
+<div class="branch"><code>feat/tour-remotion</code><br><code>31938e21</code></div>
+<div class="links"><a href="http://localhost:4331/tour" target="_blank" rel="noopener">Demo ↗</a><a href="http://localhost:3011/Tour-compact" target="_blank" rel="noopener">Studio ↗</a></div>
+</section>
+</div>
+<section class="payload" aria-label="Measured JavaScript payload">
+<div class="toolbar"><h3>Measured JavaScript payload</h3><div class="toggle" role="group" aria-label="Payload accounting"><button type="button" data-metric="tour" aria-pressed="true">Tour + engine</button><button type="button" data-metric="route" aria-pressed="false">Whole route</button></div></div>
+<div id="bars" aria-live="polite"></div>
+<p class="notes" id="accounting"></p>
+</section>
+<div class="status"><strong>All three passed the independent production checks.</strong><div class="checks">Seven scenes × five widths × three engines: <strong>105 settled layout checks</strong>. Slider memory, keyboard focus, interrupted navigation, resizing, and Explore were exercised. Focused tests, typecheck, scoped lint, and builds passed.</div></div>
+<details open><summary>Material issues and evaluation limits</summary>
+<p><strong>Motion Studio 2.1.0:</strong> preview editing left navigation stuck until reload; Apply showed a subscription gate. These editor issues were not observed in production.</p>
+<p><strong>Remotion:</strong> synthetic Next→Back clicks in one JavaScript task went one stop too far. Ordinary separate-event interruption passed. Inspector default-prop edits auto-save source; the reviewer undid the audit edit and verified a clean tree.</p>
+<p>Coverage was desktop Chromium at 320, 390, 768, 960, and 1280px. Reduced motion used controlled browser simulation. Other browsers, physical touch, screen readers, enlarged/localized copy, video export, and performance/leak benchmarking remain unverified.</p>
+</details>
+<p class="notes footer">Reviewed against committed versions on October 20, 2026. Shared repository failures remain: three generated Panda lint errors and 60 utility-package test failures; these did not distinguish the engines. All implementation worktrees remain clean at the listed commits.</p>
+<script>
+const versions=[{name:'GSAP',color:'var(--success,#29935c)',tour:32746,route:93177},{name:'Motion',color:'var(--chart-2,#5578dc)',tour:28360,route:89079},{name:'Remotion',color:'var(--chart-3,#bc8845)',tour:113174,route:174067}];
+function render(metric){const max=Math.max(...versions.map(v=>v[metric]));document.getElementById('bars').innerHTML=versions.map(v=>`<div class="barrow"><span>${v.name}</span><div class="track" aria-hidden="true"><div class="bar" style="width:${100*v[metric]/max}%;background:${v.color}"></div></div><span class="value">${(v[metric]/1000).toFixed(1)} kB</span></div>`).join('');document.getElementById('accounting').textContent=metric==='tour'?'Gzip level 9; decimal kB. Tour code includes the engine, application, math/SVG, and Explore. Shared React/client/helpers are excluded.':'Gzip level 9; decimal kB. Includes shared React/client/JSX/helpers once. Excludes CSS, HTML/inline hydration, source maps, and the unrelated demo embed.';document.querySelectorAll('[data-metric]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.metric===metric)));}
+document.querySelectorAll('[data-metric]').forEach(b=>b.addEventListener('click',()=>render(b.dataset.metric)));render('tour');
+console.log('Comparison initialized: 3 committed versions; gzip level 9.');
+</script>
+</body>
+</html>
