@@ -1,6 +1,6 @@
 {
   "extends": "astro/tsconfigs/strict",
-  "include": ["src/**/*", "remotion.config.ts", "vite.config.ts", ".astro/types.d.ts"],
+  "include": ["src/**/*", "vite.config.ts", ".astro/types.d.ts"],
   "exclude": ["dist", "examples", "styled-system"],
   "compilerOptions": {
     "jsx": "react-jsx",

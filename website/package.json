@@ -8,18 +8,18 @@
   },
   "dependencies": {
     "@astrojs/react": "^4",
-    "@remotion/player": "catalog:",
     "astro": "^5",
+    "motion": "catalog:",
     "react": "^19",
-    "react-dom": "^19",
-    "remotion": "catalog:"
+    "react-dom": "^19"
   },
   "devDependencies": {
-    "@remotion/cli": "catalog:",
-    "@remotion/tailwind-v4": "catalog:",
     "@tailwindcss/vite": "^4.2.2",
+    "@testing-library/react": "catalog:",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "jsdom": "catalog:",
+    "motion-studio": "catalog:",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
     "vitest": "catalog:"

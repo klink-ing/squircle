@@ -7,7 +7,7 @@ import {
   superellipsePoints,
 } from "../math";
 
-// Visibility values may be fractional opacities while a Remotion transition plays.
+// Visibility values may be fractional opacities while a timeline transition plays.
 export interface ArcStyle {
   visible: boolean | number;
   showFill: boolean | number;
