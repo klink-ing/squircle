@@ -22,6 +22,7 @@
     "@types/react-dom": "^19",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

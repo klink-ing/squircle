@@ -1,7 +1,10 @@
 import { Composition } from "remotion";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import TourComposition from "../components/tour/TourComposition";
 import { DURATION, FORMATS, FPS } from "../components/tour/timeline";
+
+const tourSchema = z.object({ amount: z.number().min(1).max(3).multipleOf(0.1) });
 
 // Live controls in Studio are preview-only; renders use the serialized default amount.
 function StudioTour({ amount: initialAmount }: { amount: number }) {
@@ -22,6 +25,7 @@ export function RemotionRoot() {
         fps={FPS}
         durationInFrames={DURATION}
         defaultProps={{ amount: 2 }}
+        schema={tourSchema}
       />
       <Composition
         id="Tour-wide"
@@ -31,6 +35,7 @@ export function RemotionRoot() {
         fps={FPS}
         durationInFrames={DURATION}
         defaultProps={{ amount: 2 }}
+        schema={tourSchema}
       />
     </>
   );

@@ -19,6 +19,7 @@ export default function GuidedExplorer() {
   const player = useRef<PlayerRef>(null);
   const root = useRef<HTMLDivElement>(null);
   const movingRef = useRef(true);
+  const focusRequested = useRef(false);
   const [playback, setPlayback] = useState({ destination: 0, moving: true });
   const [amount, setAmount] = useState(2);
   const [explore, setExplore] = useState<GraphicState | null>(null);
@@ -40,22 +41,30 @@ export default function GuidedExplorer() {
     const settled = () => {
       movingRef.current = false;
       setPlayback((previous) => ({ ...previous, moving: false }));
-      focusHeading();
     };
     current.addEventListener("ended", settled);
     return () => current.removeEventListener("ended", settled);
-  }, [focusHeading]);
+  }, []);
+
+  // Player's ended event can precede the final frame's React commit. Focus only
+  // after settlement, and never steal focus on load or on a slider update.
+  useEffect(() => {
+    if (!playback.moving && !explore && focusRequested.current) {
+      focusRequested.current = false;
+      focusHeading();
+    }
+  }, [playback.moving, playback.destination, explore, focusHeading]);
 
   // Playback bounds have committed before play() runs; Remotion stops at outFrame.
   useEffect(() => {
     const current = player.current;
     if (!current || explore) return;
-    if (reducedMotion) {
+    if (reducedMotion && playback.moving) {
       current.pause();
       current.seekTo(CHECKPOINTS[playback.destination]!.frame);
       movingRef.current = false;
       setPlayback((previous) => (previous.moving ? { ...previous, moving: false } : previous));
-    } else if (playback.moving) {
+    } else if (!reducedMotion && playback.moving) {
       current.play();
     }
   }, [playback.destination, playback.moving, reducedMotion, explore]);
@@ -68,6 +77,7 @@ export default function GuidedExplorer() {
       return;
     }
     movingRef.current = true;
+    focusRequested.current = true;
     setPlayback((previous) => ({ destination: previous.destination + 1, moving: true }));
   };
 
@@ -75,6 +85,7 @@ export default function GuidedExplorer() {
     const destination = previousCheckpoint(playback.destination);
     player.current?.pause();
     movingRef.current = false;
+    focusRequested.current = true;
     // Commit the earlier bound together with the seek to avoid painting a stale destination.
     flushSync(() => setPlayback({ destination, moving: false }));
     player.current?.seekTo(CHECKPOINTS[destination]!.frame);
@@ -90,6 +101,7 @@ export default function GuidedExplorer() {
           inputProps={{
             amount,
             moving: playback.moving,
+            navigationDestination: playback.destination,
             onAmountChange: setAmount,
             onNext,
             onBack,
