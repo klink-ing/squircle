@@ -1,117 +1,187 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
-import { Player, type PlayerRef } from "@remotion/player";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import ExplorerGraphic, { type GraphicState } from "./ExplorerGraphic";
 import FreeExplorer from "./FreeExplorer";
-import TourComposition from "./tour/TourComposition";
-import { graphicAtFrame } from "./tour/graphic-state";
+import TourNarrative from "./tour/TourNarrative";
+import { graphicFromTracks } from "./tour/graphic-state";
 import {
   CHECKPOINTS,
+  checkpointAtTime,
+  createTourTimeline,
   DURATION,
-  FORMATS,
-  FPS,
-  previousCheckpoint,
-  WIDE_QUERY,
+  initialTracks,
+  STRENGTH,
 } from "./tour/timeline";
+import { createPlayback, type PlaybackState } from "./tour/playback";
 import { useMediaQuery } from "./tour/useMediaQuery";
+import "./tour/tour.css";
+
+gsap.registerPlugin(useGSAP);
 
 export default function GuidedExplorer() {
-  const player = useRef<PlayerRef>(null);
   const root = useRef<HTMLDivElement>(null);
-  const movingRef = useRef(true);
-  const [playback, setPlayback] = useState({ destination: 0, moving: true });
+  const tour = useRef<ReturnType<typeof createTourTimeline> | null>(null);
+  const controls = useRef<ReturnType<typeof createPlayback> | null>(null);
+  const chosen = useRef(2);
   const [amount, setAmount] = useState(2);
+  const [view, setView] = useState({ time: 0, graphic: graphicFromTracks(initialTracks(), 0) });
+  const [playback, setPlayback] = useState<PlaybackState>({ destination: 0, moving: true });
+  const [focusRequest, requestFocus] = useState(0);
   const [explore, setExplore] = useState<GraphicState | null>(null);
-  const wide = useMediaQuery(WIDE_QUERY);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const format = wide ? FORMATS.wide : FORMATS.compact;
+  const active = checkpointAtTime(view.time);
+  const cue = CHECKPOINTS[active]!;
 
-  const focusExploreHeading = useCallback((element: HTMLHeadingElement | null) => {
-    element?.focus({ preventScroll: true });
+  const publish = useCallback(() => {
+    const current = tour.current;
+    if (current) {
+      const time = current.timeline.time();
+      setView({ time, graphic: graphicFromTracks(current.tracks, time, chosen.current) });
+    }
   }, []);
+
+  const { contextSafe } = useGSAP(
+    () => {
+      const panels = Array.from(root.current!.querySelectorAll<HTMLElement>("[data-tour-panel]"));
+      const current = createTourTimeline(publish, panels);
+      tour.current = current;
+      const transport = createPlayback(current.timeline, publish, setPlayback, () =>
+        requestFocus((v) => v + 1),
+      );
+      controls.current = transport;
+      transport.start(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      return () => {
+        transport.dispose();
+        controls.current = null;
+        tour.current = null;
+      };
+    },
+    { scope: root, dependencies: [] },
+  );
+
+  useEffect(() => {
+    controls.current?.setReducedMotion(reducedMotion);
+  }, [reducedMotion]);
 
   const focusHeading = useCallback(() => {
-    root.current?.querySelector<HTMLElement>("[data-tour-heading]")?.focus({ preventScroll: true });
+    root.current
+      ?.querySelector<HTMLElement>("[data-tour-panel]:not([hidden]) h2")
+      ?.focus({ preventScroll: true });
   }, []);
+  useLayoutEffect(() => {
+    if (focusRequest) focusHeading();
+  }, [focusRequest, focusHeading]);
+  const focusExplore = useCallback(
+    (heading: HTMLHeadingElement | null) => heading?.focus({ preventScroll: true }),
+    [],
+  );
 
-  useEffect(() => {
-    const current = player.current;
-    if (!current) return;
-    const settled = () => {
-      movingRef.current = false;
-      setPlayback((previous) => ({ ...previous, moving: false }));
-      focusHeading();
-    };
-    current.addEventListener("ended", settled);
-    return () => current.removeEventListener("ended", settled);
-  }, [focusHeading]);
-
-  // Playback bounds have committed before play() runs; Remotion stops at outFrame.
-  useEffect(() => {
-    const current = player.current;
-    if (!current || explore) return;
-    if (reducedMotion) {
-      current.pause();
-      current.seekTo(CHECKPOINTS[playback.destination]!.frame);
-      movingRef.current = false;
-      setPlayback((previous) => (previous.moving ? { ...previous, moving: false } : previous));
-    } else if (playback.moving) {
-      current.play();
-    }
-  }, [playback.destination, playback.moving, reducedMotion, explore]);
-
-  const onNext = () => {
-    if (movingRef.current) return;
-    if (playback.destination === CHECKPOINTS.length - 1) {
-      player.current?.pause();
-      setExplore(graphicAtFrame(DURATION - 1, amount));
-      return;
-    }
-    movingRef.current = true;
-    setPlayback((previous) => ({ destination: previous.destination + 1, moving: true }));
+  const changeAmount = (value: number) => {
+    chosen.current = value;
+    setAmount(value);
+    publish(); // Immediate graphic update without recreating the input or the timeline.
   };
-
-  const onBack = () => {
-    const destination = previousCheckpoint(playback.destination);
-    player.current?.pause();
-    movingRef.current = false;
-    // Commit the earlier bound together with the seek to avoid painting a stale destination.
-    flushSync(() => setPlayback({ destination, moving: false }));
-    player.current?.seekTo(CHECKPOINTS[destination]!.frame);
-    focusHeading();
-  };
+  const next = contextSafe(() => {
+    if (controls.current?.next()) setExplore({ ...view.graphic });
+  });
+  const back = contextSafe(() => controls.current?.back());
+  const seek = contextSafe((time: number) => controls.current?.seek(time));
+  const checkpoint = contextSafe((index: number) => controls.current?.checkpoint(index));
+  const togglePlayback = contextSafe(() => {
+    if (playback.moving) controls.current?.pause();
+    else controls.current?.resume();
+  });
+  const strengthActive =
+    active === 3 && Math.abs(view.time - STRENGTH.time) < 0.001 && !playback.moving;
 
   return (
-    <div ref={root}>
+    <div ref={root} className="tour-root">
       <div hidden={explore !== null} inert={explore !== null}>
-        <Player
-          ref={player}
-          component={TourComposition}
-          inputProps={{
-            amount,
-            moving: playback.moving,
-            onAmountChange: setAmount,
-            onNext,
-            onBack,
-          }}
-          compositionWidth={format.width}
-          compositionHeight={format.height}
-          durationInFrames={DURATION}
-          fps={FPS}
-          outFrame={CHECKPOINTS[playback.destination]!.frame}
-          controls={false}
-          clickToPlay={false}
-          doubleClickToFullscreen={false}
-          spaceKeyToPlayOrPause={false}
-          moveToBeginningWhenEnded={false}
-          style={{ width: "100%", maxWidth: format.maxWidth, margin: "0 auto" }}
-        />
+        <div
+          className="tour-layout"
+          data-tour-checkpoint={cue.id}
+          data-tour-time={view.time}
+          data-tour-moving={playback.moving}
+        >
+          <div
+            className="tour-graphic"
+            data-tour-amount={view.graphic.amount}
+            data-tour-correction={view.graphic.correctionAmount}
+          >
+            <ExplorerGraphic {...view.graphic} />
+          </div>
+          <div className="tour-content">
+            <TourNarrative
+              active={active}
+              amount={amount}
+              strengthActive={strengthActive}
+              onAmountChange={changeAmount}
+            />
+            <nav aria-label="Tour navigation" className="tour-navigation">
+              <button type="button" onClick={back} disabled={playback.destination === 0}>
+                ← Back
+              </button>
+              <span aria-label={`Scene ${active + 1} of ${CHECKPOINTS.length}`}>
+                {active + 1} / {CHECKPOINTS.length}
+              </span>
+              <button type="button" onClick={next} disabled={playback.moving}>
+                {CHECKPOINTS[playback.destination]!.nextLabel}
+              </button>
+            </nav>
+            <p className="sr-only" role="status">
+              {!playback.moving && `Scene ${active + 1} of ${CHECKPOINTS.length}`}
+            </p>
+          </div>
+        </div>
+        {import.meta.env.DEV && (
+          <details className="tour-transport">
+            <summary>Author transport · GSAP</summary>
+            <p>
+              Development preview. Seek the shared timeline in seconds or jump to a reading stop.
+            </p>
+            <div className="tour-transport-actions">
+              <button type="button" onClick={togglePlayback}>
+                {playback.moving ? "Pause" : "Play to checkpoint"}
+              </button>
+              <label htmlFor="tour-checkpoint">Reading stop</label>
+              <select
+                id="tour-checkpoint"
+                value={playback.destination}
+                onChange={(e) => checkpoint(Number(e.target.value))}
+              >
+                {CHECKPOINTS.map((stop, index) => (
+                  <option key={stop.id} value={index}>
+                    {index + 1}. {stop.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label htmlFor="tour-time">
+              Timeline{" "}
+              <output htmlFor="tour-time">
+                {view.time.toFixed(2)} / {DURATION.toFixed(2)} s
+              </output>
+            </label>
+            <input
+              id="tour-time"
+              type="range"
+              min={0}
+              max={DURATION}
+              step={0.01}
+              value={view.time}
+              onChange={(e) => seek(Number(e.target.value))}
+            />
+          </details>
+        )}
       </div>
       {explore && (
-        <div className="grid gap-8 pb-10 md:grid-cols-2">
-          <ExplorerGraphic {...explore} />
-          <div className="min-w-0">
-            <h2 tabIndex={-1} ref={focusExploreHeading} className="mb-6 text-3xl font-bold">
+        <div className="tour-layout tour-explore">
+          <div className="tour-graphic">
+            <ExplorerGraphic {...explore} />
+          </div>
+          <div className="tour-content">
+            <h2 tabIndex={-1} ref={focusExplore}>
               Explore
             </h2>
             <FreeExplorer
@@ -122,10 +192,10 @@ export default function GuidedExplorer() {
             />
             <button
               type="button"
-              className="mt-6 min-h-12 text-zinc-400 hover:text-zinc-100"
+              className="tour-return"
               onClick={() => {
-                flushSync(() => setExplore(null));
-                focusHeading();
+                setExplore(null);
+                requestFocus((v) => v + 1);
               }}
             >
               ← Back to tour

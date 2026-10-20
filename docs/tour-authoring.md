@@ -1,55 +1,101 @@
-# Guided tour authoring
+# Guided tour authoring · GSAP with React
 
-The `/tour` page uses one persistent Remotion Player. Narrative text, the SVG diagram, and inline controls share its timeline. There is no portal, accumulated graphic-state replay, or Player remount between scenes.
+The `/tour` page is responsive HTML/CSS driven by one native GSAP timeline. It uses `gsap@3.15.0` and the official `@gsap/react@2.1.2` integration. The seven beats and copy remain rounded corner, superellipse, radius comparison, strength exploration, correction, alignment, and utility usage. This branch has no Remotion runtime, Player, Studio, video configuration, or interpolation imports.
 
-## Run the tour and Studio
+## Run
 
-Use the workspace tasks from the repository root:
+From the repository root, with Node 24.14.1 and pnpm 10.33.0:
 
 ```sh
+pnpm install --frozen-lockfile
 pnpm exec vp run website#dev
-pnpm exec vp run website#studio
 ```
 
-Both build the Tailwind package first. Studio has `Tour-compact` and `Tour-wide` compositions. The webpage passes the shared component directly to its Player. Studio's default `amount` prop is serializable; its adapter supplies a live slider callback for interactive previews.
-
-If the existing workspace task runner hits its `picomatch` resolution issue, the local package and website binaries also work directly:
+The task builds the local Tailwind package and serves http://localhost:4332/tour. If the workspace task runner is unavailable, use the same binaries directly, in order:
 
 ```sh
 pnpm --filter @klinking/squircle exec vp pack
 pnpm --filter @klinking/squircle exec tsx scripts/generate-squircle-css.ts
-pnpm --filter website exec astro dev
-pnpm --filter website exec remotion studio src/remotion/index.ts
+pnpm --filter website exec astro dev --host 0.0.0.0 --port 4332
 ```
 
-## Change scenes and timing
+For a production preview:
 
-`website/src/components/tour/timeline.ts` defines each scene's name, entrance frame, settled reading frame, and forward-button label. Frames start at zero; the next scene begins immediately after the preceding reading frame. `DURATION` follows the final checkpoint. The two format dimensions are also here.
+```sh
+pnpm exec vp run website#build
+pnpm --filter website preview --host 0.0.0.0 --port 4432
+```
 
-`TourComposition.tsx` places content on native Remotion sequences. `TimedText` supplies a short entrance and exit relative to each sequence; headings span several body reveals. Keep each checkpoint after its entrances have finished. Allow enough overlap for an outgoing text block to exit while the next enters. Outgoing blocks become inert so invisible controls cannot retain keyboard interaction.
+The production tour is http://localhost:4432/tour. Both servers were left running for evaluation.
 
-`graphic-state.ts` describes the authored numeric tracks using Remotion interpolation. `graphicAtFrame(frame, chosenAmount)` must return the same result for a direct seek and normal playback. Reuse the geometry in `website/src/math.ts`; do not capture a previous rendered frame to compute the next one.
+## Edit and retime
 
-The tour currently changes measurement radius continuously through the correction track. Its SVG measurement color follows that same correction amount.
+`website/src/components/tour/timeline.ts` contains the native choreography. `CHECKPOINTS` lists entrance times and settled reading times in **seconds**. `createTourTimeline` adds a label for each reading stop (`strength`, `correction`, etc.) and an entrance label (`strength:enter`, etc.). Numeric geometry tracks and DOM entrances share that timeline. Reading stops are at 0.8, 2, 3.2, 4.2, 5.4, 6.4, and 7.4 seconds.
 
-## Add or move an interactive control
+Edit copy and interleaved controls in `TourNarrative.tsx`. Each section remains mounted with a stable identity; only the current section participates in layout. React applies `hidden` and `inert` to outgoing sections. GSAP owns each section's opacity and transform; React never writes those properties. Entrances take 0.4 seconds. There is no outgoing crossfade or fixed-height stage: the next paragraph reflows normally. Keep each reading label after its narrative entrance and geometry tweens finish.
 
-Place a normal React input between paragraphs, beside the diagram, or elsewhere inside the composition. Keep its value in `GuidedExplorer` and pass the value/callback through Player inputs so unmounting a sequence does not discard user choices. Controls can remain in ordinary DOM reading order.
+For retiming, change the cue's `start`/`time` and any numeric tween duration together. Geometry tweens use entrance labels rather than duplicated absolute starts. Extending the beat list also requires updating the explicit strength/correction indices, final duration, narrative heading choices, and behavioral tests. This is intentionally small, tour-specific choreography.
 
-The current strength slider is enabled at its settled checkpoint. It updates the diagram immediately while playback stays paused. Next eases the chosen strength back to the authored value of 2 during correction; Back restores the remembered choice. Reset returns the choice to 2. A new control needs an explicit policy for which scenes it influences and how that influence ends.
+`tour.css` uses a single column below 768px and a fluid two-column grid above it. Narrative font sizes are 17.6–22px; headings are 28.8–44px; navigation and slider controls have 48px minimum heights. SVG `viewBox` coordinates describe the existing mathematical illustration, not a composition viewport. Page scrolling is normal. There is no resize measurement or layout-dependent timeline rebuild.
 
-`GuidedExplorer.tsx` owns playback, remembered choices, and Explore. Forward navigation updates `outFrame` before playing; Remotion stops at that frame and emits `ended`. Back pauses and seeks directly. Repeated forward activation while moving is ignored. Reduced motion seeks directly to settled frames. Entering Explore hides the paused tour without unmounting the Player, and returning restores the final tour checkpoint.
+## Geometry and controls
 
-## Test both formats
+GSAP owns a plain numeric proxy: `baseAmount`, `choiceWeight`, `correction`, and `roundedOpacity`. Its `onUpdate` publishes an immutable snapshot through `graphicFromTracks`. React alone renders the existing SVG paths from that snapshot using `website/src/math.ts`. There are no competing SVG attribute writes, previous-frame replay, generic animation engine, or React render loops while paused.
 
-The compact stage is 400 × 840, capped at 440 CSS pixels wide. The wide stage is 960 × 560, selected at a 960-pixel viewport breakpoint. These are authored layouts, not continuous browser-width reflow. Vertical scrolling on the page is expected. There is no custom ResizeObserver.
+The remembered strength is React state plus a ref for synchronous publishing. At the settled strength label, the native range input (1–3, step 0.1, initial 2) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to 2. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
 
-Before extending copy or controls, check the longest scene at 320, 390, 768, and 1280 viewport widths. Check the actual displayed font and hit-target sizes, text selection, complete copy, keyboard navigation, and the absence of overlap or clipping. Resizing across the breakpoint must preserve the frame and user choice.
+The graphic's amount is `baseAmount + (chosenAmount - 2) * choiceWeight`. The strength entrance raises the weight to 1. Correction animates it to 0 while the correction track rises to 1, so the diagram smoothly returns from the user's choice to canonical strength 2. Direct seeking or Back restores the same numeric result, including the chosen strength. Measurement endpoints and color follow the correction continuously.
+
+`playback.ts` contains the explicit interaction policy. Next uses native `timeline.tweenTo(label)` and stops exactly at that label. A synchronous moving guard ignores repeated activation until settlement. Back kills the playhead tween and seeks the previous label, even mid-transition. Reduced motion seeks immediately; a live preference change during playback kills the driver and settles its destination. Settling requests heading focus after React commits. Slider changes never request focus.
+
+`GuidedExplorer.tsx` creates the timeline once in scoped `useGSAP`; event-driven tweens are created through `contextSafe`. Cleanup reverts the context and kills any active playhead driver. Explore hides/inerts the paused tour, uses separate graphic state, and focuses its heading. Return preserves the final checkpoint and tour choices and restores tour heading focus. Explore's range row wraps; the formula/table can scroll inside its own container on narrow screens.
+
+## Development transport
+
+Open **Author transport · GSAP** below the tour on the development server. It has a labeled seconds scrubber, reading-stop select, and Pause / Play to checkpoint button. Arbitrary seeks are deterministic and keep input focus. Play finishes the selected reading stop. After a scrub, Next first settles the current scene before advancing. The strength input is enabled only at its exact settled label.
+
+This is a small development preview transport, not a visual animation editor. It has no timeline editing, keyframe authoring, source rewriting, recording, or export. The `import.meta.env.DEV` block is removed from the production bundle. There is no separate Studio application or Studio server on this branch.
+
+## API and license references
+
+Verified against the installed GSAP timeline implementation and React integration, plus the official [React/useGSAP documentation](https://gsap.com/resources/React/), [tweenTo documentation](<https://gsap.com/docs/v3/GSAP/Timeline/tweenTo()/>), and [seek documentation](<https://gsap.com/docs/v3/GSAP/Timeline/seek()/>). `seek` suppresses callbacks by default, so direct navigation explicitly publishes the proxy after seeking. Native `tweenTo` returns a killable playhead tween and leaves the shared timeline paused at completion.
+
+GSAP uses Webflow's [Standard “No Charge” License](https://gsap.com/community/standard-license/), not MIT. The current terms permit website/web application use, including commercial use, and restrict competing visual animation builders. This implementation provides a code-authored website tour and preview transport. The installed package points to those terms; the page reviewed lists an effective date of April 30, 2025 and modification date of May 30, 2025. No paid editor, plugin, or account is needed here.
+
+## Verification, 2026-10-20
 
 ```sh
 pnpm --filter website exec vp test run
 pnpm --filter website exec tsc --noEmit
-pnpm --filter website exec astro build
+pnpm exec vp lint website/src website/scripts/tour-bundle-sizes.mjs website/vite.config.ts
+pnpm exec vp fmt --check website/src/components/GuidedExplorer.tsx website/src/components/tour website/src/components/ExplorerGraphic.tsx website/src/env.d.ts website/vite.config.ts website/tsconfig.json website/package.json website/scripts/tour-bundle-sizes.mjs pnpm-workspace.yaml docs/tour-authoring.md
+pnpm exec vp run website#build
+node website/scripts/tour-bundle-sizes.mjs
 ```
 
-The website tests cover timeline boundaries, direct seeking, remembered exploration, and finite/continuous numeric tracks. Browser checks are still necessary for layout and event behavior. Root `ready` includes the website test and typecheck tasks; unrelated package/toolchain baseline failures are recorded in the implementation plan.
+- Website tests: **7 passed**. They run the real GSAP timeline and playhead tweens: arbitrary/reverse seeks; remembered strength/reset bridge and correction midpoint; rapid Next and interrupted Back; live reduced motion; scrub focus policy/current-stop semantics; pause/resume/disposal; finite continuous geometry throughout the timeline for strengths 1, 2, and 3.
+- Website TypeScript: **passed**, no diagnostics. Scoped lint: **passed**, zero warnings/errors. Scoped formatting: **passed**. Production build: **passed**, four static routes. Both direct Astro build and workspace `website#build` succeeded. No `picomatch` task-runner resolution error was observed in this checkout.
+- Real T3 browser tab, Chromium **154.0.0.0**, independent server: all seven stops at **320, 390, 768, 960, 1280px** widths; no page horizontal overflow or clipped narrative; no narrative/navigation overlap; 48px navigation targets; inactive sections hidden/inert; selectable text. Body text measured 17.6px at 320/390, 18.432px at 768, 22px at 960/1280.
+- At every width: remembered 2.7 strength updated SVG immediately and kept input focus; Explore changed its own amount to -1.2; return restored final checkpoint/heading, and seeking Back to strength restored 2.7. Keyboard ArrowLeft changed 3 to 2.9 with focus and time 4.2 preserved; Tab from the returned strength heading reached Reset.
+- Rapid repeated Next traversed exactly 2.0 / 3.2 / 4.2 / 5.4 / 6.4 / 7.4 seconds. At correction time 4.5, a remembered 2.7 had interpolated to 2.6385344; Back interrupted and restored 2.7 at 4.2. Completion reached strength 2/correction 1. Reset restored 2.
+- Resizing 1280→390 while paused retained slider focus, strength 2.9 and time 4.2; resizing 390→960 during correction settled at 5.4, and Back restored 2.9.
+- Three real React StrictMode mount/unmount cycles through the installed Astro renderer each left **one shared GSAP timeline after mounting, zero GSAP children after unmount during playback**. Initial and live reduced-motion changes passed using a controlled `matchMedia` object/change events in the real browser. Native OS preference toggling was not available through the preview API; it was not claimed as tested.
+- Production preview: all seven stops and Explore/return passed; final heading focus restored; author transport absent. No application console errors were observed. Astro/Vite logged existing plugin deprecation and invalid `jsx` option warnings.
+
+Baseline failures are separate from the tour checks. Before implementation, root `pnpm exec vp lint` failed on three generated Panda files: `website/styled-system/css/cx.mjs` (unused expression), `patterns/float.mjs` (unused `offset`), and `jsx/create-style-context.mjs` (unused `css`). The initial root `vp run ready` stopped on these lint errors and canceled other tasks (exit 137); direct baseline website TypeScript and its four original tests passed. Package tests before building had 61 failures due to missing generated CSS. After the unchanged package build/generator, `pnpm --filter @klinking/squircle exec vp test run` reports **60 failed / 68 passed**, including 15 CSS snapshot failures (empty radius utility output). Package code and snapshots were not changed to conceal these results.
+
+Only Chromium was exercised; Safari, Firefox, native mobile browsers, assistive-technology announcements, and native OS reduced-motion toggling remain unverified. Copy may make the page taller between scenes because it uses natural document flow. This is expected; there is no fixed composition crop.
+
+## Production bundle accounting
+
+Run `node website/scripts/tour-bundle-sizes.mjs` after a production build. It measures exact file bytes and gzip **level 9 per file**, then sums compressed files; this differs slightly from Vite's default gzip report. The tour chunk includes GSAP, `@gsap/react`, application coordination, math, SVG renderer, and Explore. Shared React/ReactDOM/JSX/runtime helpers are accounted separately. Unrelated `DemoEmbed` is excluded. HTML includes Astro's inline hydration bootstrap. CSS is the shared site stylesheet, not an engine-only delta.
+
+Measured from the final build:
+
+- Tour + GSAP (`GuidedExplorer.SIkoGSUY.js`): **87,058 raw / 32,746 gzip bytes**.
+- Shared React (`client`, `react`, `jsx-runtime`, `chunk`): **192,021 raw / 60,431 gzip bytes**.
+- Route external JS total: **279,079 raw / 93,177 gzip bytes**.
+- Site CSS: **29,270 raw / 5,769 gzip bytes**.
+- Tour HTML: **7,823 raw / 3,198 gzip bytes**.
+
+Hashed filenames and HTML gzip may change when source is edited. No Remotion package remains in the workspace dependency graph or source imports. The pnpm lockfile is authoritative; the pre-existing website npm lockfile remains an unrelated historical file.

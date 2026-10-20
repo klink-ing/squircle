@@ -5,15 +5,11 @@ export default defineConfig({
   run: {
     tasks: {
       dev: {
-        command: "astro dev",
+        command: "astro dev --host 0.0.0.0 --port 4332",
         dependsOn: ["@klinking/squircle#build"],
       },
       test: { command: "vp test run" },
       typecheck: { command: "tsc --noEmit" },
-      studio: {
-        command: "remotion studio src/remotion/index.ts",
-        dependsOn: ["@klinking/squircle#build"],
-      },
       build: {
         command: "astro build",
         dependsOn: ["@klinking/squircle#build"],
