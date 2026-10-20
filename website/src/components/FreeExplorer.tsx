@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { correctedRadius, perceivedRadius } from "../math";
 import type { GraphicState } from "./ExplorerGraphic";
 
@@ -9,7 +9,9 @@ interface FreeExplorerProps {
 
 export default function FreeExplorer({ graphicState, onGraphicStateChange }: FreeExplorerProps) {
   const { amount, arcRounded, arcSuperellipse, correctionAmount } = graphicState;
-  const [amountText, setAmountText] = useState(String(amount));
+  const amountId = useId();
+  const [draft, setDraft] = useState<string | null>(null);
+  const amountText = draft ?? String(amount);
 
   const stats = useMemo(() => {
     const mathN = Math.pow(2, amount);
@@ -35,37 +37,41 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
   function handleTextCommit(value: string) {
     const parsed = parseFloat(value);
     if (isNaN(parsed)) {
-      setAmountText(String(amount));
+      setDraft(null);
       return;
     }
     const clamped = Math.min(3, Math.max(-3, parsed));
     onGraphicStateChange({ amount: clamped });
-    setAmountText(String(clamped));
+    setDraft(null);
   }
 
   return (
     <div>
       {/* Amount slider */}
-      <div className="mb-4 flex items-center gap-3">
-        <label className="text-sm font-medium text-zinc-400">Superellipse Amount</label>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <label htmlFor={amountId} className="w-full text-sm font-medium text-zinc-400 sm:w-auto">
+          Superellipse Amount
+        </label>
         <input
+          id={amountId}
           type="range"
           min={-3}
           max={3}
           step={0.1}
           value={amount}
-          className="slider-unfilled"
+          className="slider-unfilled min-w-0"
           onChange={(e) => {
             const v = parseFloat(e.target.value);
             onGraphicStateChange({ amount: v });
-            setAmountText(String(Math.round(v * 10) / 10));
+            setDraft(null);
           }}
         />
         <input
+          aria-label="Superellipse amount value"
           type="text"
           value={amountText}
           className="w-10 bg-transparent text-amber-400"
-          onChange={(e) => setAmountText(e.target.value)}
+          onChange={(e) => setDraft(e.target.value)}
           onBlur={(e) => handleTextCommit(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleTextCommit(e.currentTarget.value);
@@ -78,7 +84,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={arcRounded.visible}
+            checked={Boolean(arcRounded.visible)}
             onChange={(e) =>
               onGraphicStateChange({ arcRounded: { ...arcRounded, visible: e.target.checked } })
             }
@@ -88,7 +94,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={arcSuperellipse.visible}
+            checked={Boolean(arcSuperellipse.visible)}
             onChange={(e) =>
               onGraphicStateChange({
                 arcSuperellipse: { ...arcSuperellipse, visible: e.target.checked },
@@ -108,7 +114,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
       </div>
 
       {/* Formula readout */}
-      <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm">
         <p className="font-mono text-zinc-300">
           r' = {r.toFixed(1)} &times; (1 - 2<sup>-1/2</sup>) / (1 - 2
           <sup>-1/{mathN.toFixed(2)}</sup>)

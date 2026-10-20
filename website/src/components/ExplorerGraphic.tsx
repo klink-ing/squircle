@@ -1,5 +1,4 @@
-import { useId, useMemo, useRef } from "react";
-import { motion } from "framer-motion";
+import { useId, useMemo } from "react";
 import {
   circleArcPoints,
   correctedRadius,
@@ -8,10 +7,11 @@ import {
   superellipsePoints,
 } from "../math";
 
+// Visibility values may be fractional opacities during transitions.
 export interface ArcStyle {
-  visible: boolean;
-  showFill: boolean;
-  showOutline: boolean;
+  visible: boolean | number;
+  showFill: boolean | number;
+  showOutline: boolean | number;
 }
 
 export interface GraphicState {
@@ -19,8 +19,8 @@ export interface GraphicState {
   arcSuperellipse: ArcStyle;
   correctionAmount: number; // 0 = uncorrected superellipse, 1 = fully corrected
   amount: number;
-  showRefLine: boolean;
-  showMeasurement: boolean;
+  showRefLine: boolean | number;
+  showMeasurement: boolean | number;
   measureArc?: "rounded" | "superellipse" | "corrected";
   measureMode?: "perceived" | "radius";
   measureAngle?: "diagonal" | "edge"; // default: "diagonal"
@@ -65,12 +65,6 @@ export default function ExplorerGraphic({
   const id = useId();
   const clipCircle = `${id}-clip-circle`;
   const clipSuper = `${id}-clip-super`;
-
-  // Track discrete measurement state changes to decide when to animate vs instant update
-  const measureKey = `${showRefLine}-${showMeasurement}-${measureArc}-${measureMode}-${measureAngle}`;
-  const prevMeasureKey = useRef(measureKey);
-  const isMorphing = prevMeasureKey.current !== measureKey;
-  prevMeasureKey.current = measureKey;
 
   const data = useMemo(() => {
     const mathN = Math.pow(2, amount);
@@ -196,6 +190,8 @@ export default function ExplorerGraphic({
 
   return (
     <svg
+      role="img"
+      aria-label="Comparison of rounded and superellipse corners"
       viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
       className="w-full max-w-md"
     >
@@ -210,34 +206,22 @@ export default function ExplorerGraphic({
 
       {/* Superellipse and circle — z-order swaps when superellipse crosses circle */}
       {(() => {
-        const isCorrepting = correctionAmount > 0;
-        const superFillColor = isCorrepting
-          ? "var(--color-adjusted-fill)"
-          : "var(--color-squircle-fill)";
-        const superStrokeColor = isCorrepting
-          ? "var(--color-adjusted-border)"
-          : "var(--color-squircle-border)";
+        const correctionPercent = Math.min(1, Math.max(0, correctionAmount)) * 100;
+        const superFillColor = `color-mix(in srgb, var(--color-adjusted-fill) ${correctionPercent}%, var(--color-squircle-fill))`;
+        const superStrokeColor = `color-mix(in srgb, var(--color-adjusted-border) ${correctionPercent}%, var(--color-squircle-border))`;
 
         const superellipseGroup = (
-          <motion.g
-            key="super"
-            animate={{ opacity: arcSuperellipse.visible ? 1 : 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <g style={{ color: superStrokeColor, transition: "color 0.5s" }}>
+          <g key="super" opacity={Number(arcSuperellipse.visible)}>
+            <g style={{ color: superStrokeColor }}>
               {/* Fill — crossfades in/out */}
-              <motion.path
+              <path
                 d={`${superPath} L ${PAD} ${PAD + BOX} Z`}
-                style={{ fill: superFillColor, transition: "fill 0.5s" }}
+                style={{ fill: superFillColor }}
                 stroke="none"
-                animate={{ opacity: arcSuperellipse.showFill ? 1 : 0 }}
-                transition={{ duration: 0.4 }}
+                opacity={Number(arcSuperellipse.showFill)}
               />
               {/* Stroke — crossfades in/out */}
-              <motion.g
-                animate={{ opacity: arcSuperellipse.showOutline ? 1 : 0 }}
-                transition={{ duration: 0.4 }}
-              >
+              <g opacity={Number(arcSuperellipse.showOutline)}>
                 <path
                   d={superPath}
                   fill="none"
@@ -263,30 +247,22 @@ export default function ExplorerGraphic({
                   stroke="currentColor"
                   strokeWidth={SERIF_W}
                 />
-              </motion.g>
+              </g>
             </g>
-          </motion.g>
+          </g>
         );
 
         const circleGroup = (
-          <motion.g
-            key="circle"
-            animate={{ opacity: arcRounded.visible ? 1 : 0 }}
-            transition={{ duration: 0.4 }}
-          >
+          <g key="circle" opacity={Number(arcRounded.visible)}>
             {/* Fill — crossfades in/out */}
-            <motion.path
+            <path
               d={`${circlePath} L ${PAD} ${PAD + BOX} Z`}
               style={{ fill: "var(--color-rounded-fill)" }}
               stroke="none"
-              animate={{ opacity: arcRounded.showFill ? 1 : 0 }}
-              transition={{ duration: 0.4 }}
+              opacity={Number(arcRounded.showFill)}
             />
             {/* Stroke — crossfades in/out */}
-            <motion.g
-              animate={{ opacity: arcRounded.showOutline ? 1 : 0 }}
-              transition={{ duration: 0.4 }}
-            >
+            <g opacity={Number(arcRounded.showOutline)}>
               <path
                 d={circlePath}
                 fill="none"
@@ -312,8 +288,8 @@ export default function ExplorerGraphic({
                 style={{ stroke: "var(--color-rounded-border)" }}
                 strokeWidth={SERIF_W}
               />
-            </motion.g>
-          </motion.g>
+            </g>
+          </g>
         );
 
         return superAboveCircle ? (
@@ -331,7 +307,7 @@ export default function ExplorerGraphic({
 
       {/* Animated diagonal line — morphs between reference line and measurement line */}
       {(() => {
-        const visible = showRefLine || (showMeasurement && measure);
+        const visible = Math.max(Number(showRefLine), measure ? Number(showMeasurement) : 0);
         // When measurement is active, use measurement coords; otherwise use reference line
         const useMeasure = showMeasurement && measure;
         const x1 = useMeasure ? measure!.x1 : refLine.x1;
@@ -356,48 +332,43 @@ export default function ExplorerGraphic({
         const lx = nearRight ? midX - 28 : midX + 6;
         const ly = nearTop ? midY + 12 : midY - 6;
 
-        const strokeColor = useMeasure ? `var(${measure!.cssVar})` : "var(--color-rounded-border)";
-
-        const morphTransition = isMorphing
-          ? { type: "spring" as const, stiffness: 200, damping: 25 }
-          : { duration: 0 };
+        const correctionPercent = Math.min(1, Math.max(0, correctionAmount)) * 100;
+        const strokeColor =
+          useMeasure && measureArc === "corrected"
+            ? `color-mix(in srgb, var(--color-adjusted-border) ${correctionPercent}%, var(--color-rounded-border))`
+            : useMeasure
+              ? `var(${measure!.cssVar})`
+              : "var(--color-rounded-border)";
 
         return (
-          <motion.g animate={{ opacity: visible ? 1 : 0 }} transition={{ duration: 0.4 }}>
-            <g style={{ color: strokeColor, transition: "color 0.5s" }}>
+          <g opacity={Number(visible)}>
+            <g style={{ color: strokeColor }}>
               {/* Main diagonal line */}
-              <motion.line
-                animate={{ x1, y1, x2, y2 }}
-                transition={morphTransition}
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
                 stroke="currentColor"
                 strokeWidth={0.75}
                 strokeDasharray="1 4"
                 strokeLinecap="round"
               />
               {/* Perpendicular serif at the end point */}
-              <motion.line
-                animate={{
-                  x1: x2 - serifLen * perpX,
-                  y1: y2 - serifLen * perpY,
-                  x2: x2 + serifLen * perpX,
-                  y2: y2 + serifLen * perpY,
-                }}
-                transition={morphTransition}
+              <line
+                x1={x2 - serifLen * perpX}
+                y1={y2 - serifLen * perpY}
+                x2={x2 + serifLen * perpX}
+                y2={y2 + serifLen * perpY}
                 stroke="currentColor"
                 strokeWidth={0.75}
               />
               {/* Label */}
-              <motion.text
-                animate={{ x: lx, y: ly }}
-                transition={morphTransition}
-                fill="currentColor"
-                fontSize={9}
-                className="text-zinc-400"
-              >
+              <text x={lx} y={ly} fill="currentColor" fontSize={9} className="text-zinc-400">
                 {label}
-              </motion.text>
+              </text>
             </g>
-          </motion.g>
+          </g>
         );
       })()}
     </svg>

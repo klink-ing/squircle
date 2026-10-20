@@ -1,0 +1,155 @@
+.tour-root {
+  padding-block: 1rem 3rem;
+}
+.tour-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: center;
+}
+.tour-graphic {
+  width: min(65%, 15rem);
+  justify-self: center;
+  min-width: 0;
+}
+.tour-graphic svg {
+  display: block;
+}
+.tour-content {
+  min-width: 0;
+}
+.tour-content h2 {
+  font-size: clamp(1.8rem, 4vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.12;
+  margin-block: 0 1.25rem;
+  overflow-wrap: anywhere;
+}
+.tour-copy {
+  font-size: clamp(1.1rem, 2.4vw, 1.375rem);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.tour-copy code {
+  font-size: 0.87em;
+  background: #27272a;
+  padding: 1px 4px;
+  border-radius: 4px;
+  box-decoration-break: clone;
+}
+.tour-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+}
+.tour-navigation span {
+  color: #a1a1aa;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+.tour-root button,
+.tour-transport select {
+  min-height: 3rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.5rem;
+  background: #27272a;
+  color: #f4f4f5;
+  cursor: pointer;
+  font: inherit;
+}
+.tour-navigation button {
+  max-width: 60%;
+  font-size: 1rem;
+}
+.tour-navigation button:first-child {
+  padding-left: 0;
+  background: transparent;
+}
+.tour-root button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tour-root :focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 4px;
+}
+.tour-strength {
+  margin-block: 1rem;
+  padding: 0.75rem;
+  border: 1px solid #3f3f46;
+  border-radius: 0.6rem;
+}
+.tour-strength-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tour-strength output {
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+}
+.tour-strength input,
+.tour-transport input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 3rem;
+  margin: 0;
+}
+.tour-explore {
+  align-items: start;
+}
+.tour-return {
+  margin-top: 1.5rem;
+}
+.tour-explore input[type="range"] {
+  flex: 1 1 8rem;
+  min-width: 0;
+  min-height: 2.75rem;
+}
+.tour-explore input[type="text"] {
+  min-height: 2.75rem;
+}
+.tour-explore .overflow-x-auto {
+  max-width: 100%;
+}
+.tour-transport {
+  margin-top: 2rem;
+  padding: 1rem;
+  border: 1px solid #3f3f46;
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  font-size: 0.875rem;
+}
+.tour-transport summary {
+  cursor: pointer;
+  min-height: 2rem;
+}
+.tour-transport p {
+  margin-block: 0.75rem;
+}
+.tour-transport-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.tour-transport select {
+  max-width: 100%;
+}
+@media (min-width: 768px) {
+  .tour-layout {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(2rem, 4vw, 3rem);
+  }
+  .tour-graphic {
+    width: 100%;
+    max-width: 23rem;
+  }
+}
