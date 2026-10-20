@@ -1,0 +1,565 @@
+{
+  "reviewedAt": "2026-10-20",
+  "reviewBranch": "feat/tour-engine-evaluation",
+  "recommendation": "GSAP for the interactive website; Motion for smaller runtime when its editor limitations are acceptable; Remotion for frame-based composition/Studio/video workflows.",
+  "method": {
+    "gzipLevel": 9,
+    "perAssetCompression": true,
+    "htmlInlineBootstrapExcluded": true,
+    "browser": "T3 Chromium; CSS viewport resizing",
+    "reducedMotion": "controlled matchMedia runtime simulation; native OS untested"
+  },
+  "versions": [
+    {
+      "name": "remotion",
+      "branch": "feat/tour-remotion",
+      "sha": "31938e2184ec85ffba29413ab42598fc96d7771e",
+      "productionURL": "http://localhost:4331/tour",
+      "focusedTestsPassed": 8,
+      "typecheck": "pass",
+      "build": "pass",
+      "scopedLintErrors": 0,
+      "baselinePackageTests": {
+        "passed": 68,
+        "failed": 60,
+        "failedSnapshots": 15
+      },
+      "layout": [
+        {
+          "width": 320,
+          "stops": 7,
+          "minGap": 20.159912109375,
+          "maxOverflow": 0,
+          "body": 17.28,
+          "minButtonHeight": 46.07977294921875
+        },
+        {
+          "width": 390,
+          "stops": 7,
+          "minGap": 25.05987548828125,
+          "maxOverflow": 0,
+          "body": 21.48,
+          "minButtonHeight": 57.2796630859375
+        },
+        {
+          "width": 768,
+          "stops": 7,
+          "minGap": 30.800048828125,
+          "maxOverflow": 0,
+          "body": 26.4,
+          "minButtonHeight": 70.400146484375
+        },
+        {
+          "width": 960,
+          "stops": 7,
+          "minGap": 59.16241455078125,
+          "maxOverflow": 0,
+          "body": 21.266,
+          "minButtonHeight": 61.8660888671875
+        },
+        {
+          "width": 1280,
+          "stops": 7,
+          "minGap": 63.24212646484375,
+          "maxOverflow": 0,
+          "body": 22.733,
+          "minButtonHeight": 66.13214111328125
+        }
+      ],
+      "assets": [
+        {
+          "name": "DemoEmbed.Donf1-dC.js",
+          "raw": 417,
+          "gzip9": 331
+        },
+        {
+          "name": "GuidedExplorer.DOX9Mxnm.js",
+          "raw": 366676,
+          "gzip9": 113174
+        },
+        {
+          "name": "chunk.r_4oBX0g.js",
+          "raw": 558,
+          "gzip9": 356
+        },
+        {
+          "name": "client.B-V6xTFL.js",
+          "raw": 180543,
+          "gzip9": 56340
+        },
+        {
+          "name": "index.DpbddUMW.css",
+          "raw": 29408,
+          "gzip9": 5752
+        },
+        {
+          "name": "jsx-runtime.CZc1cyaE.js",
+          "raw": 424,
+          "gzip9": 298
+        },
+        {
+          "name": "react-dom.DefXh2jo.js",
+          "raw": 10997,
+          "gzip9": 3899
+        }
+      ],
+      "totals": {
+        "tour": {
+          "raw": 366676,
+          "gzip9": 113174
+        },
+        "shared": {
+          "raw": 192522,
+          "gzip9": 60893
+        },
+        "route": {
+          "raw": 559198,
+          "gzip9": 174067
+        }
+      },
+      "editorURLs": [
+        "http://localhost:3011/Tour-compact",
+        "http://localhost:3011/Tour-wide"
+      ]
+    },
+    {
+      "name": "gsap",
+      "branch": "feat/tour-gsap",
+      "sha": "7460ec01d2c106a1d5168d07e7e61e79884ced11",
+      "productionURL": "http://localhost:4432/tour",
+      "focusedTestsPassed": 7,
+      "typecheck": "pass",
+      "build": "pass",
+      "scopedLintErrors": 0,
+      "baselinePackageTests": {
+        "passed": 68,
+        "failed": 60,
+        "failedSnapshots": 15
+      },
+      "layout": [
+        {
+          "width": 320,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 17.6,
+          "minButtonHeight": 48
+        },
+        {
+          "width": 390,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 17.6,
+          "minButtonHeight": 48
+        },
+        {
+          "width": 768,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 18.432,
+          "minButtonHeight": 48
+        },
+        {
+          "width": 960,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 22,
+          "minButtonHeight": 48
+        },
+        {
+          "width": 1280,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 22,
+          "minButtonHeight": 48
+        }
+      ],
+      "assets": [
+        {
+          "name": "DemoEmbed.DCr7GHpy.js",
+          "raw": 417,
+          "gzip9": 332
+        },
+        {
+          "name": "GuidedExplorer.SIkoGSUY.js",
+          "raw": 87058,
+          "gzip9": 32746
+        },
+        {
+          "name": "chunk.CJI4CmtL.js",
+          "raw": 77,
+          "gzip9": 78
+        },
+        {
+          "name": "client.DJc_g0K3.js",
+          "raw": 183999,
+          "gzip9": 57176
+        },
+        {
+          "name": "index.C0jOrvFP.css",
+          "raw": 29270,
+          "gzip9": 5769
+        },
+        {
+          "name": "jsx-runtime.D5yj9856.js",
+          "raw": 424,
+          "gzip9": 298
+        },
+        {
+          "name": "react.DTFWYMdJ.js",
+          "raw": 7521,
+          "gzip9": 2879
+        }
+      ],
+      "totals": {
+        "tour": {
+          "raw": 87058,
+          "gzip9": 32746
+        },
+        "shared": {
+          "raw": 192021,
+          "gzip9": 60431
+        },
+        "route": {
+          "raw": 279079,
+          "gzip9": 93177
+        }
+      },
+      "editorURLs": [
+        "http://localhost:4332/tour"
+      ]
+    },
+    {
+      "name": "motion",
+      "branch": "feat/tour-motion",
+      "sha": "b191907380085f5d94e03dc57eba8cac244c8bf5",
+      "productionURL": "http://localhost:4335/tour",
+      "focusedTestsPassed": 7,
+      "typecheck": "pass",
+      "build": "pass",
+      "scopedLintErrors": 0,
+      "baselinePackageTests": {
+        "passed": 68,
+        "failed": 60,
+        "failedSnapshots": 15
+      },
+      "layout": [
+        {
+          "width": 320,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 16.8,
+          "minButtonHeight": 48
+        },
+        {
+          "width": 390,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 16.8,
+          "minButtonHeight": 48
+        },
+        {
+          "width": 768,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 16.896,
+          "minButtonHeight": 48
+        },
+        {
+          "width": 960,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 21.12,
+          "minButtonHeight": 48
+        },
+        {
+          "width": 1280,
+          "stops": 7,
+          "minGap": 24,
+          "maxOverflow": 0,
+          "body": 22,
+          "minButtonHeight": 48
+        }
+      ],
+      "assets": [
+        {
+          "name": "DemoEmbed.Donf1-dC.js",
+          "raw": 417,
+          "gzip9": 331
+        },
+        {
+          "name": "GuidedExplorer.C3LA8z2n.js",
+          "raw": 81344,
+          "gzip9": 28360
+        },
+        {
+          "name": "chunk.r_4oBX0g.js",
+          "raw": 558,
+          "gzip9": 356
+        },
+        {
+          "name": "client.BpIVd8bL.js",
+          "raw": 184011,
+          "gzip9": 57187
+        },
+        {
+          "name": "index.BQNb5Cis.css",
+          "raw": 29129,
+          "gzip9": 5718
+        },
+        {
+          "name": "jsx-runtime.CZc1cyaE.js",
+          "raw": 424,
+          "gzip9": 298
+        },
+        {
+          "name": "react.DMuEwqdF.js",
+          "raw": 7521,
+          "gzip9": 2878
+        }
+      ],
+      "totals": {
+        "tour": {
+          "raw": 81344,
+          "gzip9": 28360
+        },
+        "shared": {
+          "raw": 192514,
+          "gzip9": 60719
+        },
+        "route": {
+          "raw": 273858,
+          "gzip9": 89079
+        }
+      },
+      "editorURLs": [
+        "http://localhost:4333/tour",
+        "http://localhost:3013"
+      ]
+    }
+  ],
+  "materialIssues": [
+    {
+      "engine": "motion",
+      "scope": "Studio 2.1.0 development",
+      "missingNumericTracks": true,
+      "editorDurationSeconds": 9.5,
+      "runtimeDurationSeconds": 7.4,
+      "editorRoundedStartSeconds": 2.4,
+      "runtimeRoundedStartSeconds": 0,
+      "applyGate": "subscription; no signup or purchase",
+      "navigationAfterPreview": "stuck until reload"
+    },
+    {
+      "engine": "remotion",
+      "scope": "synthetic same-JavaScript-task Next then Back at frame120",
+      "observedFrame": 48,
+      "expectedFrame": 120,
+      "normalSeparateEventInterruption": "passes"
+    },
+    {
+      "engine": "remotion",
+      "scope": "Studio Inspector",
+      "behavior": "default-prop edits auto-save source; audit edit undone and target verified clean"
+    }
+  ],
+  "limitations": [
+    "Non-Chromium browsers",
+    "Native OS reduced motion",
+    "Screen reader announcements",
+    "Physical touch devices",
+    "Paid Motion source Apply",
+    "Video export",
+    "Performance/leak benchmarking"
+  ],
+  "interactionWidths": [
+    {
+      "name": "gsap",
+      "width": 320,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "gsap",
+      "width": 390,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "gsap",
+      "width": 768,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "gsap",
+      "width": 960,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "gsap",
+      "width": 1280,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "motion",
+      "width": 320,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "motion",
+      "width": 390,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "motion",
+      "width": 768,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "motion",
+      "width": 960,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "motion",
+      "width": 1280,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "remotion",
+      "width": 320,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "remotion",
+      "width": 390,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "remotion",
+      "width": 768,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "remotion",
+      "width": 960,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    },
+    {
+      "name": "remotion",
+      "width": 1280,
+      "data": {
+        "sliderChanged": true,
+        "focus": "tour-strength",
+        "restore": true,
+        "exploreValue": "-1.2",
+        "exploreOverflow": 0,
+        "returnChoice": "2.7"
+      }
+    }
+  ]
+}
