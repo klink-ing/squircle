@@ -332,7 +332,13 @@ export default function ExplorerGraphic({
         const lx = nearRight ? midX - 28 : midX + 6;
         const ly = nearTop ? midY + 12 : midY - 6;
 
-        const strokeColor = useMeasure ? `var(${measure!.cssVar})` : "var(--color-rounded-border)";
+        const correctionPercent = Math.min(1, Math.max(0, correctionAmount)) * 100;
+        const strokeColor =
+          useMeasure && measureArc === "corrected"
+            ? `color-mix(in srgb, var(--color-adjusted-border) ${correctionPercent}%, var(--color-rounded-border))`
+            : useMeasure
+              ? `var(${measure!.cssVar})`
+              : "var(--color-rounded-border)";
 
         return (
           <g opacity={Number(visible)}>

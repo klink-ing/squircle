@@ -4,7 +4,9 @@ packages:
 
 catalog:
   "@anolilab/semantic-release-pnpm": ^3.2.2
+  '@remotion/cli': 4.0.537
   '@remotion/player': 4.0.537
+  '@remotion/tailwind-v4': 4.0.537
   "@semantic-release/commit-analyzer": ^13.0.1
   "@semantic-release/github": ^11.0.1
   "@semantic-release/release-notes-generator": ^14.0.3

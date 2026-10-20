@@ -81,3 +81,13 @@
     background: theme(--color-zinc-700);
   }
 }
+
+[data-tour-composition] button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+[data-tour-composition] button:focus-visible,
+[data-tour-composition] input:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 4px;
+}
