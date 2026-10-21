@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { correctedRadius, type Point } from "../math";
 
 const MAGENTA = "var(--color-squircle-border)";
@@ -22,6 +23,7 @@ export default function RadiusComparison({
   apparentProgress: number;
   corner: Point;
 }) {
+  const sharedDotGradient = useId();
   const center = { x: corner.x - radius, y: corner.y + radius };
   const angle = (sweep * Math.PI) / 4;
   const dx = Math.sin(angle);
@@ -44,9 +46,32 @@ export default function RadiusComparison({
   const blueNumberY = blue.y - 9 + 24 * sweep * (1 - apparentProgress);
   const redLabelX = red.x + 6;
   const blueLabelX = blue.x + 6;
+  const specified = { x: center.x, y: corner.y };
+  const blueTop = { x: blueCenter.x, y: corner.y };
+  const magentaDots = [
+    specified,
+    ...(sweep > 0 ? [red] : []),
+    ...(apparentProgress > 0 ? [center] : []),
+  ];
+  const blueDots = sweep > 0 ? [blue, ...(apparentProgress > 0 ? [blueCenter, blueTop] : [])] : [];
+  const dotPaint = (point: Point, color: string) => {
+    const others = color === MAGENTA ? blueDots : magentaDots;
+    // Ignore floating-point noise, without merging dots that are merely close.
+    const shared = others.some((other) => Math.hypot(point.x - other.x, point.y - other.y) < 1e-6);
+    return {
+      fill: shared ? `url(#${sharedDotGradient})` : color,
+      "data-radius-shared": shared ? "" : undefined,
+    };
+  };
 
   return (
     <g data-radius-comparison="" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <defs>
+        <linearGradient id={sharedDotGradient} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="50%" stopColor={BLUE} />
+          <stop offset="50%" stopColor={MAGENTA} />
+        </linearGradient>
+      </defs>
       {sweep > 0 && (
         <line
           data-radius-axis="origin"
@@ -67,7 +92,7 @@ export default function RadiusComparison({
             cx={center.x}
             cy={center.y}
             r={MARKER_RADIUS}
-            fill={MAGENTA}
+            {...dotPaint(center, MAGENTA)}
           />
           <g
             stroke={BLUE}
@@ -94,14 +119,14 @@ export default function RadiusComparison({
             cx={blueCenter.x}
             cy={blueCenter.y}
             r={MARKER_RADIUS}
-            fill={BLUE}
+            {...dotPaint(blueCenter, BLUE)}
           />
           <circle
             data-radius-point="apparent-top"
             cx={blueCenter.x}
             cy={corner.y}
             r={MARKER_RADIUS}
-            fill={BLUE}
+            {...dotPaint(blueTop, BLUE)}
           />
         </g>
       )}
@@ -119,7 +144,13 @@ export default function RadiusComparison({
       />
 
       <g data-radius-marker="specified" fill={MAGENTA}>
-        <circle data-radius-point="specified" cx={center.x} cy={corner.y} r={MARKER_RADIUS} />
+        <circle
+          data-radius-point="specified"
+          cx={center.x}
+          cy={corner.y}
+          r={MARKER_RADIUS}
+          {...dotPaint(specified, MAGENTA)}
+        />
         <text
           data-radius-number="specified"
           x={center.x}
@@ -163,7 +194,13 @@ export default function RadiusComparison({
             stroke={BLUE}
             strokeWidth={1.7}
           />
-          <circle data-radius-point="css" cx={blue.x} cy={blue.y} r={MARKER_RADIUS} />
+          <circle
+            data-radius-point="css"
+            cx={blue.x}
+            cy={blue.y}
+            r={MARKER_RADIUS}
+            {...dotPaint(blue, BLUE)}
+          />
           <text
             data-radius-number="blue"
             x={blueNumberX}
@@ -208,7 +245,13 @@ export default function RadiusComparison({
 
       {sweep > 0 && (
         <g data-radius-marker="visual" fill={MAGENTA}>
-          <circle data-radius-point="visual" cx={red.x} cy={red.y} r={MARKER_RADIUS} />
+          <circle
+            data-radius-point="visual"
+            cx={red.x}
+            cy={red.y}
+            r={MARKER_RADIUS}
+            {...dotPaint(red, MAGENTA)}
+          />
           <text
             data-radius-number="magenta"
             x={redNumberX}

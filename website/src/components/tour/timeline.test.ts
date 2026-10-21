@@ -191,7 +191,11 @@ describe("tour behavior on the real GSAP timeline", () => {
       for (const offset of [0, 0.25, 0.5, 0.75, 1]) {
         const html = paint(APPARENT_RADIUS.start + offset, amount);
         expect(tag(html, 'data-radius-outline="visual"')).toBe(shape);
-        expect(tag(html, 'data-radius-point="specified"')).toBe(fixedMarker);
+        const withoutPaint = (marker: string) =>
+          marker.replace(/ fill="[^"]+"| data-radius-shared=""/g, "");
+        expect(withoutPaint(tag(html, 'data-radius-point="specified"'))).toBe(
+          withoutPaint(fixedMarker),
+        );
         expect(tag(html, 'data-radius-number="specified"')).toBe(fixedNumber);
         expect(tag(html, 'data-radius-label="specified"')).toBe(fixedLabel);
         expect(tag(html, 'data-radius-number="magenta"').replace(/ opacity="[^"]+"/, "")).toBe(
@@ -204,6 +208,20 @@ describe("tour behavior on the real GSAP timeline", () => {
       const center = tag(after, 'data-radius-center="apparent"');
       const end = tag(after, 'data-radius-point="css"');
       const top = tag(after, 'data-radius-point="apparent-top"');
+      expect(end).toContain('data-radius-shared=""');
+      expect(tag(after, 'data-radius-point="visual"')).toContain('data-radius-shared=""');
+      if (amount === 1) {
+        expect(top).toContain('data-radius-shared=""');
+        expect(center).toContain('data-radius-shared=""');
+        expect(tag(before, 'data-radius-point="css"')).toContain('data-radius-shared=""');
+      } else {
+        expect(top).not.toContain("data-radius-shared");
+        expect(center).not.toContain("data-radius-shared");
+        expect(tag(before, 'data-radius-point="css"')).not.toContain("data-radius-shared");
+      }
+      expect(after).toContain(
+        '<stop offset="50%" stop-color="var(--color-rounded-border)"></stop><stop offset="50%" stop-color="var(--color-squircle-border)"></stop>',
+      );
       const cx = coordinate(center, "cx"),
         cy = coordinate(center, "cy");
       const x = coordinate(end, "cx"),
