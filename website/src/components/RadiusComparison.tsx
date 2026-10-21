@@ -172,18 +172,6 @@ export default function RadiusComparison({
         </text>
       </g>
 
-      {sweep > 0 && (
-        <line
-          data-radius-start-tick=""
-          x1={center.x}
-          y1={corner.y}
-          x2={center.x}
-          y2={corner.y - 8 * Math.min(1, sweep * 4)}
-          stroke={MAGENTA}
-          strokeWidth={1.7}
-        />
-      )}
-
       {/* Blue is not mounted until the sweep actually starts. It is painted
           first so coincident markers and numbers sit underneath their red twins. */}
       {sweep > 0 && (
