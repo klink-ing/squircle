@@ -202,7 +202,9 @@ export const SLIDES: readonly TourSlide[] = [
     transition(timeline, { tracks, text, previousText }) {
       exitText(timeline, previousText, { at: 0, duration: 0.18 });
       enterText(timeline, text, { at: ">", duration: 0.7 });
-      timeline.to(tracks, { correction: 1, duration: 1, ease: "power2.inOut" }, 0);
+      timeline.to(tracks, { apparentCorrection: 1, duration: 1, ease: "power2.inOut" }, 0);
+      // Start CSS motion halfway through the blue tween, when its ease begins slowing down.
+      timeline.to(tracks, { correction: 1, duration: 1, ease: "power2.inOut" }, "<50%");
     },
   },
   {

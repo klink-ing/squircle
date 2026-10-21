@@ -6,6 +6,7 @@ export function initialTracks() {
     baseAmount: 1,
     choiceWeight: 0,
     correction: 0,
+    apparentCorrection: 0,
     roundedOpacity: 0,
     radiusComparison: 0,
     radiusSweep: 0,

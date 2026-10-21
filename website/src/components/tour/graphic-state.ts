@@ -15,6 +15,7 @@ export function graphicFromTracks(
     arcSuperellipse: { visible: 1, showFill: 1 - 0.8 * tracks.radiusComparison, showOutline: 0 },
     amount: tracks.baseAmount + (chosenAmount - DEFAULT_STRENGTH) * tracks.choiceWeight,
     correctionAmount: tracks.correction,
+    apparentCorrection: tracks.apparentCorrection,
     showRefLine: 0,
     showMeasurement: tracks.roundedOpacity - tracks.radiusComparison,
     radiusComparison: tracks.radiusComparison,

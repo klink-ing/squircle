@@ -536,6 +536,40 @@ describe("tour behavior on the real GSAP timeline", () => {
     }
   });
 
+  it("lets the blue apparent radius lead, then holds it at one while CSS finishes correcting", () => {
+    const f = fixture();
+    for (const amount of [1, 2, 2.7, 3]) {
+      const paint = (offset: number) =>
+        renderToStaticMarkup(
+          createElement(ExplorerGraphic, f.at(CORRECTION.start + offset, amount)),
+        );
+      const shape = (html: string) => html.match(/<path data-radius-outline="visual"[^>]+>/)![0];
+      const baseline = shape(paint(0));
+      paint(0.25);
+      expect(f.tracks.apparentCorrection).toBeGreaterThan(0);
+      expect(f.tracks.apparentCorrection).toBeLessThan(0.5);
+      expect(f.tracks.correction).toBe(0);
+      expect(shape(paint(0.49))).toBe(baseline);
+      expect(paint(0.5)).toMatch(/data-radius-number="specified"[^>]*>1.00<\/text>/);
+      expect(f.tracks.apparentCorrection).toBeCloseTo(0.5);
+      expect(f.tracks.correction).toBe(0);
+      paint(0.75);
+      expect(f.tracks.apparentCorrection).toBeGreaterThan(0.5);
+      expect(f.tracks.apparentCorrection).toBeLessThan(1);
+      expect(f.tracks.correction).toBeGreaterThan(0);
+      expect(f.tracks.correction).toBeLessThan(0.5);
+      for (const offset of [1, 1.25, 1.5]) {
+        expect(paint(offset)).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
+        expect(f.tracks.apparentCorrection).toBe(1);
+      }
+      expect(f.tracks.correction).toBe(1);
+      paint(0.25); // Back/author scrubbing restores the lead without a stale CSS offset.
+      expect(f.tracks.correction).toBe(0);
+      expect(f.tracks.apparentCorrection).toBeGreaterThan(0);
+      expect(shape(paint(0))).toBe(baseline);
+    }
+  });
+
   it("grows the apparent radius to one while the CSS radius can leave the fixed box", () => {
     const f = fixture();
     const paint = (position: string | number) =>

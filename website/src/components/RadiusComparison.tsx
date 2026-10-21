@@ -17,6 +17,7 @@ export default function RadiusComparison({
   sweep,
   labelOpacity,
   apparentProgress,
+  apparentCorrection,
   corner,
 }: {
   radius: number;
@@ -26,6 +27,7 @@ export default function RadiusComparison({
   sweep: number;
   labelOpacity: number;
   apparentProgress: number;
+  apparentCorrection: number;
   corner: Point;
 }) {
   const sharedDotGradient = useId();
@@ -37,8 +39,10 @@ export default function RadiusComparison({
   const red = { x: center.x + dx * visualRadius, y: center.y - dy * visualRadius };
   // Invert the package's correction: this circle has the same diagonal inset
   // as the uncorrected superellipse, while sharing its top/right edges.
-  const apparent = cssRadius / correctedRadius(1, exponent);
-  const blueRadius = radius + (apparent - radius) * apparentProgress;
+  const apparent = radius / correctedRadius(1, exponent);
+  // Let the blue circle lead the magenta CSS-radius correction, then meet it at the end.
+  const correctedApparent = apparent + (radius - apparent) * apparentCorrection;
+  const blueRadius = radius + (correctedApparent - radius) * apparentProgress;
   const blueCenter = { x: corner.x - blueRadius, y: corner.y + blueRadius };
   const blueAngle = (sweep * Math.PI) / 4;
   const blue = {

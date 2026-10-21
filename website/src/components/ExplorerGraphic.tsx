@@ -19,6 +19,7 @@ export interface GraphicState {
   arcRounded: ArcStyle;
   arcSuperellipse: ArcStyle;
   correctionAmount: number; // 0 = uncorrected superellipse, 1 = fully corrected
+  apparentCorrection?: number; // Independent blue-radius motion during the correction beat.
   amount: number;
   showRefLine: boolean | number;
   showMeasurement: boolean | number;
@@ -72,6 +73,7 @@ export default function ExplorerGraphic({
   measureMode = "radius",
   measureAngle = "diagonal",
   correctionAmount,
+  apparentCorrection = correctionAmount,
   zoom,
   radiusComparison = 0,
   radiusSweep = 0,
@@ -446,6 +448,7 @@ export default function ExplorerGraphic({
             sweep={radiusSweep}
             labelOpacity={radiusLabels}
             apparentProgress={apparentRadius}
+            apparentCorrection={apparentCorrection}
             corner={{ x: cornerX, y: cornerY }}
           />
         </g>
