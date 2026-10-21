@@ -29,8 +29,7 @@ export default function TourNarrative({
       The radius describes the distance from the curve's center to its edge. It doesn't describe how
       rounded the corner looks. Compare the circle with the superellipse.
     </p>,
-    <p key="visual-radius">Placeholder copy.</p>,
-    <div key="strength">
+    <div key="visual-radius">
       <p>Higher strength makes a squarer corner. Try it.</p>
       <div className="tour-strength">
         <div className="tour-strength-label">
@@ -80,9 +79,7 @@ export default function TourNarrative({
       <h2 id={`heading-${cue.id}`} tabIndex={-1}>
         {cue.id === "rounded" ? (
           "border-radius"
-        ) : cue.id === "visual-radius" ? (
-          "Placeholder"
-        ) : cue.id === "superellipse" || cue.id === "radius" || cue.id === "strength" ? (
+        ) : cue.id === "superellipse" || cue.id === "radius" || cue.id === "visual-radius" ? (
           <>
             Same radius.
             <br />

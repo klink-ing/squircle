@@ -3,6 +3,7 @@ import gsap from "gsap";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ExplorerGraphic from "../ExplorerGraphic";
+import TourNarrative from "./TourNarrative";
 import { graphicFromTracks } from "./graphic-state";
 import {
   CHECKPOINTS,
@@ -45,7 +46,7 @@ function finishDriver(timeline: gsap.core.Timeline, progress = 1) {
 }
 
 describe("tour behavior on the real GSAP timeline", () => {
-  it("seeks to all eight reading stops deterministically, in any order", () => {
+  it("seeks to all seven reading stops deterministically, in any order", () => {
     const f = fixture();
     const expected = CHECKPOINTS.map((cue) => f.at(cue.id, 2.7));
     [...CHECKPOINTS].reverse().forEach((cue) => f.at(cue.id, 2.7));
@@ -59,7 +60,8 @@ describe("tour behavior on the real GSAP timeline", () => {
     for (const amount of [1, 2, 2.7, 3]) {
       const f = fixture();
       expect(f.at("radius", amount).amount).toBe(2);
-      expect(f.at("strength", amount).amount).toBe(amount);
+      expect(f.at(STRENGTH.id, amount).amount).toBe(amount);
+      expect(f.at(STRENGTH.id, amount).radiusComparison).toBe(1);
       expect(f.at(CORRECTION.start, amount).amount).toBe(amount);
       expect(f.at(CORRECTION.start + 0.5, amount).amount).toBeCloseTo((amount + 2) / 2);
       expect(f.at("correction", amount).amount).toBe(2);
@@ -101,10 +103,36 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusLabels).toBe(1);
     expect(diagonal).toContain('data-radius-label="css"');
     expect(diagonal).toContain('data-radius-label="visual"');
-    expect(paint("strength")).not.toContain("data-radius-comparison=");
+    expect(paint("correction")).not.toContain("data-radius-comparison=");
     // Reverse seeking must restore the initial unpainted blue marker and labels.
     expect(paint("radius")).not.toContain('data-radius-marker="css"');
     expect(f.tracks.radiusLabels).toBe(0);
+  });
+
+  it("combines the original strength copy and controls with slide four's comparison", () => {
+    expect(CHECKPOINTS).toHaveLength(7);
+    expect(CHECKPOINTS[3]).toBe(STRENGTH);
+    expect(CHECKPOINTS.map((cue) => cue.id)).not.toContain("strength");
+    const html = renderToStaticMarkup(
+      createElement(TourNarrative, {
+        active: 3,
+        amount: 2.7,
+        strengthActive: true,
+        onAmountChange: () => {},
+      }),
+    );
+    expect(html).toContain('data-tour-panel="visual-radius"');
+    expect(html).toContain("Higher strength makes a squarer corner. Try it.");
+    expect(html).toContain('id="tour-strength"');
+    expect(html).not.toContain('data-tour-panel="strength"');
+    expect(html).not.toContain("Placeholder");
+    const f = fixture();
+    f.controls.start(true);
+    f.controls.checkpoint(3);
+    f.controls.next();
+    expect(f.timeline.time()).toBe(CORRECTION.time);
+    f.controls.back();
+    expect(f.timeline.time()).toBe(STRENGTH.time);
   });
 
   it("ignores rapid Next, stops precisely, and permits interruption with Back", () => {

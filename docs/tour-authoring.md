@@ -1,6 +1,6 @@
 # Guided tour authoring · GSAP with React
 
-The `/tour` page is responsive HTML/CSS driven by one native GSAP timeline. It uses `gsap@3.15.0` and the official `@gsap/react@2.1.2` integration. There are eight reading stops: rounded corner, superellipse, vertical radius, diagonal radius comparison, strength exploration, correction, alignment, and utility usage. Existing slide copy is preserved; the inserted comparison slide uses placeholder copy. This branch has no Remotion runtime, Player, Studio, video configuration, or interpolation imports.
+The `/tour` page is responsive HTML/CSS driven by one native GSAP timeline. It uses `gsap@3.15.0` and the official `@gsap/react@2.1.2` integration. There are seven reading stops: rounded corner, superellipse, vertical radius, diagonal radius comparison with strength exploration, correction, alignment, and utility usage. The original strength copy and controls accompany the diagonal comparison; there is no separate strength visual or reading stop. This branch has no Remotion runtime, Player, Studio, video configuration, or interpolation imports.
 
 ## Run
 
@@ -29,11 +29,11 @@ The production tour is http://localhost:4432/tour. The development transport is 
 
 ## Edit and retime
 
-`website/src/components/tour/timeline.ts` contains the native choreography. `CHECKPOINTS` lists entrance times and settled reading times in **seconds**. `createTourTimeline` adds a label for each reading stop (`strength`, `correction`, etc.) and an entrance label (`strength:enter`, etc.). Numeric geometry tracks and DOM entrances share that timeline. Reading stops are at 0.8, 2, 3.2, 4.9, 5.9, 7.1, 8.1, and 9.1 seconds.
+`website/src/components/tour/timeline.ts` contains the native choreography. `CHECKPOINTS` lists entrance times and settled reading times in **seconds**. `createTourTimeline` adds a label for each reading stop (`visual-radius`, `correction`, etc.) and an entrance label (`strength:enter`, etc.). Numeric geometry tracks and DOM entrances share that timeline. Reading stops are at 0.8, 2, 3.2, 4.9, 6.1, 7.1, and 8.1 seconds.
 
 Edit copy and interleaved controls in `TourNarrative.tsx`. Each section remains mounted with a stable identity; only the current section participates in layout. React applies `hidden` and `inert` to outgoing sections. GSAP owns each section's opacity and transform; React never writes those properties. Entrances take 0.4 seconds. There is no outgoing crossfade or fixed-height stage: the next paragraph reflows normally. Keep each reading label after its narrative entrance and geometry tweens finish.
 
-For retiming, change the cue's `start`/`time` and any numeric tween duration together. Geometry tweens use entrance labels rather than duplicated absolute starts. Strength/correction checkpoints and the final duration are resolved by ID/the last reading stop. Extending the beat list also requires updating narrative content and behavioral tests. This is intentionally small, tour-specific choreography.
+For retiming, change the cue's `start`/`time` and any numeric tween duration together. Geometry tweens use entrance labels rather than duplicated absolute starts. The strength interaction shares the comparison checkpoint; correction and the final duration are resolved by ID/the last reading stop. Extending the beat list also requires updating narrative content and behavioral tests. This is intentionally small, tour-specific choreography.
 
 `tour.css` uses a single column below 768px and a fluid two-column grid above it. Narrative font sizes are 17.6–22px; headings are 28.8–44px; navigation and slider controls have 48px minimum heights. SVG `viewBox` coordinates describe the existing mathematical illustration, not a composition viewport. Page scrolling is normal. There is no resize measurement or layout-dependent timeline rebuild.
 
@@ -43,9 +43,9 @@ Slide 3 begins with a full closed magenta outline, a 20%-opacity magenta fill, a
 
 GSAP owns a plain numeric proxy: `baseAmount`, `choiceWeight`, `correction`, `roundedOpacity`, `radiusComparison`, `radiusSweep`, and `radiusLabels`. Its `onUpdate` publishes an immutable snapshot through `graphicFromTracks`. React alone renders the existing SVG paths from that snapshot using `website/src/math.ts`. There are no competing SVG attribute writes, previous-frame replay, generic animation engine, or React render loops while paused.
 
-The remembered strength is React state plus a ref for synchronous publishing. At the settled strength label, the native range input (1–3, step 0.1, initial 2) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to 2. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
+The remembered strength is React state plus a ref for synchronous publishing. At the settled `visual-radius` label, the native range input (1–3, step 0.1, initial 2) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to 2. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
 
-The graphic's amount is `baseAmount + (chosenAmount - 2) * choiceWeight`. The strength entrance raises the weight to 1. Correction animates it to 0 while the correction track rises to 1, so the diagram smoothly returns from the user's choice to canonical strength 2. Direct seeking or Back restores the same numeric result, including the chosen strength. Measurement endpoints and color follow the correction continuously.
+The graphic's amount is `baseAmount + (chosenAmount - 2) * choiceWeight`. As the comparison labels dissolve in, the choice weight rises to 1, restoring the remembered strength by the comparison reading stop. Correction animates it to 0 while the correction track rises to 1, so the diagram smoothly returns from the user's choice to canonical strength 2. Direct seeking or Back restores the same numeric result, including the chosen strength. Measurement endpoints and color follow the correction continuously.
 
 `playback.ts` contains the explicit interaction policy. Next uses native `timeline.tweenTo(label)` and stops exactly at that label. A synchronous moving guard ignores repeated activation until settlement. Back kills the playhead tween and seeks the previous label, even mid-transition. Reduced motion seeks immediately; a live preference change during playback kills the driver and settles its destination. Settling requests heading focus after React commits. Slider changes never request focus.
 
