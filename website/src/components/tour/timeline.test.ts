@@ -89,6 +89,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusSweep).toBeCloseTo(0.5);
     expect(moving).toContain('data-radius-marker="css"');
     expect(moving).toContain('data-radius-outline="css"');
+    expect(moving).toContain(">1.07</text>");
     expect(moving).not.toContain("data-radius-label=");
 
     paint(RADIUS_SWEEP.start + 1.2);
@@ -96,6 +97,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusLabels).toBeGreaterThan(0);
     expect(f.tracks.radiusLabels).toBeLessThan(1);
     const diagonal = paint("visual-radius");
+    expect(diagonal).toContain(">1.19</text>");
     expect(f.tracks.radiusLabels).toBe(1);
     expect(diagonal).toContain('data-radius-label="css"');
     expect(diagonal).toContain('data-radius-label="visual"');

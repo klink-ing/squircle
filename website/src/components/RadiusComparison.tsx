@@ -115,7 +115,7 @@ export default function RadiusComparison({
       <g data-radius-marker="visual" fill={MAGENTA}>
         <circle data-radius-point="visual" cx={red.x} cy={red.y} r={MARKER_RADIUS} />
         <text x={red.x} y={redNumberY} textAnchor="middle" fontSize={10}>
-          1.00
+          {(visualRadius / radius).toFixed(2)}
         </text>
         {labelOpacity > 0 && (
           <text

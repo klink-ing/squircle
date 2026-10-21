@@ -1,5 +1,10 @@
 .tour-root {
   padding-block: 1rem 3rem;
+  font-variant-numeric: tabular-nums;
+}
+.tour-root input,
+.tour-root select {
+  font-variant-numeric: tabular-nums;
 }
 .tour-layout {
   display: grid;
