@@ -95,6 +95,13 @@ export default function ExplorerGraphic({
     // Paths
     const circlePath = buildCurvePath(circleSvg);
     const superPath = buildCurvePath(superSvg);
+    const superOutlineLength =
+      Math.abs(PAD + BOX - superSvg[0]!.y) +
+      superSvg.slice(1).reduce((length, point, index) => {
+        const previous = superSvg[index]!;
+        return length + Math.hypot(point.x - previous.x, point.y - previous.y);
+      }, 0) +
+      Math.abs(superSvg[superSvg.length - 1]!.x - PAD);
 
     // Interior clip: same shape as the curve path, closed
     const circleClip = circlePath + " Z";
@@ -172,6 +179,7 @@ export default function ExplorerGraphic({
       superSvg,
       circlePath,
       superPath,
+      superOutlineLength,
       circleClip,
       superClip,
       superAboveCircle,
@@ -191,6 +199,7 @@ export default function ExplorerGraphic({
     superSvg,
     circlePath,
     superPath,
+    superOutlineLength,
     circleClip,
     superClip,
     superAboveCircle,
@@ -247,6 +256,8 @@ export default function ExplorerGraphic({
                 fillOpacity={Number(arcSuperellipse.showFill)}
                 stroke="currentColor"
                 strokeWidth={1.7}
+                // Keep the fill closed, but leave the left/bottom closure unstroked.
+                strokeDasharray={`${superOutlineLength} ${BOX * 2 + 1}`}
                 strokeOpacity={radiusComparison}
                 strokeLinejoin="round"
                 clipPath={`url(#${clipBox})`}
