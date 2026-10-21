@@ -1,11 +1,11 @@
 import type { GraphicState } from "../ExplorerGraphic";
-import { CORRECTION, type GraphicTracks } from "./timeline";
+import { CORRECTION, DEFAULT_STRENGTH, type GraphicTracks } from "./timeline";
 
 // Pure bridge: no previous rendered geometry and no DOM mutation.
 export function graphicFromTracks(
   tracks: GraphicTracks,
   time: number,
-  chosenAmount = 2,
+  chosenAmount = DEFAULT_STRENGTH,
 ): GraphicState {
   return {
     arcRounded: {
@@ -14,7 +14,7 @@ export function graphicFromTracks(
       showOutline: 0,
     },
     arcSuperellipse: { visible: 1, showFill: 1 - 0.8 * tracks.radiusComparison, showOutline: 0 },
-    amount: tracks.baseAmount + (chosenAmount - 2) * tracks.choiceWeight,
+    amount: tracks.baseAmount + (chosenAmount - DEFAULT_STRENGTH) * tracks.choiceWeight,
     correctionAmount: tracks.correction,
     showRefLine: 0,
     showMeasurement: tracks.roundedOpacity - tracks.radiusComparison,

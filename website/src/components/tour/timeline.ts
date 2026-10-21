@@ -1,5 +1,7 @@
 import gsap from "gsap";
 
+export const DEFAULT_STRENGTH = 1.5;
+
 // Seconds on one native timeline. Each label is a settled reading stop.
 export const CHECKPOINTS = [
   { id: "rounded", start: 0, time: 0.8, nextLabel: "Apply it" },
@@ -64,7 +66,11 @@ export function createTourTimeline(onUpdate: () => void, panels: HTMLElement[] =
       );
     }
   });
-  timeline.to(tracks, { baseAmount: 2, duration: 1, ease: "power2.inOut" }, "superellipse:enter");
+  timeline.to(
+    tracks,
+    { baseAmount: DEFAULT_STRENGTH, duration: 1, ease: "power2.inOut" },
+    "superellipse:enter",
+  );
   timeline.to(tracks, { roundedOpacity: 1, duration: 0.8, ease: "power2.inOut" }, "radius:enter");
   timeline.to(tracks, { radiusComparison: 1, duration: 0.8, ease: "power2.inOut" }, "radius:enter");
   timeline.to(tracks, { radiusSweep: 1, duration: 1, ease: "power2.inOut" }, "visual-radius:enter");

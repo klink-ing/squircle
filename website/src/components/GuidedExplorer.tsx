@@ -12,6 +12,7 @@ import {
   checkpointAtTime,
   createTourTimeline,
   DURATION,
+  DEFAULT_STRENGTH,
   initialTracks,
   STRENGTH,
 } from "./tour/timeline";
@@ -25,8 +26,8 @@ export default function GuidedExplorer() {
   const root = useRef<HTMLDivElement>(null);
   const tour = useRef<ReturnType<typeof createTourTimeline> | null>(null);
   const controls = useRef<ReturnType<typeof createPlayback> | null>(null);
-  const chosen = useRef(2);
-  const [amount, setAmount] = useState(2);
+  const chosen = useRef(DEFAULT_STRENGTH);
+  const [amount, setAmount] = useState(DEFAULT_STRENGTH);
   const [view, setView] = useState({ time: 0, graphic: graphicFromTracks(initialTracks(), 0) });
   const [playback, setPlayback] = useState<PlaybackState>({ destination: 0, moving: true });
   const [focusRequest, requestFocus] = useState(0);

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CHECKPOINTS } from "./timeline";
+import { CHECKPOINTS, DEFAULT_STRENGTH } from "./timeline";
 
 function Code({ children }: { children: ReactNode }) {
   return <code>{children}</code>;
@@ -22,7 +22,7 @@ function StrengthControl({
         <label htmlFor={id}>
           Strength <output htmlFor={id}>{amount.toFixed(1)}</output>
         </label>
-        <button type="button" disabled={!enabled} onClick={() => onAmountChange(2)}>
+        <button type="button" disabled={!enabled} onClick={() => onAmountChange(DEFAULT_STRENGTH)}>
           Reset
         </button>
       </div>
@@ -55,7 +55,7 @@ export default function TourNarrative({
   const paragraphs = [
     <p key="rounded">
       The old standby. <Code>border-radius</Code> makes a circular corner. Let's make it even
-      smoother with <Code>corner-shape: superellipse(2)</Code>.
+      smoother with <Code>corner-shape: superellipse({DEFAULT_STRENGTH})</Code>.
     </p>,
     <p key="superellipse">
       <i>Smoooooooth.</i> But notice what happened? The corner sticks out more than before—even
@@ -73,7 +73,7 @@ export default function TourNarrative({
         enabled={strengthActive && CHECKPOINTS[active]?.id === "visual-radius"}
         onAmountChange={onAmountChange}
       />
-      <p>Next, we'll restore strength 2 and correct the radius.</p>
+      <p>Next, we'll restore strength {DEFAULT_STRENGTH} and correct the radius.</p>
     </div>,
     <div key="apparent-radius">
       <p>Placeholder copy.</p>

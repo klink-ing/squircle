@@ -11,6 +11,7 @@ import {
   CORRECTION,
   createTourTimeline,
   DURATION,
+  DEFAULT_STRENGTH,
   RADIUS_SWEEP,
   STRENGTH,
 } from "./timeline";
@@ -33,7 +34,7 @@ function fixture() {
     },
     () => focusCount++,
   );
-  const at = (position: number | string, amount = 2) => {
+  const at = (position: number | string, amount = DEFAULT_STRENGTH) => {
     tour.timeline.seek(position);
     return graphicFromTracks(tour.tracks, tour.timeline.time(), amount);
   };
@@ -58,22 +59,26 @@ describe("tour behavior on the real GSAP timeline", () => {
   });
 
   it("keeps the chosen strength at its stop, interpolates correction, and restores it on Back", () => {
-    for (const amount of [1, 2, 2.7, 3]) {
+    for (const amount of [1, DEFAULT_STRENGTH, 2, 2.7, 3]) {
       const f = fixture();
-      expect(f.at("radius", amount).amount).toBe(2);
+      expect(f.at("radius", amount).amount).toBe(DEFAULT_STRENGTH);
       expect(f.at(STRENGTH.id, amount).amount).toBe(amount);
       expect(f.at(STRENGTH.id, amount).radiusComparison).toBe(1);
       expect(f.at(CORRECTION.start, amount).amount).toBe(amount);
       expect(f.at(CORRECTION.start + 0.5, amount).amount).toBe(amount);
       expect(f.at("correction", amount).amount).toBe(amount);
       const alignment = CHECKPOINTS.find((cue) => cue.id === "alignment")!;
-      expect(f.at(alignment.start + 0.4, amount).amount).toBeCloseTo((amount + 2) / 2);
-      expect(f.at("alignment", amount).amount).toBe(2);
+      expect(f.at(alignment.start + 0.4, amount).amount).toBeCloseTo(
+        (amount + DEFAULT_STRENGTH) / 2,
+      );
+      expect(f.at("alignment", amount).amount).toBe(DEFAULT_STRENGTH);
       f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
       f.controls.back();
       expect(graphicFromTracks(f.tracks, f.timeline.time(), amount).amount).toBe(amount);
       // Reset is a live input, independent of the timeline's authored values.
-      expect(graphicFromTracks(f.tracks, f.timeline.time(), 2).amount).toBe(2);
+      expect(graphicFromTracks(f.tracks, f.timeline.time(), DEFAULT_STRENGTH).amount).toBe(
+        DEFAULT_STRENGTH,
+      );
     }
   });
 
@@ -121,7 +126,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusSweep).toBeCloseTo(0.5);
     expect(moving).toContain('data-radius-marker="css"');
     expect(moving).toContain('data-radius-outline="css"');
-    expect(moving).toContain(">1.07</text>");
+    expect(moving).toContain(">1.05</text>");
     expect(moving).not.toContain('data-radius-label="css"');
     expect(moving).not.toContain('data-radius-label="visual"');
 
@@ -130,7 +135,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusLabels).toBeGreaterThan(0);
     expect(f.tracks.radiusLabels).toBeLessThan(1);
     const diagonal = paint("visual-radius");
-    expect(diagonal).toContain(">1.19</text>");
+    expect(diagonal).toContain(">1.11</text>");
     expect(f.tracks.radiusLabels).toBe(1);
     expect(diagonal).toContain('data-radius-label="css"');
     expect(diagonal).toContain('data-radius-label="visual"');
@@ -283,7 +288,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(cy - coordinate(top, "cy")).toBeCloseTo(135);
     expect(Math.hypot(coordinate(end, "cx") - cx, coordinate(end, "cy") - cy)).toBeCloseTo(135);
     expect(after).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
-    expect(after).toMatch(/data-radius-number="specified"[^>]*>1.84<\/text>/);
+    expect(after).toMatch(/data-radius-number="specified"[^>]*>1.35<\/text>/);
     f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
     f.controls.back();
     expect(
