@@ -2,6 +2,7 @@ import type gsap from "gsap";
 import type { ReactNode } from "react";
 import StrengthControl from "./StrengthControl";
 import { DEFAULT_STRENGTH, type GraphicTracks } from "./state";
+import { correctedRadius } from "../../math";
 
 export const TEXT_ENTER_DISTANCE = 64;
 export const TEXT_EXIT_DISTANCE = 48;
@@ -87,8 +88,8 @@ export const SLIDES: readonly TourSlide[] = [
     ),
     content: () => (
       <p>
-        <i>Niiiiiiiiice.</i> But WTF, now the corner sticks out more than before? The{" "}
-        <Code>border-radius</Code> is the same!
+        <i>Niiiiiiiiice...</i> But WTF, now the corner sticks out more than before! Isn't the{" "}
+        <Code>border-radius</Code> is the same?
       </p>
     ),
     nextLabel: "It is, but...",
@@ -193,9 +194,21 @@ export const SLIDES: readonly TourSlide[] = [
     transition(timeline, { tracks, text, previousText }) {
       exitText(timeline, previousText, { at: 0, duration: 0.18 });
       enterText(timeline, text, { at: ">", duration: 0.7 });
-      timeline.to(tracks, { apparentCorrection: 1, duration: 1, ease: "power2.inOut" }, 0);
-      // Start CSS motion halfway through the blue tween, when its ease begins slowing down.
-      timeline.to(tracks, { correction: 1, duration: 1, ease: "power2.inOut" }, "<50%");
+      const approachDuration = 0.6;
+      // Next restores DEFAULT_STRENGTH before this beat. CSS travels this many times farther
+      // than blue, so scaling its duration matches their screen velocities at contact.
+      const travelRatio = correctedRadius(1, 2 ** DEFAULT_STRENGTH);
+      timeline.to(
+        tracks,
+        { apparentCorrection: 1, duration: approachDuration, ease: "power2.in" },
+        0,
+      );
+      timeline.addLabel("impact", ">");
+      timeline.to(
+        tracks,
+        { correction: 1, duration: approachDuration * travelRatio, ease: "power2.out" },
+        "impact",
+      );
     },
   },
   {

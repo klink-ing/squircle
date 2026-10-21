@@ -199,7 +199,13 @@ export default function GuidedExplorer() {
               max={transitionDuration}
               step={0.01}
               value={localTime}
-              onChange={(e) => seek((stop?.start ?? 0) + Number(e.target.value))}
+              onChange={(e) => {
+                const time = Number(e.target.value);
+                // Geometry-derived durations may fall between the scrubber's 0.01s steps.
+                const lastStep = Math.floor(transitionDuration * 100 + 1e-7) / 100;
+                const local = time >= lastStep ? transitionDuration : time;
+                seek((stop?.start ?? 0) + local);
+              }}
             />
           </details>
         )}

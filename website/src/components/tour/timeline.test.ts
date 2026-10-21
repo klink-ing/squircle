@@ -536,8 +536,10 @@ describe("tour behavior on the real GSAP timeline", () => {
     }
   });
 
-  it("lets the blue apparent radius lead, then holds it at one while CSS finishes correcting", () => {
+  it("accelerates blue into contact, stops it there, and immediately eases magenta away", () => {
     const f = fixture();
+    const transition = f.transitions[CHECKPOINTS.indexOf(CORRECTION)]!;
+    const impact = transition.labels.impact!;
     for (const amount of [1, 2, 2.7, 3]) {
       const paint = (offset: number) =>
         renderToStaticMarkup(
@@ -545,29 +547,60 @@ describe("tour behavior on the real GSAP timeline", () => {
         );
       const shape = (html: string) => html.match(/<path data-radius-outline="visual"[^>]+>/)![0];
       const baseline = shape(paint(0));
-      paint(0.25);
+      paint(impact / 2);
       expect(f.tracks.apparentCorrection).toBeGreaterThan(0);
-      expect(f.tracks.apparentCorrection).toBeLessThan(0.5);
+      expect(f.tracks.apparentCorrection).toBeLessThan(0.5); // Accelerating into impact.
       expect(f.tracks.correction).toBe(0);
-      expect(shape(paint(0.49))).toBe(baseline);
-      expect(paint(0.5)).toMatch(/data-radius-number="specified"[^>]*>1.00<\/text>/);
-      expect(f.tracks.apparentCorrection).toBeCloseTo(0.5);
+      expect(shape(paint(impact * 0.99))).toBe(baseline);
+      expect(paint(impact)).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
+      expect(f.tracks.apparentCorrection).toBe(1);
       expect(f.tracks.correction).toBe(0);
-      paint(0.75);
-      expect(f.tracks.apparentCorrection).toBeGreaterThan(0.5);
-      expect(f.tracks.apparentCorrection).toBeLessThan(1);
-      expect(f.tracks.correction).toBeGreaterThan(0);
-      expect(f.tracks.correction).toBeLessThan(0.5);
-      for (const offset of [1, 1.25, 1.5]) {
+      paint(impact + 0.01);
+      expect(f.tracks.apparentCorrection).toBe(1);
+      expect(f.tracks.correction).toBeGreaterThan(0); // No gap after contact.
+      const end = CORRECTION.time - CORRECTION.start;
+      for (const offset of [impact + 0.1, (impact + end) / 2, end]) {
         expect(paint(offset)).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
         expect(f.tracks.apparentCorrection).toBe(1);
       }
       expect(f.tracks.correction).toBe(1);
-      paint(0.25); // Back/author scrubbing restores the lead without a stale CSS offset.
+      paint(impact / 2); // Back/author scrubbing restores both phases.
       expect(f.tracks.correction).toBe(0);
       expect(f.tracks.apparentCorrection).toBeGreaterThan(0);
       expect(shape(paint(0))).toBe(baseline);
     }
+  });
+
+  it("transfers the blue dot's screen velocity to magenta at impact", () => {
+    const f = fixture();
+    const transition = f.transitions[CHECKPOINTS.indexOf(CORRECTION)]!;
+    const impact = transition.labels.impact!;
+    const position = (offset: number) => {
+      const html = renderToStaticMarkup(
+        createElement(ExplorerGraphic, f.at(CORRECTION.start + offset)),
+      );
+      const x = (point: string) =>
+        Number(html.match(new RegExp(`data-radius-point="${point}"[^>]* cx="([^"]+)"`))![1]);
+      return { blue: x("apparent-top"), magenta: x("specified") };
+    };
+    const step = 0.001;
+    const before = position(impact - step);
+    const contact = position(impact);
+    const after = position(impact + step);
+    expect(contact.blue).toBe(contact.magenta);
+    expect(after.blue).toBe(contact.blue); // Blue stops abruptly at contact.
+    const incoming = (contact.blue - before.blue) / step;
+    const outgoing = (after.magenta - contact.magenta) / step;
+    if (Math.abs(incoming) > 1e-6) {
+      expect(outgoing).toBeLessThan(0);
+      expect(outgoing / incoming).toBeCloseTo(1, 2);
+    } else expect(outgoing).toBe(0); // Strength 1 already has coincident endpoints.
+    const cssTween = transition
+      .getTweensOf(f.tracks)
+      .find((tween) => tween.vars.correction !== undefined)!;
+    const finish = impact + cssTween.duration();
+    const late = (position(finish).magenta - position(finish - step).magenta) / step;
+    expect(Math.abs(late)).toBeLessThan(Math.abs(outgoing) * 0.01 + 1e-6);
   });
 
   it("grows the apparent radius to one while the CSS radius can leave the fixed box", () => {
@@ -740,7 +773,7 @@ describe("tour behavior on the real GSAP timeline", () => {
         expect(Number.isFinite(perceivedRadius(radius, corrected, n))).toBe(true);
         // Allow the full 1→3 span across the shortest strength tween (10 ms steps).
         expect(Math.abs(state.amount - previous.amount)).toBeLessThan(0.15);
-        expect(Math.abs(state.correctionAmount - previous.correctionAmount)).toBeLessThan(0.04);
+        expect(Math.abs(state.correctionAmount - previous.correctionAmount)).toBeLessThan(0.06);
         for (const opacity of [state.arcRounded.visible, state.showMeasurement]) {
           expect(Number(opacity)).toBeGreaterThanOrEqual(0);
           expect(Number(opacity)).toBeLessThanOrEqual(1);
