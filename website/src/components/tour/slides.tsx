@@ -101,13 +101,7 @@ export const SLIDES: readonly TourSlide[] = [
   },
   {
     id: "radius",
-    heading: (
-      <>
-        Smoother curvature.
-        <br />
-        <i>Sharper</i> corner?
-      </>
-    ),
+    heading: "Placeholder: CSS radius",
     content: () => (
       <p>
         The radius describes the distance from the curve's center to its edge. It doesn't describe
@@ -128,13 +122,7 @@ export const SLIDES: readonly TourSlide[] = [
   },
   {
     id: "visual-radius",
-    heading: (
-      <>
-        Smoother curvature.
-        <br />
-        <i>Sharper</i> corner?
-      </>
-    ),
+    heading: "Placeholder: visual radius",
     content: ({ amount, enabled, onAmountChange }) => (
       <div>
         <p>Higher strength makes a squarer corner. Try it.</p>
@@ -212,7 +200,7 @@ export const SLIDES: readonly TourSlide[] = [
   },
   {
     id: "alignment",
-    heading: "The correction",
+    heading: "Placeholder: matching corners",
     content: () => (
       <p>
         Now the two corners have the same visual size. You get the smooth superellipse shape while
@@ -228,7 +216,7 @@ export const SLIDES: readonly TourSlide[] = [
   },
   {
     id: "utilities",
-    heading: "The correction",
+    heading: "Placeholder: using squircle",
     content: () => (
       <p>
         <Code>@klinking/squircle</Code> handles this correction automatically. Use{" "}
