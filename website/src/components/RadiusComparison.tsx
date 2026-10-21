@@ -3,6 +3,7 @@ import type { Point } from "../math";
 const MAGENTA = "var(--color-squircle-border)";
 const BLUE = "var(--color-rounded-border)";
 const MARKER_RADIUS = 3;
+const LINE_DOT_DIAMETER = (MARKER_RADIUS * 2) / 3;
 
 // Sweep from the top tangent toward the diagonal. The blue marker stays one
 // CSS radius from the reference center; the red marker follows the superellipse.
@@ -49,7 +50,7 @@ export default function RadiusComparison({
           x2={center.x}
           y2={corner.y}
           stroke="#e4e4e7"
-          strokeWidth={MARKER_RADIUS}
+          strokeWidth={LINE_DOT_DIAMETER}
           strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
           opacity={0.25}
         />
@@ -61,8 +62,8 @@ export default function RadiusComparison({
         x2={red.x}
         y2={red.y}
         stroke="#e4e4e7"
-        // Zero-length round-capped dashes are circles, half the marker diameter.
-        strokeWidth={MARKER_RADIUS}
+        // Round caps make circular dots one-third of the endpoint diameter.
+        strokeWidth={LINE_DOT_DIAMETER}
         strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
       />
 
