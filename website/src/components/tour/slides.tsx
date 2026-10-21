@@ -20,6 +20,7 @@ export interface TourSlide {
   nextLabel: string;
   strength?: boolean;
   strengthReturn?: "before" | "with-transition";
+  strengthReturnWith?: keyof GraphicTracks;
   // Extra time after the last animation, before stopping for the reader.
   hold: number;
   transition: (
@@ -148,6 +149,7 @@ export const SLIDES: readonly TourSlide[] = [
     id: "correction",
     heading: "The correction",
     strengthReturn: "with-transition",
+    strengthReturnWith: "apparentCorrection",
     content: ({ amount, enabled, onAmountChange }) => (
       <div>
         <p>
@@ -169,7 +171,7 @@ export const SLIDES: readonly TourSlide[] = [
       exitText(timeline, previousText, { at: 0, duration: 0.18 });
       enterText(timeline, text, { at: ">", duration: 0.7 });
       const approachDuration = 0.6;
-      // Next restores DEFAULT_STRENGTH alongside the blue lead, before impact. CSS travels farther
+      // Strength returns to DEFAULT_STRENGTH over the same blue lead, ending at impact. CSS travels farther
       // than blue, so scaling its duration matches their screen velocities at contact.
       const travelRatio = correctedRadius(1, 2 ** DEFAULT_STRENGTH);
       timeline.to(

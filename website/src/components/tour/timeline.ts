@@ -9,6 +9,9 @@ export interface Checkpoint {
   duration: number;
   textStart: number;
   strengthReturn: "before" | "with-transition";
+  strengthReturnStart?: number;
+  strengthReturnEnd?: number;
+  strengthReturnEase?: gsap.EaseString | gsap.EaseFunction;
   time: number;
 }
 
@@ -59,6 +62,12 @@ export function createTourTimeline(
     timeline.addLabel(`${slide.id}:enter`, start);
     timeline.addLabel(slide.id, time);
     const textStart = Number((start + (transition.labels["text:enter"] ?? 0)).toFixed(7));
+    const strengthTween = slide.strengthReturnWith
+      ? transition.getTweensOf(tracks).find((tween) => slide.strengthReturnWith! in tween.vars)
+      : undefined;
+    if (slide.strengthReturnWith && !strengthTween) {
+      throw new Error(`Slide ${slide.id} has no tween for ${slide.strengthReturnWith}`);
+    }
     checkpoints.push({
       id: slide.id,
       start,
@@ -66,6 +75,9 @@ export function createTourTimeline(
       textStart,
       time,
       strengthReturn: slide.strengthReturn ?? "before",
+      strengthReturnStart: strengthTween?.startTime(),
+      strengthReturnEnd: strengthTween?.endTime(),
+      strengthReturnEase: strengthTween?.vars.ease ?? (strengthTween ? "power1.out" : undefined),
     });
     return transition;
   });

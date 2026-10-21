@@ -165,18 +165,27 @@ describe("strength return before Next", () => {
       const run = playheadDriver(f.timeline);
       const distance = Math.abs(amount - DEFAULT_STRENGTH);
       const gap = CORRECTION.start - APPARENT_RADIUS.time;
-      run.time(gap + Math.max(0.01, distance / STRENGTH_RETURN_SPEED / 2));
+      const impact = f.transitions[CHECKPOINTS.indexOf(CORRECTION)]!.labels.impact!;
+      expect(CORRECTION.strengthReturnEnd).toBe(impact);
+      const blueTween = f.transitions[CHECKPOINTS.indexOf(CORRECTION)]!.getTweensOf(f.tracks).find(
+        (tween) => "apparentCorrection" in tween.vars,
+      )!;
+      expect(CORRECTION.strengthReturnEase).toBe(blueTween.vars.ease);
+      run.time(gap + impact / 2);
       expect(f.timeline.time()).toBeGreaterThan(CORRECTION.start);
       expect(f.tracks.apparentCorrection).toBeGreaterThan(0);
       expect(f.tracks.correction).toBe(0);
       if (distance > 0) {
         expect(Math.abs(f.strength() - DEFAULT_STRENGTH)).toBeGreaterThan(0);
         expect(Math.abs(f.strength() - DEFAULT_STRENGTH)).toBeLessThan(distance);
+        const progress = gsap.parseEase(blueTween.vars.ease!)(0.5);
+        expect(f.strength()).toBeCloseTo(amount + (DEFAULT_STRENGTH - amount) * progress);
       }
       const original = playheadDriver(f.timeline);
       f.controls.next();
       expect(playheadDriver(f.timeline)).toBe(original);
-      const impact = f.transitions[CHECKPOINTS.indexOf(CORRECTION)]!.labels.impact!;
+      run.time(gap + impact - 0.01);
+      if (distance > 0) expect(f.strength()).not.toBe(DEFAULT_STRENGTH);
       run.time(gap + impact);
       expect(f.strength()).toBe(DEFAULT_STRENGTH);
       expect(f.tracks.apparentCorrection).toBe(1);
@@ -186,7 +195,7 @@ describe("strength return before Next", () => {
     }
   });
 
-  it("cancels both concurrent motions and can resume their remaining distance", () => {
+  it("cancels both concurrent motions and resumes toward the shared impact time", () => {
     for (const action of ["back", "seek", "checkpoint", "dispose", "pause"] as const) {
       const f = fixture(3);
       f.controls.checkpoint(CHECKPOINTS.indexOf(APPARENT_RADIUS));
@@ -203,6 +212,17 @@ describe("strength return before Next", () => {
         const paused = f.timeline.time();
         f.controls.resume();
         expect(f.timeline.time()).toBe(paused);
+        const remainingLead = CORRECTION.start + CORRECTION.strengthReturnEnd! - paused;
+        playheadDriver(f.timeline).time(remainingLead / 2);
+        expect(f.strength()).toBeGreaterThan(DEFAULT_STRENGTH);
+        const phase =
+          (paused + remainingLead / 2 - CORRECTION.start) / CORRECTION.strengthReturnEnd!;
+        expect(f.strength()).toBeCloseTo(
+          3 + (DEFAULT_STRENGTH - 3) * gsap.parseEase(CORRECTION.strengthReturnEase!)(phase),
+          5,
+        );
+        playheadDriver(f.timeline).time(remainingLead);
+        expect(f.strength()).toBe(DEFAULT_STRENGTH);
         finishDriver(f.timeline);
         expect(f.strength()).toBe(DEFAULT_STRENGTH);
         expect(f.timeline.time()).toBeCloseTo(CORRECTION.time, 6);

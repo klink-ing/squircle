@@ -71,16 +71,29 @@ export function createPlayback(
       // One native timeline owns both motions, so cancellation and pause/resume stay atomic.
       driver = gsap.timeline({ onComplete: () => settle(true) });
       driver.add(playhead, 0);
+      const start = stop.start + (stop.strengthReturnStart ?? 0);
+      const end = stop.start + (stop.strengthReturnEnd ?? 0);
+      const returnStart = Math.max(0, start - from);
+      const synchronized = stop.strengthReturnEnd !== undefined;
+      const duration = synchronized
+        ? Math.max(0, end - Math.max(from, start))
+        : distance / STRENGTH_RETURN_SPEED;
+      const progress = end > start ? gsap.utils.clamp(0, 1, (from - start) / (end - start)) : 1;
+      const ease = gsap.parseEase(stop.strengthReturnEase ?? "none");
+      const easedStart = ease(progress);
+      // On resume, continue the same easing segment instead of restarting its acceleration.
+      const remainingEase = (time: number) =>
+        (ease(progress + (1 - progress) * time) - easedStart) / (1 - easedStart);
       driver.to(
         value,
         {
           amount: DEFAULT_STRENGTH,
-          duration: distance / STRENGTH_RETURN_SPEED,
-          ease: "power2.out",
+          duration,
+          ease: synchronized ? (progress < 1 ? remainingEase : "none") : "power2.out",
           onUpdate: () => strength!.set(value.amount),
           onComplete: () => strength!.set(DEFAULT_STRENGTH),
         },
-        Math.max(0, stop.start - from),
+        returnStart,
       );
     } else {
       driver = playhead;
