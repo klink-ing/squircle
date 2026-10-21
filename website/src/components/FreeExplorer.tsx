@@ -15,7 +15,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
 
   const stats = useMemo(() => {
     const mathN = Math.pow(2, amount);
-    const r = 100;
+    const r = 1; // Match the normalized reference radius in the diagram.
     const corrR = correctedRadius(r, mathN);
     const circlePerceived = perceivedRadius(r, r, 2);
     const superPerceived = perceivedRadius(r, r, mathN);
@@ -30,8 +30,9 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
   const corrDiff = corrPerceived - circlePerceived;
 
   function formatDiff(d: number) {
-    const sign = d >= 0 ? "+" : "";
-    return `${sign}${d.toFixed(1)}px`;
+    const rounded = Number(d.toFixed(2));
+    const sign = rounded >= 0 ? "+" : "";
+    return `${sign}${rounded.toFixed(2)}`;
   }
 
   function handleTextCommit(value: string) {
@@ -116,10 +117,10 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
       {/* Formula readout */}
       <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm">
         <p className="font-mono text-zinc-300">
-          r' = {r.toFixed(1)} &times; (1 - 2<sup>-1/2</sup>) / (1 - 2
+          r' = {r.toFixed(2)} &times; (1 - 2<sup>-1/2</sup>) / (1 - 2
           <sup>-1/{mathN.toFixed(2)}</sup>)
         </p>
-        <p className="font-mono text-zinc-400">= {corrR.toFixed(1)}px</p>
+        <p className="font-mono text-zinc-400">= {corrR.toFixed(2)}</p>
 
         {/* Comparison table */}
         <table className="mt-3 w-full text-left text-xs">
@@ -136,24 +137,24 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
               <td className="py-1 pr-4" style={{ color: "var(--color-rounded-border)" }}>
                 Circle
               </td>
-              <td className="py-1 pr-4">{r.toFixed(1)}px</td>
-              <td className="py-1 pr-4">{circlePerceived.toFixed(1)}px</td>
+              <td className="py-1 pr-4">{r.toFixed(2)}</td>
+              <td className="py-1 pr-4">{circlePerceived.toFixed(2)}</td>
               <td className="py-1">{formatDiff(circleDiff)}</td>
             </tr>
             <tr>
               <td className="py-1 pr-4" style={{ color: "var(--color-squircle-border)" }}>
                 Superellipse
               </td>
-              <td className="py-1 pr-4">{r.toFixed(1)}px</td>
-              <td className="py-1 pr-4">{superPerceived.toFixed(1)}px</td>
+              <td className="py-1 pr-4">{r.toFixed(2)}</td>
+              <td className="py-1 pr-4">{superPerceived.toFixed(2)}</td>
               <td className="py-1">{formatDiff(superDiff)}</td>
             </tr>
             <tr>
               <td className="py-1 pr-4" style={{ color: "var(--color-squircle-border)" }}>
                 Corrected
               </td>
-              <td className="py-1 pr-4">{corrR.toFixed(1)}px</td>
-              <td className="py-1 pr-4">{corrPerceived.toFixed(1)}px</td>
+              <td className="py-1 pr-4">{corrR.toFixed(2)}</td>
+              <td className="py-1 pr-4">{corrPerceived.toFixed(2)}</td>
               <td className="py-1">{formatDiff(corrDiff)}</td>
             </tr>
           </tbody>
