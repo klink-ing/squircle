@@ -3,6 +3,7 @@ import gsap from "gsap";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ExplorerGraphic from "../ExplorerGraphic";
+import FreeExplorer from "../FreeExplorer";
 import TourNarrative from "./TourNarrative";
 import { graphicFromTracks } from "./graphic-state";
 import { checkpointAtTime, createTourTimeline, narrativeAtTime } from "./timeline";
@@ -359,6 +360,21 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(corrected).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
       expect(corrected).not.toContain("NaN");
       expect(corrected).not.toContain("Infinity");
+      const details = renderToStaticMarkup(
+        createElement(FreeExplorer, {
+          graphicState: { ...explore, amount },
+          onGraphicStateChange: () => {},
+        }),
+      );
+      expect(details).toContain(">Apparent Radius</th>");
+      expect(details).not.toContain("Perceived Radius");
+      const rows = details.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/g)!;
+      const apparentCell = (row: string) =>
+        row.match(/<td[^>]*>([^<]*)<\/td>/g)![2]!.replace(/<[^>]*>/g, "");
+      const diagramValue = (markup: string) =>
+        markup.match(/data-radius-number="blue"[^>]*>([^<]*)<\/text>/)![1];
+      expect(apparentCell(rows[2]!)).toBe(diagramValue(uncorrected));
+      expect(apparentCell(rows[3]!)).toBe(diagramValue(corrected));
     }
     const noCircle = paint({ ...explore, arcRounded: { ...explore.arcRounded, visible: false } });
     expect(noCircle).toContain(

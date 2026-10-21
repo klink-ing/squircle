@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { correctedRadius, type Point } from "../math";
+import { apparentRadius, type Point } from "../math";
 
 const MAGENTA = "var(--color-squircle-border)";
 const BLUE = "var(--color-rounded-border)";
@@ -45,7 +45,7 @@ export default function RadiusComparison({
   const red = { x: center.x + dx * visualRadius, y: center.y - dy * visualRadius };
   // Invert the package's correction: this circle has the same diagonal inset
   // as the uncorrected superellipse, while sharing its top/right edges.
-  const apparent = radius / correctedRadius(1, exponent);
+  const apparent = apparentRadius(radius, exponent);
   // Let the blue circle lead the magenta CSS-radius correction, then meet it at the end.
   const correctedApparent = apparent + (radius - apparent) * apparentCorrection;
   const blueRadius = radius + (correctedApparent - radius) * apparentProgress;

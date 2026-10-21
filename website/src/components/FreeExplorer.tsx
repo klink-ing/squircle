@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from "react";
-import { correctedRadius, perceivedRadius } from "../math";
+import { apparentRadius, correctedRadius } from "../math";
 import type { GraphicState } from "./ExplorerGraphic";
 
 interface FreeExplorerProps {
@@ -17,17 +17,17 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
     const mathN = Math.pow(2, amount);
     const r = 1; // Match the normalized reference radius in the diagram.
     const corrR = correctedRadius(r, mathN);
-    const circlePerceived = perceivedRadius(r, r, 2);
-    const superPerceived = perceivedRadius(r, r, mathN);
-    const corrPerceived = perceivedRadius(r, corrR, mathN);
-    return { mathN, r, corrR, circlePerceived, superPerceived, corrPerceived };
+    const circleApparent = apparentRadius(r, 2);
+    const superApparent = apparentRadius(r, mathN);
+    const corrApparent = apparentRadius(corrR, mathN);
+    return { mathN, r, corrR, circleApparent, superApparent, corrApparent };
   }, [amount]);
 
-  const { mathN, r, corrR, circlePerceived, superPerceived, corrPerceived } = stats;
+  const { mathN, r, corrR, circleApparent, superApparent, corrApparent } = stats;
 
-  const circleDiff = circlePerceived - circlePerceived;
-  const superDiff = superPerceived - circlePerceived;
-  const corrDiff = corrPerceived - circlePerceived;
+  const circleDiff = circleApparent - circleApparent;
+  const superDiff = superApparent - circleApparent;
+  const corrDiff = corrApparent - circleApparent;
 
   function formatDiff(d: number) {
     const rounded = Number(d.toFixed(2));
@@ -128,7 +128,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
             <tr className="text-zinc-500">
               <th className="py-1 pr-4">Curve</th>
               <th className="py-1 pr-4">Radius</th>
-              <th className="py-1 pr-4">Perceived Radius</th>
+              <th className="py-1 pr-4">Apparent Radius</th>
               <th className="py-1">Diff</th>
             </tr>
           </thead>
@@ -138,7 +138,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
                 Circle
               </td>
               <td className="py-1 pr-4">{r.toFixed(2)}</td>
-              <td className="py-1 pr-4">{circlePerceived.toFixed(2)}</td>
+              <td className="py-1 pr-4">{circleApparent.toFixed(2)}</td>
               <td className="py-1">{formatDiff(circleDiff)}</td>
             </tr>
             <tr>
@@ -146,7 +146,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
                 Superellipse
               </td>
               <td className="py-1 pr-4">{r.toFixed(2)}</td>
-              <td className="py-1 pr-4">{superPerceived.toFixed(2)}</td>
+              <td className="py-1 pr-4">{superApparent.toFixed(2)}</td>
               <td className="py-1">{formatDiff(superDiff)}</td>
             </tr>
             <tr>
@@ -154,7 +154,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
                 Corrected
               </td>
               <td className="py-1 pr-4">{corrR.toFixed(2)}</td>
-              <td className="py-1 pr-4">{corrPerceived.toFixed(2)}</td>
+              <td className="py-1 pr-4">{corrApparent.toFixed(2)}</td>
               <td className="py-1">{formatDiff(corrDiff)}</td>
             </tr>
           </tbody>
