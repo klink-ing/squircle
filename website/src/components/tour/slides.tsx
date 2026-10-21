@@ -19,6 +19,7 @@ export interface TourSlide {
   content: (props: SlideContentProps) => ReactNode;
   nextLabel: string;
   strength?: boolean;
+  strengthReturn?: "before" | "with-transition";
   // Extra time after the last animation, before stopping for the reader.
   hold: number;
   transition: (
@@ -146,6 +147,7 @@ export const SLIDES: readonly TourSlide[] = [
   {
     id: "correction",
     heading: "The correction",
+    strengthReturn: "with-transition",
     content: ({ amount, enabled, onAmountChange }) => (
       <div>
         <p>
@@ -167,7 +169,7 @@ export const SLIDES: readonly TourSlide[] = [
       exitText(timeline, previousText, { at: 0, duration: 0.18 });
       enterText(timeline, text, { at: ">", duration: 0.7 });
       const approachDuration = 0.6;
-      // Next restores DEFAULT_STRENGTH before this beat. CSS travels this many times farther
+      // Next restores DEFAULT_STRENGTH alongside the blue lead, before impact. CSS travels farther
       // than blue, so scaling its duration matches their screen velocities at contact.
       const travelRatio = correctedRadius(1, 2 ** DEFAULT_STRENGTH);
       timeline.to(

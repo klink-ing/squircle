@@ -8,6 +8,7 @@ export interface Checkpoint {
   start: number;
   duration: number;
   textStart: number;
+  strengthReturn: "before" | "with-transition";
   time: number;
 }
 
@@ -58,7 +59,14 @@ export function createTourTimeline(
     timeline.addLabel(`${slide.id}:enter`, start);
     timeline.addLabel(slide.id, time);
     const textStart = Number((start + (transition.labels["text:enter"] ?? 0)).toFixed(7));
-    checkpoints.push({ id: slide.id, start, duration: transition.duration(), textStart, time });
+    checkpoints.push({
+      id: slide.id,
+      start,
+      duration: transition.duration(),
+      textStart,
+      time,
+      strengthReturn: slide.strengthReturn ?? "before",
+    });
     return transition;
   });
   return { timeline, tracks, checkpoints, transitions, texts };

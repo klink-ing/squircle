@@ -59,10 +59,14 @@ function fixture(initialAmount = DEFAULT_STRENGTH) {
   };
 }
 
+function playheadDriver(timeline: gsap.core.Timeline) {
+  const tween = gsap.getTweensOf(timeline).at(-1);
+  expect(tween).toBeDefined();
+  return tween!.parent === gsap.globalTimeline ? tween! : tween!.parent!;
+}
+
 function finishDriver(timeline: gsap.core.Timeline, progress = 1) {
-  const driver = gsap.getTweensOf(timeline).at(-1);
-  expect(driver).toBeDefined();
-  driver!.progress(progress);
+  playheadDriver(timeline).progress(progress);
 }
 
 function strengthDriver() {
@@ -152,6 +156,76 @@ describe("strength return before Next", () => {
       expect(gsap.globalTimeline.getChildren(false, true, false)).toHaveLength(0);
     },
   );
+
+  it("returns strength alongside the blue radius on slide 5→6 without delaying its motion", () => {
+    for (const amount of [1, 1.5, DEFAULT_STRENGTH, 2.7, 3]) {
+      const f = fixture(amount);
+      f.controls.checkpoint(CHECKPOINTS.indexOf(APPARENT_RADIUS));
+      f.controls.next();
+      const run = playheadDriver(f.timeline);
+      const distance = Math.abs(amount - DEFAULT_STRENGTH);
+      const gap = CORRECTION.start - APPARENT_RADIUS.time;
+      run.time(gap + Math.max(0.01, distance / STRENGTH_RETURN_SPEED / 2));
+      expect(f.timeline.time()).toBeGreaterThan(CORRECTION.start);
+      expect(f.tracks.apparentCorrection).toBeGreaterThan(0);
+      expect(f.tracks.correction).toBe(0);
+      if (distance > 0) {
+        expect(Math.abs(f.strength() - DEFAULT_STRENGTH)).toBeGreaterThan(0);
+        expect(Math.abs(f.strength() - DEFAULT_STRENGTH)).toBeLessThan(distance);
+      }
+      const original = playheadDriver(f.timeline);
+      f.controls.next();
+      expect(playheadDriver(f.timeline)).toBe(original);
+      const impact = f.transitions[CHECKPOINTS.indexOf(CORRECTION)]!.labels.impact!;
+      run.time(gap + impact);
+      expect(f.strength()).toBe(DEFAULT_STRENGTH);
+      expect(f.tracks.apparentCorrection).toBe(1);
+      run.progress(1);
+      expect(f.timeline.time()).toBeCloseTo(CORRECTION.time, 6);
+      expect(f.state().moving).toBe(false);
+    }
+  });
+
+  it("cancels both concurrent motions and can resume their remaining distance", () => {
+    for (const action of ["back", "seek", "checkpoint", "dispose", "pause"] as const) {
+      const f = fixture(3);
+      f.controls.checkpoint(CHECKPOINTS.indexOf(APPARENT_RADIUS));
+      f.controls.next();
+      const run = playheadDriver(f.timeline);
+      run.time(CORRECTION.start - APPARENT_RADIUS.time + 0.08);
+      if (action === "seek") f.controls.seek(APPARENT_RADIUS.time);
+      else if (action === "checkpoint") f.controls.checkpoint(0);
+      else f.controls[action]();
+      expect(run.parent).toBeNull();
+      if (action === "back") finishDriver(f.timeline);
+      expect(gsap.getTweensOf(f.timeline)).toHaveLength(0);
+      if (action === "pause") {
+        const paused = f.timeline.time();
+        f.controls.resume();
+        expect(f.timeline.time()).toBe(paused);
+        finishDriver(f.timeline);
+        expect(f.strength()).toBe(DEFAULT_STRENGTH);
+        expect(f.timeline.time()).toBeCloseTo(CORRECTION.time, 6);
+      }
+    }
+  });
+
+  it("settles concurrent strength and blue-radius motion immediately with reduced motion", () => {
+    for (const initial of [true, false]) {
+      const f = fixture(3);
+      f.controls.setReducedMotion(initial);
+      f.controls.checkpoint(CHECKPOINTS.indexOf(APPARENT_RADIUS));
+      f.controls.next();
+      if (!initial) {
+        playheadDriver(f.timeline).time(CORRECTION.start - APPARENT_RADIUS.time + 0.08);
+        f.controls.setReducedMotion(true);
+      }
+      expect(f.strength()).toBe(DEFAULT_STRENGTH);
+      expect(f.timeline.time()).toBeCloseTo(CORRECTION.time, 6);
+      expect(f.state().moving).toBe(false);
+      expect(gsap.getTweensOf(f.timeline)).toHaveLength(0);
+    }
+  });
 
   it("finishes returning strength before the Explore handoff", () => {
     const f = fixture(3);

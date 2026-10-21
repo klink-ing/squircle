@@ -27,12 +27,14 @@ export function createPlayback(
   let destination = 0;
   let moving = false;
   let reduced = false;
-  let driver: gsap.core.Tween | undefined;
+  let driver: gsap.core.Tween | gsap.core.Timeline | undefined;
+  let movingStrength = false;
   let pendingNext: (() => void) | undefined;
   const notify = () => onChange({ destination, moving });
   const cancel = () => {
     driver?.kill();
     driver = undefined;
+    movingStrength = false;
     pendingNext = undefined;
     timeline.pause();
   };
@@ -51,16 +53,39 @@ export function createPlayback(
   const move = (index: number) => {
     cancel();
     destination = index;
+    const stop = checkpoints[index]!;
+    const from = timeline.time();
+    const concurrent = stop.strengthReturn === "with-transition" && from < stop.time;
+    const value = { amount: strength?.get() ?? DEFAULT_STRENGTH };
+    const distance = Math.abs(value.amount - DEFAULT_STRENGTH);
     if (reduced) {
+      if (concurrent && distance > 0) strength!.set(DEFAULT_STRENGTH);
       seekStop(index);
       return;
     }
     moving = true; // Synchronous guard: rapid activation cannot skip a reading stop.
     notify();
-    driver = timeline.tweenTo(checkpoints[index]!.id, {
-      ease: "none",
-      onComplete: () => settle(true),
-    });
+    const playhead = timeline.tweenTo(stop.id, { ease: "none" });
+    if (concurrent && distance > 0) {
+      movingStrength = true;
+      // One native timeline owns both motions, so cancellation and pause/resume stay atomic.
+      driver = gsap.timeline({ onComplete: () => settle(true) });
+      driver.add(playhead, 0);
+      driver.to(
+        value,
+        {
+          amount: DEFAULT_STRENGTH,
+          duration: distance / STRENGTH_RETURN_SPEED,
+          ease: "power2.out",
+          onUpdate: () => strength!.set(value.amount),
+          onComplete: () => strength!.set(DEFAULT_STRENGTH),
+        },
+        Math.max(0, stop.start - from),
+      );
+    } else {
+      driver = playhead;
+      driver.eventCallback("onComplete", () => settle(true));
+    }
   };
   const returnStrength = (advance: () => void, index: number) => {
     cancel();
@@ -99,6 +124,10 @@ export function createPlayback(
       const unfinished = timeline.time() < checkpoints[destination]!.time - 0.001;
       const explore = !unfinished && destination === checkpoints.length - 1;
       const index = unfinished || explore ? destination : destination + 1;
+      if (!explore && checkpoints[index]!.strengthReturn === "with-transition") {
+        move(index);
+        return;
+      }
       returnStrength(() => {
         if (explore) {
           settle(false);
@@ -113,6 +142,7 @@ export function createPlayback(
     setReducedMotion(value: boolean) {
       reduced = value;
       if (reduced && moving) {
+        if (movingStrength) strength?.set(DEFAULT_STRENGTH);
         if (pendingNext) returnStrength(pendingNext, destination);
         else seekStop(destination);
       }
