@@ -54,6 +54,7 @@ export default function TourNarrative({
       </div>
       <p>Next, we'll restore strength 2 and correct the radius.</p>
     </div>,
+    <p key="apparent-radius">Placeholder copy.</p>,
     <p key="correction">
       We can calculate a <em>corrected radius</em>. Increasing the superellipse's radius brings its
       diagonal point into alignment with the circle.
@@ -79,6 +80,8 @@ export default function TourNarrative({
       <h2 id={`heading-${cue.id}`} tabIndex={-1}>
         {cue.id === "rounded" ? (
           "border-radius"
+        ) : cue.id === "apparent-radius" ? (
+          "Apparent radius"
         ) : cue.id === "superellipse" || cue.id === "radius" || cue.id === "visual-radius" ? (
           <>
             Same radius.

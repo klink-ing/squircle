@@ -1,4 +1,4 @@
-import type { Point } from "../math";
+import { correctedRadius, type Point } from "../math";
 
 const MAGENTA = "var(--color-squircle-border)";
 const BLUE = "var(--color-rounded-border)";
@@ -12,25 +12,40 @@ export default function RadiusComparison({
   exponent,
   sweep,
   labelOpacity,
+  apparentProgress,
   corner,
 }: {
   radius: number;
   exponent: number;
   sweep: number;
   labelOpacity: number;
+  apparentProgress: number;
   corner: Point;
 }) {
   const center = { x: corner.x - radius, y: corner.y + radius };
-  const angle = (sweep * Math.PI) / 4;
+  const angle = (sweep * (1 - apparentProgress) * Math.PI) / 4;
   const dx = Math.sin(angle);
   const dy = Math.cos(angle);
   const visualRadius = radius / (dx ** exponent + dy ** exponent) ** (1 / exponent);
   const red = { x: center.x + dx * visualRadius, y: center.y - dy * visualRadius };
-  const blue = { x: center.x + dx * radius, y: center.y - dy * radius };
-  const redNumberX = red.x + 18 * sweep;
-  const blueNumberX = blue.x + 18 * sweep;
-  const redNumberY = red.y - 9 + 6 * sweep;
-  const blueNumberY = blue.y - 9 + 24 * sweep;
+  // Invert the package's correction: this circle has the same diagonal inset
+  // as the uncorrected superellipse, while sharing its top/right edges.
+  const apparent = radius / correctedRadius(1, exponent);
+  const blueRadius = radius + (apparent - radius) * apparentProgress;
+  const blueCenter = { x: corner.x - blueRadius, y: corner.y + blueRadius };
+  const blueAngle = (sweep * Math.PI) / 4;
+  const blue = {
+    x: blueCenter.x + Math.sin(blueAngle) * blueRadius,
+    y: blueCenter.y - Math.cos(blueAngle) * blueRadius,
+  };
+  const diagonal = {
+    x: corner.x - radius * (1 - 2 ** (-1 / exponent)),
+    y: corner.y + radius * (1 - 2 ** (-1 / exponent)),
+  };
+  const redNumberX = red.x + 18 * sweep * (1 - apparentProgress);
+  const blueNumberX = blue.x + 18 * sweep * (1 - apparentProgress) + 6 * apparentProgress;
+  const redNumberY = red.y - 9 + 6 * sweep * (1 - apparentProgress);
+  const blueNumberY = blue.y - 9 + 24 * sweep * (1 - apparentProgress);
   const redLabelX = red.x + 6;
   const blueLabelX = blue.x + 6;
 
@@ -48,6 +63,62 @@ export default function RadiusComparison({
           strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
           opacity={0.25}
         />
+      )}
+      {apparentProgress > 0 && (
+        <g data-apparent-construction="" opacity={apparentProgress}>
+          <line
+            data-radius-axis="diagonal"
+            x1={center.x}
+            y1={center.y}
+            x2={diagonal.x}
+            y2={diagonal.y}
+            stroke="#e4e4e7"
+            strokeWidth={LINE_DOT_DIAMETER}
+            strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
+            opacity={0.25}
+          />
+          <circle
+            data-radius-center="css"
+            cx={center.x}
+            cy={center.y}
+            r={MARKER_RADIUS}
+            fill={MAGENTA}
+          />
+          <g
+            stroke={BLUE}
+            strokeWidth={LINE_DOT_DIAMETER}
+            strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
+          >
+            <line
+              data-radius-axis="apparent-vertical"
+              x1={blueCenter.x}
+              y1={blueCenter.y}
+              x2={blueCenter.x}
+              y2={corner.y}
+            />
+            <line
+              data-radius-axis="apparent-diagonal"
+              x1={blueCenter.x}
+              y1={blueCenter.y}
+              x2={blue.x}
+              y2={blue.y}
+            />
+          </g>
+          <circle
+            data-radius-center="apparent"
+            cx={blueCenter.x}
+            cy={blueCenter.y}
+            r={MARKER_RADIUS}
+            fill={BLUE}
+          />
+          <circle
+            data-radius-point="apparent-top"
+            cx={blueCenter.x}
+            cy={corner.y}
+            r={MARKER_RADIUS}
+            fill={BLUE}
+          />
+        </g>
       )}
       <line
         data-radius-axis="visual"
@@ -79,14 +150,20 @@ export default function RadiusComparison({
         <g data-radius-marker="css" fill={BLUE}>
           <path
             data-radius-outline="css"
-            d={`M ${center.x} ${corner.y} A ${radius} ${radius} 0 0 1 ${blue.x} ${blue.y}`}
+            d={`M ${blueCenter.x} ${corner.y} A ${blueRadius} ${blueRadius} 0 0 1 ${blue.x} ${blue.y}`}
             fill="none"
             stroke={BLUE}
             strokeWidth={1.7}
           />
           <circle data-radius-point="css" cx={blue.x} cy={blue.y} r={MARKER_RADIUS} />
-          <text x={blueNumberX} y={blueNumberY} textAnchor="middle" fontSize={10}>
-            1.00
+          <text
+            data-radius-number="blue"
+            x={blueNumberX}
+            y={blueNumberY}
+            textAnchor="middle"
+            fontSize={10}
+          >
+            {(blueRadius / radius).toFixed(2)}
           </text>
           {labelOpacity > 0 && (
             <text
@@ -95,11 +172,26 @@ export default function RadiusComparison({
               y={blueNumberY + 16}
               textAnchor="start"
               fontSize={10}
-              opacity={labelOpacity}
+              opacity={labelOpacity * (1 - apparentProgress)}
             >
               <tspan x={blueLabelX}>CSS</tspan>
               <tspan x={blueLabelX} dy={12}>
                 radius
+              </tspan>
+            </text>
+          )}
+          {apparentProgress > 0 && (
+            <text
+              data-radius-label="apparent"
+              x={blueLabelX}
+              y={blueNumberY - 28}
+              textAnchor="start"
+              fontSize={10}
+              opacity={apparentProgress}
+            >
+              <tspan x={blueLabelX}>Apparent</tspan>
+              <tspan x={blueLabelX} dy={12}>
+                Radius
               </tspan>
             </text>
           )}
@@ -108,7 +200,13 @@ export default function RadiusComparison({
 
       <g data-radius-marker="visual" fill={MAGENTA}>
         <circle data-radius-point="visual" cx={red.x} cy={red.y} r={MARKER_RADIUS} />
-        <text x={redNumberX} y={redNumberY} textAnchor="middle" fontSize={10}>
+        <text
+          data-radius-number="magenta"
+          x={redNumberX}
+          y={redNumberY}
+          textAnchor="middle"
+          fontSize={10}
+        >
           {(visualRadius / radius).toFixed(2)}
         </text>
         {labelOpacity > 0 && (
@@ -118,12 +216,24 @@ export default function RadiusComparison({
             y={redNumberY - 28}
             textAnchor="start"
             fontSize={10}
-            opacity={labelOpacity}
+            opacity={labelOpacity * (1 - apparentProgress)}
           >
             <tspan x={redLabelX}>Visual</tspan>
             <tspan x={redLabelX} dy={12}>
               “radius”
             </tspan>
+          </text>
+        )}
+        {apparentProgress > 0 && (
+          <text
+            data-radius-label="specified"
+            x={redNumberX}
+            y={redNumberY - 14}
+            textAnchor="middle"
+            fontSize={10}
+            opacity={apparentProgress}
+          >
+            CSS Radius
           </text>
         )}
       </g>

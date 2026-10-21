@@ -29,6 +29,7 @@ export interface GraphicState {
   radiusComparison?: number;
   radiusSweep?: number;
   radiusLabels?: number;
+  apparentRadius?: number;
 }
 
 const BOX = 180;
@@ -68,6 +69,7 @@ export default function ExplorerGraphic({
   radiusComparison = 0,
   radiusSweep = 0,
   radiusLabels = 0,
+  apparentRadius = 0,
 }: GraphicState) {
   const id = useId();
   const clipCircle = `${id}-clip-circle`;
@@ -202,9 +204,11 @@ export default function ExplorerGraphic({
       role="img"
       aria-label={
         radiusComparison > 0
-          ? radiusSweep === 0
-            ? "A vertical dotted radius with a magenta endpoint labeled 1.00."
-            : "CSS and visual radius markers sweeping from vertical to the diagonal."
+          ? apparentRadius > 0
+            ? "A smaller blue circular corner matches the magenta superellipse at 45 degrees, comparing CSS and apparent radii."
+            : radiusSweep === 0
+              ? "A vertical dotted radius with a magenta endpoint labeled 1.00."
+              : "CSS and visual radius markers sweeping from vertical to the diagonal."
           : "Comparison of rounded and superellipse corners"
       }
       viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
@@ -331,6 +335,7 @@ export default function ExplorerGraphic({
             exponent={mathN}
             sweep={radiusSweep}
             labelOpacity={radiusLabels}
+            apparentProgress={apparentRadius}
             corner={{ x: cornerX, y: cornerY }}
           />
         </g>

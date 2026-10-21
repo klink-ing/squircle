@@ -21,6 +21,7 @@ export function graphicFromTracks(
     radiusComparison: tracks.radiusComparison,
     radiusSweep: tracks.radiusSweep,
     radiusLabels: tracks.radiusLabels,
+    apparentRadius: tracks.apparentRadius,
     measureArc: time >= CORRECTION.start ? "corrected" : "rounded",
     measureMode: "radius",
     measureAngle: "diagonal",

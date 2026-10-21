@@ -16,6 +16,7 @@
   width: 100%;
   max-width: 23rem;
   justify-self: center;
+  align-self: start;
   min-width: 0;
 }
 .tour-graphic svg {

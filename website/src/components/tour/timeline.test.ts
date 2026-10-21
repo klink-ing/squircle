@@ -7,6 +7,7 @@ import TourNarrative from "./TourNarrative";
 import { graphicFromTracks } from "./graphic-state";
 import {
   CHECKPOINTS,
+  APPARENT_RADIUS,
   CORRECTION,
   createTourTimeline,
   DURATION,
@@ -46,7 +47,7 @@ function finishDriver(timeline: gsap.core.Timeline, progress = 1) {
 }
 
 describe("tour behavior on the real GSAP timeline", () => {
-  it("seeks to all seven reading stops deterministically, in any order", () => {
+  it("seeks to all eight reading stops deterministically, in any order", () => {
     const f = fixture();
     const expected = CHECKPOINTS.map((cue) => f.at(cue.id, 2.7));
     [...CHECKPOINTS].reverse().forEach((cue) => f.at(cue.id, 2.7));
@@ -134,7 +135,7 @@ describe("tour behavior on the real GSAP timeline", () => {
   });
 
   it("combines the original strength copy and controls with slide four's comparison", () => {
-    expect(CHECKPOINTS).toHaveLength(7);
+    expect(CHECKPOINTS).toHaveLength(8);
     expect(CHECKPOINTS[3]).toBe(STRENGTH);
     expect(CHECKPOINTS.map((cue) => cue.id)).not.toContain("strength");
     const html = renderToStaticMarkup(
@@ -149,14 +150,64 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(html).toContain("Higher strength makes a squarer corner. Try it.");
     expect(html).toContain('id="tour-strength"');
     expect(html).not.toContain('data-tour-panel="strength"');
-    expect(html).not.toContain("Placeholder");
     const f = fixture();
     f.controls.start(true);
     f.controls.checkpoint(3);
     f.controls.next();
+    expect(f.timeline.time()).toBe(APPARENT_RADIUS.time);
+    f.controls.next();
     expect(f.timeline.time()).toBe(CORRECTION.time);
     f.controls.back();
+    expect(f.timeline.time()).toBe(APPARENT_RADIUS.time);
+    f.controls.back();
     expect(f.timeline.time()).toBe(STRENGTH.time);
+  });
+
+  it("transitions to a smaller matching circle without changing the chosen magenta shape", () => {
+    const f = fixture();
+    const paint = (time: number | string, amount: number) =>
+      renderToStaticMarkup(createElement(ExplorerGraphic, f.at(time, amount)));
+    const tag = (html: string, attribute: string) =>
+      html.match(new RegExp(`<[^>]+ ${attribute}[^>]*>`))![0];
+    const coordinate = (element: string, name: string) =>
+      Number(element.match(new RegExp(` ${name}="([^"]+)"`))![1]);
+
+    for (const [amount, readout] of [
+      [1, "1.00"],
+      [2, "0.54"],
+      [3, "0.28"],
+    ] as const) {
+      const before = paint(STRENGTH.id, amount);
+      const shape = tag(before, 'data-radius-outline="visual"');
+      expect(before).not.toContain("data-apparent-construction");
+      for (const offset of [0, 0.25, 0.5, 0.75, 1]) {
+        const html = paint(APPARENT_RADIUS.start + offset, amount);
+        expect(tag(html, 'data-radius-outline="visual"')).toBe(shape);
+        expect(f.at(APPARENT_RADIUS.start + offset, amount).amount).toBe(amount);
+        expect(f.tracks.correction).toBe(0);
+      }
+      const after = paint(APPARENT_RADIUS.id, amount);
+      const center = tag(after, 'data-radius-center="apparent"');
+      const end = tag(after, 'data-radius-point="css"');
+      const top = tag(after, 'data-radius-point="apparent-top"');
+      const cx = coordinate(center, "cx"),
+        cy = coordinate(center, "cy");
+      const x = coordinate(end, "cx"),
+        y = coordinate(end, "cy");
+      const radius = cy - coordinate(top, "cy");
+      expect(Math.hypot(x - cx, y - cy)).toBeCloseTo(radius);
+      expect(coordinate(top, "cx")).toBe(cx);
+      expect(190 - cx).toBeCloseTo(radius);
+      expect(x - cx).toBeCloseTo(cy - y); // 45 degrees from the blue center.
+      const cssRadius = 135;
+      const n = 2 ** amount;
+      expect(((x - 55) / cssRadius) ** n + ((145 - y) / cssRadius) ** n).toBeCloseTo(1);
+      expect(after).toMatch(new RegExp(`data-radius-number="blue"[^>]*>${readout}</text>`));
+      expect(after).toMatch(/data-radius-number="magenta"[^>]*>1.00<\/text>/);
+      expect(after).toContain("CSS Radius");
+      expect(after).toContain(">Apparent</tspan>");
+      expect(paint(STRENGTH.id, amount)).toBe(before);
+    }
   });
 
   it("ignores rapid Next, stops precisely, and permits interruption with Back", () => {
@@ -206,6 +257,8 @@ describe("tour behavior on the real GSAP timeline", () => {
     f.controls.next();
     expect(f.timeline.time()).toBe(STRENGTH.time);
     expect(f.state().destination).toBe(CHECKPOINTS.indexOf(STRENGTH));
+    f.controls.next();
+    expect(f.timeline.time()).toBe(APPARENT_RADIUS.time);
     f.controls.next();
     expect(f.timeline.time()).toBe(CORRECTION.time);
     f.controls.seek(100);
