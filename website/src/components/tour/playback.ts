@@ -107,7 +107,8 @@ export function createPlayback(
       }, index);
     },
     back() {
-      seekStop(Math.max(0, destination - 1));
+      // tweenTo drives the same authored timeline backward, including text and geometry.
+      move(Math.max(0, destination - 1));
     },
     setReducedMotion(value: boolean) {
       reduced = value;

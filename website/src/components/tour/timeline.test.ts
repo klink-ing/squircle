@@ -112,6 +112,7 @@ describe("strength return before Next", () => {
       else if (action === "checkpoint") f.controls.checkpoint(0);
       else f.controls[action]();
       expect(reset.parent).toBeNull();
+      if (action === "back") finishDriver(f.timeline);
       expect(gsap.getTweensOf(f.timeline)).toHaveLength(0);
       expect(f.timeline.paused()).toBe(true);
     },
@@ -366,6 +367,7 @@ describe("tour behavior on the real GSAP timeline", () => {
           onGraphicStateChange: () => {},
         }),
       );
+      expect(details).toContain(">CSS Radius</th>");
       expect(details).toContain(">Apparent Radius</th>");
       expect(details).not.toContain("Perceived Radius");
       expect(details).toContain("Uncorrected Superellipse");
@@ -381,6 +383,21 @@ describe("tour behavior on the real GSAP timeline", () => {
         markup.match(/data-radius-number="blue"[^>]*>([^<]*)<\/text>/)![1];
       expect(apparentCell(rows[2]!)).toBe(diagramValue(uncorrected));
       expect(apparentCell(rows[3]!)).toBe(diagramValue(corrected));
+      expect(rows[3]).toContain('aria-current="true"');
+      expect(rows[2]).not.toContain("aria-current");
+      const offDetails = renderToStaticMarkup(
+        createElement(FreeExplorer, {
+          graphicState: { ...explore, amount, correctionAmount: 0 },
+          onGraphicStateChange: () => {},
+        }),
+      );
+      const offRows = offDetails.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/g)!;
+      expect(apparentCell(offRows[1]!)).toBe(diagramValue(uncorrected));
+      expect(offRows[1]!.match(/<td[^>]*>([^<]*)<\/td>/g)![1]).toContain(
+        `>${diagramValue(uncorrected)}</td>`,
+      );
+      expect(offRows[2]).toContain('aria-current="true"');
+      expect(offRows[3]).not.toContain("aria-current");
     }
     const uncorrectedDetails = renderToStaticMarkup(
       createElement(FreeExplorer, {
@@ -707,6 +724,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     }
     f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
     f.controls.back();
+    finishDriver(f.timeline);
     expect(renderToStaticMarkup(createElement(ExplorerGraphic, graphicFromTracks(f.tracks)))).toBe(
       before,
     );
@@ -756,7 +774,14 @@ describe("tour behavior on the real GSAP timeline", () => {
     f.controls.next();
     expect(f.state()).toEqual({ destination: 1, moving: true });
     finishDriver(f.timeline, 0.5);
+    const interrupted = f.timeline.time();
     f.controls.back();
+    expect(f.timeline.time()).toBe(interrupted);
+    expect(f.state()).toEqual({ destination: 0, moving: true });
+    finishDriver(f.timeline, 0.5);
+    expect(f.timeline.time()).toBeLessThan(interrupted);
+    expect(f.timeline.time()).toBeGreaterThan(CHECKPOINTS[0]!.time);
+    finishDriver(f.timeline);
     expect(f.timeline.time()).toBe(CHECKPOINTS[0].time);
     expect(f.state()).toEqual({ destination: 0, moving: false });
     expect(gsap.getTweensOf(f.timeline)).toHaveLength(0);
@@ -764,6 +789,36 @@ describe("tour behavior on the real GSAP timeline", () => {
     finishDriver(f.timeline);
     expect(f.timeline.time()).toBe(CHECKPOINTS[1].time);
     expect(f.timeline.paused()).toBe(true);
+  });
+
+  it("plays each Back transition in reverse and resumes toward the same previous stop", () => {
+    const f = fixture();
+    for (let index = 1; index < CHECKPOINTS.length; index++) {
+      f.controls.checkpoint(index);
+      const from = f.timeline.time();
+      const to = CHECKPOINTS[index - 1]!.time;
+      const focused = f.focusCount();
+      f.controls.back();
+      expect(f.timeline.time()).toBe(from);
+      expect(f.state()).toEqual({ destination: index - 1, moving: true });
+      finishDriver(f.timeline, 0.5);
+      expect(f.timeline.time()).toBeCloseTo((from + to) / 2);
+      expect(f.focusCount()).toBe(focused);
+      f.controls.pause();
+      const paused = f.timeline.time();
+      f.controls.resume();
+      expect(f.timeline.time()).toBe(paused);
+      finishDriver(f.timeline);
+      expect(f.timeline.time()).toBeCloseTo(to, 6);
+      expect(f.state()).toEqual({ destination: index - 1, moving: false });
+      expect(f.focusCount()).toBe(focused + 1);
+    }
+    f.controls.setReducedMotion(true);
+    f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
+    f.controls.back();
+    expect(f.timeline.time()).toBe(APPARENT_RADIUS.time);
+    expect(f.state().moving).toBe(false);
+    expect(gsap.getTweensOf(f.timeline)).toHaveLength(0);
   });
 
   it("settles immediately when reduced motion changes during playback", () => {

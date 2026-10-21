@@ -124,6 +124,10 @@
 .tour-explore input[type="text"] {
   min-height: 2.75rem;
 }
+.tour-explore tr[aria-current="true"] {
+  background: color-mix(in srgb, var(--color-squircle-border) 12%, transparent);
+  font-weight: 600;
+}
 .tour-explore .overflow-x-auto {
   max-width: 100%;
 }

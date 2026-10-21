@@ -18,17 +18,18 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
     const mathN = Math.pow(2, amount);
     const r = 1; // Match the normalized reference radius in the diagram.
     const corrR = correctedRadius(r, mathN);
-    const circleApparent = apparentRadius(r, 2);
     const superApparent = apparentRadius(r, mathN);
     const corrApparent = apparentRadius(corrR, mathN);
-    return { mathN, r, corrR, circleApparent, superApparent, corrApparent };
+    return { mathN, r, corrR, superApparent, corrApparent };
   }, [amount]);
 
-  const { mathN, r, corrR, circleApparent, superApparent, corrApparent } = stats;
+  const { mathN, r, corrR, superApparent, corrApparent } = stats;
 
-  const circleDiff = circleApparent - circleApparent;
-  const superDiff = superApparent - circleApparent;
-  const corrDiff = corrApparent - circleApparent;
+  const corrected = correctionAmount > 0;
+  const drawnCircleRadius = superApparent + (corrApparent - superApparent) * correctionAmount;
+  const circleDiff = 0;
+  const superDiff = superApparent - drawnCircleRadius;
+  const corrDiff = corrApparent - drawnCircleRadius;
 
   function formatDiff(d: number) {
     const rounded = Number(d.toFixed(2));
@@ -99,10 +100,14 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
 
         {/* Comparison table */}
         <table className="mt-3 w-full text-left text-xs">
+          <caption className="sr-only">
+            The highlighted superellipse row matches the diagram. Differences compare apparent radii
+            with the blue circle.
+          </caption>
           <thead>
             <tr className="text-zinc-500">
               <th className="py-1 pr-4">Curve</th>
-              <th className="py-1 pr-4">Radius</th>
+              <th className="py-1 pr-4">CSS Radius</th>
               <th className="py-1 pr-4">Apparent Radius</th>
               <th className="py-1">Diff</th>
             </tr>
@@ -112,11 +117,11 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
               <td className="py-1 pr-4" style={{ color: "var(--color-rounded-border)" }}>
                 Circle
               </td>
-              <td className="py-1 pr-4">{r.toFixed(2)}</td>
-              <td className="py-1 pr-4">{circleApparent.toFixed(2)}</td>
+              <td className="py-1 pr-4">{drawnCircleRadius.toFixed(2)}</td>
+              <td className="py-1 pr-4">{drawnCircleRadius.toFixed(2)}</td>
               <td className="py-1">{formatDiff(circleDiff)}</td>
             </tr>
-            <tr>
+            <tr aria-current={!corrected ? "true" : undefined}>
               <td className="py-1 pr-4" style={{ color: "var(--color-squircle-border)" }}>
                 Uncorrected Superellipse
               </td>
@@ -124,7 +129,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
               <td className="py-1 pr-4">{superApparent.toFixed(2)}</td>
               <td className="py-1">{formatDiff(superDiff)}</td>
             </tr>
-            <tr>
+            <tr aria-current={corrected ? "true" : undefined}>
               <td className="py-1 pr-4" style={{ color: "var(--color-squircle-border)" }}>
                 Corrected superellipse
               </td>
