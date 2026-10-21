@@ -343,7 +343,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     }
   });
 
-  it("keeps the tour comparison usable with Explore's independent curve and correction toggles", () => {
+  it("keeps the tour comparison usable with Explore's correction switch", () => {
     const f = fixture();
     const explore = { ...f.at("utilities"), apparentCorrection: undefined };
     const paint = (state = explore) => renderToStaticMarkup(createElement(ExplorerGraphic, state));
@@ -368,6 +368,12 @@ describe("tour behavior on the real GSAP timeline", () => {
       );
       expect(details).toContain(">Apparent Radius</th>");
       expect(details).not.toContain("Perceived Radius");
+      expect(details).toContain("Uncorrected Superellipse");
+      expect(details).toContain("Corrected superellipse");
+      expect(details).toContain('role="switch"');
+      expect(details).toContain('aria-checked="true"');
+      expect(details).not.toContain(">Circle</span>");
+      expect(details).not.toContain(">Superellipse</span>");
       const rows = details.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/g)!;
       const apparentCell = (row: string) =>
         row.match(/<td[^>]*>([^<]*)<\/td>/g)![2]!.replace(/<[^>]*>/g, "");
@@ -376,17 +382,13 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(apparentCell(rows[2]!)).toBe(diagramValue(uncorrected));
       expect(apparentCell(rows[3]!)).toBe(diagramValue(corrected));
     }
-    const noCircle = paint({ ...explore, arcRounded: { ...explore.arcRounded, visible: false } });
-    expect(noCircle).toContain(
-      'data-radius-marker="css" fill="var(--color-rounded-border)" opacity="0"',
+    const uncorrectedDetails = renderToStaticMarkup(
+      createElement(FreeExplorer, {
+        graphicState: { ...explore, correctionAmount: 0 },
+        onGraphicStateChange: () => {},
+      }),
     );
-    const noSuper = paint({
-      ...explore,
-      arcSuperellipse: { ...explore.arcSuperellipse, visible: false },
-    });
-    expect(noSuper).toContain(
-      'data-radius-marker="specified" fill="var(--color-squircle-border)" opacity="0"',
-    );
+    expect(uncorrectedDetails).toContain('aria-checked="false"');
   });
 
   it("keeps the chosen strength at its stop, interpolates correction, and restores it on Back", () => {

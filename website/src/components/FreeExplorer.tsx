@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { apparentRadius, correctedRadius } from "../math";
 import type { GraphicState } from "./ExplorerGraphic";
+import { Switch } from "./ui/switch";
 
 interface FreeExplorerProps {
   graphicState: GraphicState;
@@ -8,7 +9,7 @@ interface FreeExplorerProps {
 }
 
 export default function FreeExplorer({ graphicState, onGraphicStateChange }: FreeExplorerProps) {
-  const { amount, arcRounded, arcSuperellipse, correctionAmount } = graphicState;
+  const { amount, correctionAmount } = graphicState;
   const amountId = useId();
   const [draft, setDraft] = useState<string | null>(null);
   const amountText = draft ?? String(amount);
@@ -80,39 +81,13 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
         />
       </div>
 
-      {/* Checkbox toggles */}
-      <div className="mb-4 flex flex-wrap gap-4">
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={Boolean(arcRounded.visible)}
-            onChange={(e) =>
-              onGraphicStateChange({ arcRounded: { ...arcRounded, visible: e.target.checked } })
-            }
-          />
-          <span style={{ color: "var(--color-rounded-border)" }}>Circle</span>
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={Boolean(arcSuperellipse.visible)}
-            onChange={(e) =>
-              onGraphicStateChange({
-                arcSuperellipse: { ...arcSuperellipse, visible: e.target.checked },
-              })
-            }
-          />
-          <span style={{ color: "var(--color-squircle-border)" }}>Superellipse</span>
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={correctionAmount > 0}
-            onChange={(e) => onGraphicStateChange({ correctionAmount: e.target.checked ? 1 : 0 })}
-          />
-          <span style={{ color: "var(--color-squircle-border)" }}>Corrected</span>
-        </label>
-      </div>
+      <label className="mb-4 flex min-h-12 w-fit cursor-pointer items-center gap-3 text-sm">
+        <Switch
+          checked={correctionAmount > 0}
+          onCheckedChange={(checked) => onGraphicStateChange({ correctionAmount: checked ? 1 : 0 })}
+        />
+        <span>Correction</span>
+      </label>
 
       {/* Formula readout */}
       <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm">
@@ -143,7 +118,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
             </tr>
             <tr>
               <td className="py-1 pr-4" style={{ color: "var(--color-squircle-border)" }}>
-                Superellipse
+                Uncorrected Superellipse
               </td>
               <td className="py-1 pr-4">{r.toFixed(2)}</td>
               <td className="py-1 pr-4">{superApparent.toFixed(2)}</td>
@@ -151,7 +126,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
             </tr>
             <tr>
               <td className="py-1 pr-4" style={{ color: "var(--color-squircle-border)" }}>
-                Corrected
+                Corrected superellipse
               </td>
               <td className="py-1 pr-4">{corrR.toFixed(2)}</td>
               <td className="py-1 pr-4">{corrApparent.toFixed(2)}</td>

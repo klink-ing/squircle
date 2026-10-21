@@ -11,13 +11,16 @@
   },
   "dependencies": {
     "@astrojs/react": "^4",
+    "@base-ui/react": "catalog:",
     "@gsap/react": "^2.1.2",
     "@klinking/squircle": "workspace:*",
     "@stylexjs/stylex": "^0.18.3",
     "astro": "^5",
+    "clsx": "catalog:",
     "gsap": "^3.15.0",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "tailwind-merge": "catalog:"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
