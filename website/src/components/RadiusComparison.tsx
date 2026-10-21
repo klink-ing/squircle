@@ -52,17 +52,18 @@ export default function RadiusComparison({
     y: blueCenter.y - Math.cos(blueAngle) * blueRadius,
   };
   const redNumberX = red.x + 18 * sweep;
-  const blueNumberX = blue.x - 30 * (1 - apparentProgress) + 6 * apparentProgress;
+  const blueNumberX = blue.x - 10 * (1 - apparentProgress) + 6 * apparentProgress;
   const redNumberY = red.y - 9 + 6 * sweep;
-  const blueNumberY = blue.y + 15 * (1 - apparentProgress) - 9 * apparentProgress;
+  const blueNumberY = blue.y + 27 * (1 - apparentProgress) - 9 * apparentProgress;
   const redLabelX = red.x + 6;
   const blueLabelX = blueNumberX;
-  // Transition both lines from centered over the dot to the same left-aligned anchor.
-  // CSS resolves their widths and keeps either line from crossing the shape's left edge.
-  const specifiedTextX = center.x + (labelMinX - center.x) * cssCorrection;
+  // Center the numeric readout over the dot, with its caption sharing the same left edge.
+  // Move the whole stack to the shape's left edge during CSS correction.
+  const specifiedStartX = center.x - 11;
+  const specifiedTextX = specifiedStartX + (labelMinX - specifiedStartX) * cssCorrection;
   const specifiedTextStyle = {
     transformBox: "fill-box" as const,
-    transform: `translateX(max(${-50 * (1 - cssCorrection)}%, ${labelMinX - specifiedTextX}px))`,
+    transform: `translateX(max(0%, ${labelMinX - specifiedTextX}px))`,
   };
   const specified = { x: center.x, y: corner.y };
   const blueTop = { x: blueCenter.x, y: corner.y };
