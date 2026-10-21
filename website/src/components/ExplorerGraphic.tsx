@@ -203,7 +203,7 @@ export default function ExplorerGraphic({
       aria-label={
         radiusComparison > 0
           ? radiusSweep === 0
-            ? "A vertical dashed radius with a magenta endpoint labeled 1.00."
+            ? "A vertical dotted radius with a magenta endpoint labeled 1.00."
             : "CSS and visual radius markers sweeping from vertical to the diagonal."
           : "Comparison of rounded and superellipse corners"
       }

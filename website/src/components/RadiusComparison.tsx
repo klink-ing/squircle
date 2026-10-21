@@ -2,6 +2,7 @@ import type { Point } from "../math";
 
 const MAGENTA = "var(--color-squircle-border)";
 const BLUE = "var(--color-rounded-border)";
+const MARKER_RADIUS = 3;
 
 // Sweep from the top tangent toward the diagonal. The blue marker stays one
 // CSS radius from the reference center; the red marker follows the superellipse.
@@ -47,8 +48,9 @@ export default function RadiusComparison({
         x2={red.x}
         y2={red.y}
         stroke="#e4e4e7"
-        strokeWidth={1}
-        strokeDasharray="1 4"
+        // Zero-length round-capped dashes are circles, half the marker diameter.
+        strokeWidth={MARKER_RADIUS}
+        strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
       />
 
       {/* Blue is not mounted until the sweep actually starts. It is painted
@@ -62,7 +64,7 @@ export default function RadiusComparison({
             stroke={BLUE}
             strokeWidth={1.7}
           />
-          <circle data-radius-point="css" cx={blue.x} cy={blue.y} r={3} />
+          <circle data-radius-point="css" cx={blue.x} cy={blue.y} r={MARKER_RADIUS} />
           <text x={blue.x} y={blueNumberY} textAnchor="middle" fontSize={10}>
             1.00
           </text>
@@ -85,7 +87,7 @@ export default function RadiusComparison({
       )}
 
       <g data-radius-marker="visual" fill={MAGENTA}>
-        <circle data-radius-point="visual" cx={red.x} cy={red.y} r={3} />
+        <circle data-radius-point="visual" cx={red.x} cy={red.y} r={MARKER_RADIUS} />
         <text x={red.x} y={redNumberY} textAnchor="middle" fontSize={10}>
           1.00
         </text>
