@@ -37,9 +37,11 @@ For retiming, change the cue's `start`/`time` and any numeric tween duration tog
 
 `tour.css` uses a single column below 768px and a fluid two-column grid above it. Narrative font sizes are 17.6–22px; headings are 28.8–44px; navigation and slider controls have 48px minimum heights. SVG `viewBox` coordinates describe the existing mathematical illustration, not a composition viewport. Page scrolling is normal. There is no resize measurement or layout-dependent timeline rebuild.
 
+The third beat compares the shared CSS radius with diagonal visual reach. `RadiusComparison.tsx` marks the common curve endpoints, the CSS axis radius (normalized to 1.00), and the circle/superellipse diagonal intersections (1.00 and approximately 1.19 at strength 2). Both diagonal values use the circle's reference center and the existing `perceivedRadius` math. Its annotations fade in/out on the native `radiusComparison` track, and the diagram expands on narrow screens to keep its labels readable. Back and arbitrary seeking restore the same measurements.
+
 ## Geometry and controls
 
-GSAP owns a plain numeric proxy: `baseAmount`, `choiceWeight`, `correction`, and `roundedOpacity`. Its `onUpdate` publishes an immutable snapshot through `graphicFromTracks`. React alone renders the existing SVG paths from that snapshot using `website/src/math.ts`. There are no competing SVG attribute writes, previous-frame replay, generic animation engine, or React render loops while paused.
+GSAP owns a plain numeric proxy: `baseAmount`, `choiceWeight`, `correction`, `roundedOpacity`, and `radiusComparison`. Its `onUpdate` publishes an immutable snapshot through `graphicFromTracks`. React alone renders the existing SVG paths from that snapshot using `website/src/math.ts`. There are no competing SVG attribute writes, previous-frame replay, generic animation engine, or React render loops while paused.
 
 The remembered strength is React state plus a ref for synchronous publishing. At the settled strength label, the native range input (1–3, step 0.1, initial 2) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to 2. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
 

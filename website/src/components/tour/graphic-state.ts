@@ -8,12 +8,17 @@ export function graphicFromTracks(
   chosenAmount = 2,
 ): GraphicState {
   return {
-    arcRounded: { visible: tracks.roundedOpacity, showFill: 1, showOutline: 0 },
-    arcSuperellipse: { visible: 1, showFill: 1, showOutline: 0 },
+    arcRounded: {
+      visible: tracks.roundedOpacity,
+      showFill: 1 - 0.8 * tracks.radiusComparison,
+      showOutline: 0,
+    },
+    arcSuperellipse: { visible: 1, showFill: 1 - 0.8 * tracks.radiusComparison, showOutline: 0 },
     amount: tracks.baseAmount + (chosenAmount - 2) * tracks.choiceWeight,
     correctionAmount: tracks.correction,
     showRefLine: 0,
-    showMeasurement: tracks.roundedOpacity,
+    showMeasurement: tracks.roundedOpacity - tracks.radiusComparison,
+    radiusComparison: tracks.radiusComparison,
     measureArc: time >= CORRECTION.start ? "corrected" : "rounded",
     measureMode: "radius",
     measureAngle: "diagonal",

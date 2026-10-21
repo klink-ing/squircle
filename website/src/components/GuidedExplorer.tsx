@@ -108,6 +108,7 @@ export default function GuidedExplorer() {
             className="tour-graphic"
             data-tour-amount={view.graphic.amount}
             data-tour-correction={view.graphic.correctionAmount}
+            data-tour-radius-comparison={Number(view.graphic.radiusComparison) > 0}
           >
             <ExplorerGraphic {...view.graphic} />
           </div>

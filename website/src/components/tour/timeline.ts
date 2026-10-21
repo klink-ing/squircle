@@ -23,7 +23,7 @@ export function checkpointAtTime(time: number) {
 }
 
 export function initialTracks() {
-  return { baseAmount: 1, choiceWeight: 0, correction: 0, roundedOpacity: 0 };
+  return { baseAmount: 1, choiceWeight: 0, correction: 0, roundedOpacity: 0, radiusComparison: 0 };
 }
 
 export type GraphicTracks = ReturnType<typeof initialTracks>;
@@ -53,6 +53,8 @@ export function createTourTimeline(onUpdate: () => void, panels: HTMLElement[] =
   });
   timeline.to(tracks, { baseAmount: 2, duration: 1, ease: "power2.inOut" }, "superellipse:enter");
   timeline.to(tracks, { roundedOpacity: 1, duration: 0.8, ease: "power2.inOut" }, "radius:enter");
+  timeline.to(tracks, { radiusComparison: 1, duration: 0.8, ease: "power2.inOut" }, "radius:enter");
+  timeline.to(tracks, { radiusComparison: 0, duration: 0.3 }, "strength:enter");
   timeline.to(tracks, { choiceWeight: 1, duration: 0.5, ease: "power2.inOut" }, "strength:enter");
   timeline.to(
     tracks,

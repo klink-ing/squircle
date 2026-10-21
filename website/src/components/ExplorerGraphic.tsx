@@ -1,4 +1,5 @@
 import { useId, useMemo } from "react";
+import RadiusComparison from "./RadiusComparison";
 import {
   circleArcPoints,
   correctedRadius,
@@ -25,6 +26,7 @@ export interface GraphicState {
   measureMode?: "perceived" | "radius";
   measureAngle?: "diagonal" | "edge"; // default: "diagonal"
   zoom: number;
+  radiusComparison?: number;
 }
 
 const BOX = 180;
@@ -61,6 +63,7 @@ export default function ExplorerGraphic({
   measureAngle = "diagonal",
   correctionAmount,
   zoom,
+  radiusComparison = 0,
 }: GraphicState) {
   const id = useId();
   const clipCircle = `${id}-clip-circle`;
@@ -186,12 +189,19 @@ export default function ExplorerGraphic({
     superAboveCircle,
     measure,
     refLine,
+    r,
+    superR,
+    mathN,
   } = data;
 
   return (
     <svg
       role="img"
-      aria-label="Comparison of rounded and superellipse corners"
+      aria-label={
+        radiusComparison > 0
+          ? `Same CSS radius, different diagonal reach. Circle: 1.00. Superellipse: ${(perceivedRadius(r, superR, mathN) / r).toFixed(2)}.`
+          : "Comparison of rounded and superellipse corners"
+      }
       viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
       className="w-full max-w-md"
     >
@@ -304,6 +314,19 @@ export default function ExplorerGraphic({
           </>
         );
       })()}
+
+      {radiusComparison > 0 && (
+        <g opacity={radiusComparison} aria-hidden="true">
+          <RadiusComparison
+            radius={r}
+            superRadius={superR}
+            exponent={mathN}
+            corner={{ x: cornerX, y: cornerY }}
+            circle={circleSvg}
+            superellipse={superSvg}
+          />
+        </g>
+      )}
 
       {/* Animated diagonal line — morphs between reference line and measurement line */}
       {(() => {
