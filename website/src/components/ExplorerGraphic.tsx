@@ -48,11 +48,18 @@ function arcToSvg(mathX: number, mathY: number, arcR: number) {
 
 function buildCurvePath(points: { x: number; y: number }[]) {
   const first = points[0]!;
+  const last = points[points.length - 1]!;
   return (
-    `M ${cornerX} ${PAD + BOX} L ${first.x} ${first.y} ` +
+    `M ${cornerX} ${Math.max(PAD + BOX, first.y)} L ${first.x} ${first.y} ` +
     pointsToPath(points).slice(2) +
-    ` L ${PAD} ${cornerY}`
+    ` L ${Math.min(PAD, last.x)} ${cornerY}`
   );
+}
+
+function closeCurvePath(path: string, points: { x: number; y: number }[]) {
+  // Once the tangent points pass the box edges, close the fill outside the box.
+  // Returning to the original corners would reverse the visible stroke.
+  return `${path} L ${Math.min(PAD, points[points.length - 1]!.x)} ${Math.max(PAD + BOX, points[0]!.y)} Z`;
 }
 
 export default function ExplorerGraphic({
@@ -95,13 +102,21 @@ export default function ExplorerGraphic({
     // Paths
     const circlePath = buildCurvePath(circleSvg);
     const superPath = buildCurvePath(superSvg);
+    const circleFillPath = closeCurvePath(circlePath, circleSvg);
+    const superFillPath = closeCurvePath(superPath, superSvg);
     const superOutlineLength =
-      Math.abs(PAD + BOX - superSvg[0]!.y) +
+      Math.max(0, PAD + BOX - superSvg[0]!.y) +
       superSvg.slice(1).reduce((length, point, index) => {
         const previous = superSvg[index]!;
         return length + Math.hypot(point.x - previous.x, point.y - previous.y);
       }, 0) +
-      Math.abs(superSvg[superSvg.length - 1]!.x - PAD);
+      Math.max(0, superSvg[superSvg.length - 1]!.x - PAD);
+    const superOutlineGap =
+      Math.max(PAD + BOX, superSvg[0]!.y) -
+      cornerY +
+      cornerX -
+      Math.min(PAD, superSvg[superSvg.length - 1]!.x) +
+      1;
 
     // Interior clip: same shape as the curve path, closed
     const circleClip = circlePath + " Z";
@@ -179,7 +194,10 @@ export default function ExplorerGraphic({
       superSvg,
       circlePath,
       superPath,
+      circleFillPath,
+      superFillPath,
       superOutlineLength,
+      superOutlineGap,
       circleClip,
       superClip,
       superAboveCircle,
@@ -199,7 +217,10 @@ export default function ExplorerGraphic({
     superSvg,
     circlePath,
     superPath,
+    circleFillPath,
+    superFillPath,
     superOutlineLength,
+    superOutlineGap,
     circleClip,
     superClip,
     superAboveCircle,
@@ -251,13 +272,13 @@ export default function ExplorerGraphic({
               {/* One persistent shape: fade its fill and solid outline independently. */}
               <path
                 data-radius-outline="visual"
-                d={`${superPath} L ${PAD} ${PAD + BOX} Z`}
+                d={superFillPath}
                 style={{ fill: superFillColor }}
                 fillOpacity={Number(arcSuperellipse.showFill)}
                 stroke="currentColor"
                 strokeWidth={1.7}
                 // Keep the fill closed, but leave the left/bottom closure unstroked.
-                strokeDasharray={`${superOutlineLength} ${BOX * 2 + 1}`}
+                strokeDasharray={`${superOutlineLength} ${superOutlineGap}`}
                 strokeOpacity={radiusComparison}
                 strokeLinejoin="round"
                 clipPath={`url(#${clipBox})`}
@@ -298,7 +319,7 @@ export default function ExplorerGraphic({
           <g key="circle" opacity={Number(arcRounded.visible)}>
             {/* Fill — crossfades in/out */}
             <path
-              d={`${circlePath} L ${PAD} ${PAD + BOX} Z`}
+              d={circleFillPath}
               style={{ fill: "var(--color-rounded-fill)" }}
               stroke="none"
               opacity={Number(arcRounded.showFill)}

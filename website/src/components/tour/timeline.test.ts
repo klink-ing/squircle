@@ -293,6 +293,37 @@ describe("tour behavior on the real GSAP timeline", () => {
     ).toBe(before);
   });
 
+  it("lets enlarged strokes leave the box without reversing into hooks at its corners", () => {
+    const f = fixture();
+    for (const amount of [1, 2, 2.7, 3]) {
+      for (const offset of [0, 0.25, 0.5, 0.75, 1]) {
+        const html = renderToStaticMarkup(
+          createElement(ExplorerGraphic, f.at(CORRECTION.start + offset, amount)),
+        );
+        const path = html.match(/<path data-radius-outline="visual"[^>]+>/)![0];
+        const d = path.match(/ d="([^"]+)"/)![1]!;
+        const numbers = d.match(/-?(?:\d*\.)?\d+(?:e[+-]?\d+)?/gi)!.map(Number);
+        const points = Array.from({ length: numbers.length / 2 }, (_, index) => ({
+          x: numbers[index * 2]!,
+          y: numbers[index * 2 + 1]!,
+        }));
+        const stroke = points.slice(0, -1); // The final point closes only the fill.
+        for (let index = 1; index < stroke.length; index++) {
+          expect(stroke[index]!.x).toBeLessThanOrEqual(stroke[index - 1]!.x + 1e-8);
+          expect(stroke[index]!.y).toBeLessThanOrEqual(stroke[index - 1]!.y + 1e-8);
+        }
+        const last = stroke.at(-1)!,
+          corner = points.at(-1)!,
+          first = stroke[0]!;
+        const closingLength =
+          Math.hypot(corner.x - last.x, corner.y - last.y) +
+          Math.hypot(first.x - corner.x, first.y - corner.y);
+        const gap = Number(path.match(/ stroke-dasharray="[^ ]+ ([^"]+)"/)![1]);
+        expect(gap).toBeGreaterThan(closingLength);
+      }
+    }
+  });
+
   it("ignores rapid Next, stops precisely, and permits interruption with Back", () => {
     const f = fixture();
     f.controls.start(false);
