@@ -32,7 +32,7 @@ export default function RadiusComparison({
   cssCorrection: number;
   corner: Point;
 }) {
-  const sharedDotGradient = useId();
+  const blueLeftClip = useId();
   const center = { x: corner.x - cssRadius, y: corner.y + cssRadius };
   const angle = (sweep * Math.PI) / 4;
   const dx = Math.sin(angle);
@@ -67,29 +67,34 @@ export default function RadiusComparison({
   };
   const specified = { x: center.x, y: corner.y };
   const blueTop = { x: blueCenter.x, y: corner.y };
-  const magentaDots = [
-    specified,
-    ...(sweep > 0 ? [red] : []),
-    ...(apparentProgress > 0 ? [center] : []),
+  const blueDots = [
+    ...(sweep > 0
+      ? [{ id: "css", point: blue, opacity: 1, attributes: { "data-radius-point": "css" } }]
+      : []),
+    ...(apparentProgress > 0
+      ? [
+          {
+            id: "apparent-center",
+            point: blueCenter,
+            opacity: apparentProgress,
+            attributes: { "data-radius-center": "apparent" },
+          },
+          {
+            id: "apparent-top",
+            point: blueTop,
+            opacity: apparentProgress,
+            attributes: { "data-radius-point": "apparent-top" },
+          },
+        ]
+      : []),
   ];
-  const blueDots = sweep > 0 ? [blue, ...(apparentProgress > 0 ? [blueCenter, blueTop] : [])] : [];
-  const dotPaint = (point: Point, color: string) => {
-    const others = color === MAGENTA ? blueDots : magentaDots;
-    // Ignore floating-point noise, without merging dots that are merely close.
-    const shared = others.some((other) => Math.hypot(point.x - other.x, point.y - other.y) < 1e-6);
-    return {
-      fill: shared ? `url(#${sharedDotGradient})` : color,
-      "data-radius-shared": shared ? "" : undefined,
-    };
-  };
 
   return (
     <g data-radius-comparison="" fill="none" strokeLinecap="round" strokeLinejoin="round">
       <defs>
-        <linearGradient id={sharedDotGradient} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="50%" stopColor={BLUE} />
-          <stop offset="50%" stopColor={MAGENTA} />
-        </linearGradient>
+        <clipPath id={blueLeftClip} clipPathUnits="objectBoundingBox">
+          <rect x={0} y={0} width={0.5} height={1} />
+        </clipPath>
       </defs>
       {sweep > 0 && (
         <line
@@ -164,8 +169,7 @@ export default function RadiusComparison({
         </text>
       </g>
 
-      {/* Blue is not mounted until the sweep actually starts. It is painted
-          first so coincident markers and numbers sit underneath their red twins. */}
+      {/* Blue is not mounted until the sweep actually starts. */}
       {sweep > 0 && (
         <g data-radius-marker="css" fill={BLUE}>
           <path
@@ -244,58 +248,54 @@ export default function RadiusComparison({
         </g>
       )}
 
-      {/* SVG paint order: all dots sit above every curve, guide, and label. */}
+      {/* All dots stay above the drawing. Within the marker stack, full blue circles
+          sit below magenta, and blue left hemispheres sit above it. Overlap is geometric. */}
       <g data-radius-dots="">
-        {sweep > 0 && (
-          <circle
-            data-radius-point="css"
-            cx={blue.x}
-            cy={blue.y}
-            r={MARKER_RADIUS}
-            {...dotPaint(blue, BLUE)}
-          />
-        )}
-        {apparentProgress > 0 && (
-          <g opacity={apparentProgress}>
+        <g data-radius-dot-layer="blue-full" fill={BLUE}>
+          {blueDots.map(({ id, point, opacity, attributes }) => (
+            <circle
+              key={id}
+              {...attributes}
+              cx={point.x}
+              cy={point.y}
+              r={MARKER_RADIUS}
+              opacity={opacity}
+            />
+          ))}
+        </g>
+        <g data-radius-dot-layer="magenta" fill={MAGENTA}>
+          {apparentProgress > 0 && (
             <circle
               data-radius-center="css"
               cx={center.x}
               cy={center.y}
               r={MARKER_RADIUS}
-              {...dotPaint(center, MAGENTA)}
+              opacity={apparentProgress}
             />
-            <circle
-              data-radius-center="apparent"
-              cx={blueCenter.x}
-              cy={blueCenter.y}
-              r={MARKER_RADIUS}
-              {...dotPaint(blueCenter, BLUE)}
-            />
-            <circle
-              data-radius-point="apparent-top"
-              cx={blueCenter.x}
-              cy={corner.y}
-              r={MARKER_RADIUS}
-              {...dotPaint(blueTop, BLUE)}
-            />
-          </g>
-        )}
-        <circle
-          data-radius-point="specified"
-          cx={center.x}
-          cy={corner.y}
-          r={MARKER_RADIUS}
-          {...dotPaint(specified, MAGENTA)}
-        />
-        {sweep > 0 && (
+          )}
           <circle
-            data-radius-point="visual"
-            cx={red.x}
-            cy={red.y}
+            data-radius-point="specified"
+            cx={specified.x}
+            cy={specified.y}
             r={MARKER_RADIUS}
-            {...dotPaint(red, MAGENTA)}
           />
-        )}
+          {sweep > 0 && (
+            <circle data-radius-point="visual" cx={red.x} cy={red.y} r={MARKER_RADIUS} />
+          )}
+        </g>
+        <g data-radius-dot-layer="blue-half" fill={BLUE}>
+          {blueDots.map(({ id, point, opacity }) => (
+            <circle
+              key={id}
+              data-radius-half={id}
+              cx={point.x}
+              cy={point.y}
+              r={MARKER_RADIUS}
+              opacity={opacity}
+              clipPath={`url(#${blueLeftClip})`}
+            />
+          ))}
+        </g>
       </g>
     </g>
   );
