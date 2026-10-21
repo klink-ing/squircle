@@ -244,6 +244,7 @@ export default function ExplorerGraphic({
           : "Comparison of rounded and superellipse corners"
       }
       viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
+      preserveAspectRatio="xMinYMax meet"
       className="w-full max-w-md"
       // Preserve annotation space above/right, but crop at the shape's left/bottom edges.
       style={{ overflow: "visible", clipPath: "inset(-100% -100% 0 0)" }}

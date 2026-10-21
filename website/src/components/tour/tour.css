@@ -15,7 +15,7 @@
 .tour-graphic {
   width: 100%;
   max-width: 23rem;
-  justify-self: center;
+  justify-self: start;
   align-self: start;
   min-width: 0;
 }
