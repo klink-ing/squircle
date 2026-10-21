@@ -1,6 +1,6 @@
-import { pointsToPath, type Point } from "../math";
+import type { Point } from "../math";
 
-const RED = "#f87171";
+const MAGENTA = "var(--color-squircle-border)";
 const BLUE = "var(--color-rounded-border)";
 
 // Sweep from the top tangent toward the diagonal. The blue marker stays one
@@ -11,16 +11,14 @@ export default function RadiusComparison({
   sweep,
   labelOpacity,
   corner,
-  circle,
-  superellipse,
+  superellipsePath,
 }: {
   radius: number;
   exponent: number;
   sweep: number;
   labelOpacity: number;
   corner: Point;
-  circle: Point[];
-  superellipse: Point[];
+  superellipsePath: string;
 }) {
   const center = { x: corner.x - radius, y: corner.y + radius };
   const angle = (sweep * Math.PI) / 4;
@@ -34,10 +32,12 @@ export default function RadiusComparison({
 
   return (
     <g data-radius-comparison="" fill="none" strokeLinecap="round" strokeLinejoin="round">
-      <path d={pointsToPath(circle)} stroke={BLUE} strokeWidth={1.7} />
       <path
-        d={pointsToPath(superellipse)}
-        stroke="var(--color-squircle-border)"
+        data-radius-outline="visual"
+        d={superellipsePath}
+        stroke={MAGENTA}
+        fill={MAGENTA}
+        fillOpacity={0.2}
         strokeWidth={1.7}
       />
       <line
@@ -55,6 +55,13 @@ export default function RadiusComparison({
           first so coincident markers and numbers sit underneath their red twins. */}
       {sweep > 0 && (
         <g data-radius-marker="css" fill={BLUE}>
+          <path
+            data-radius-outline="css"
+            d={`M ${center.x} ${corner.y} A ${radius} ${radius} 0 0 1 ${blue.x} ${blue.y}`}
+            fill="none"
+            stroke={BLUE}
+            strokeWidth={1.7}
+          />
           <circle data-radius-point="css" cx={blue.x} cy={blue.y} r={3} />
           <text x={blue.x} y={blueNumberY} textAnchor="middle" fontSize={10}>
             1.00
@@ -77,7 +84,7 @@ export default function RadiusComparison({
         </g>
       )}
 
-      <g data-radius-marker="visual" fill={RED}>
+      <g data-radius-marker="visual" fill={MAGENTA}>
         <circle data-radius-point="visual" cx={red.x} cy={red.y} r={3} />
         <text x={red.x} y={redNumberY} textAnchor="middle" fontSize={10}>
           1.00

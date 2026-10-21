@@ -9,11 +9,11 @@ export function graphicFromTracks(
 ): GraphicState {
   return {
     arcRounded: {
-      visible: tracks.roundedOpacity,
-      showFill: 1 - 0.8 * tracks.radiusComparison,
+      visible: tracks.roundedOpacity - tracks.radiusComparison,
+      showFill: 1,
       showOutline: 0,
     },
-    arcSuperellipse: { visible: 1, showFill: 1 - 0.8 * tracks.radiusComparison, showOutline: 0 },
+    arcSuperellipse: { visible: 1, showFill: 1 - tracks.radiusComparison, showOutline: 0 },
     amount: tracks.baseAmount + (chosenAmount - 2) * tracks.choiceWeight,
     correctionAmount: tracks.correction,
     showRefLine: 0,

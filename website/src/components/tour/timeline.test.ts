@@ -71,12 +71,15 @@ describe("tour behavior on the real GSAP timeline", () => {
     }
   });
 
-  it("paints only the red vertical marker before Next, then sweeps both markers before dissolving labels", () => {
+  it("starts with only magenta, then draws the blue arc with the sweep before dissolving labels", () => {
     const f = fixture();
     const paint = (position: string | number) =>
       renderToStaticMarkup(createElement(ExplorerGraphic, f.at(position)));
     const vertical = paint("radius");
     expect(f.tracks.radiusSweep).toBe(0);
+    expect(f.at("radius").arcRounded.visible).toBe(0);
+    expect(vertical).toContain('data-radius-outline="visual"');
+    expect(vertical).not.toContain('data-radius-outline="css"');
     expect(vertical).toContain('data-radius-marker="visual"');
     expect(vertical).not.toContain('data-radius-marker="css"');
     expect(vertical).not.toContain("data-radius-label=");
@@ -85,6 +88,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     const moving = paint(RADIUS_SWEEP.start + 0.5);
     expect(f.tracks.radiusSweep).toBeCloseTo(0.5);
     expect(moving).toContain('data-radius-marker="css"');
+    expect(moving).toContain('data-radius-outline="css"');
     expect(moving).not.toContain("data-radius-label=");
 
     paint(RADIUS_SWEEP.start + 1.2);
