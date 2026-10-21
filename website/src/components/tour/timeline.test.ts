@@ -505,6 +505,7 @@ describe("tour behavior on the real GSAP timeline", () => {
         const halfLayer = html.indexOf('data-radius-dot-layer="blue-half"');
         expect(fullLayer).toBeLessThan(magentaLayer);
         expect(magentaLayer).toBeLessThan(halfLayer);
+        expect(halfLayer).toBeLessThan(html.indexOf('data-radius-point="specified"'));
         const full = tag(html, 'data-radius-point="css"');
         const half = tag(html, 'data-radius-half="css"');
         for (const attribute of ["cx", "cy", "r", "opacity"]) {

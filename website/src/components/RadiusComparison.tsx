@@ -249,7 +249,8 @@ export default function RadiusComparison({
       )}
 
       {/* All dots stay above the drawing. Within the marker stack, full blue circles
-          sit below magenta, and blue left hemispheres sit above it. Overlap is geometric. */}
+          sit below magenta, and blue left hemispheres sit above it. The specified CSS-radius
+          endpoint is the topmost marker. Overlap is geometric. */}
       <g data-radius-dots="">
         <g data-radius-dot-layer="blue-full" fill={BLUE}>
           {blueDots.map(({ id, point, opacity, attributes }) => (
@@ -273,12 +274,6 @@ export default function RadiusComparison({
               opacity={apparentProgress}
             />
           )}
-          <circle
-            data-radius-point="specified"
-            cx={specified.x}
-            cy={specified.y}
-            r={MARKER_RADIUS}
-          />
           {sweep > 0 && (
             <circle data-radius-point="visual" cx={red.x} cy={red.y} r={MARKER_RADIUS} />
           )}
@@ -296,6 +291,13 @@ export default function RadiusComparison({
             />
           ))}
         </g>
+        <circle
+          data-radius-point="specified"
+          cx={specified.x}
+          cy={specified.y}
+          r={MARKER_RADIUS}
+          fill={MAGENTA}
+        />
       </g>
     </g>
   );
