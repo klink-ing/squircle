@@ -25,6 +25,6 @@ export function graphicFromTracks(
     measureArc: time >= CORRECTION.start ? "corrected" : "rounded",
     measureMode: "radius",
     measureAngle: "diagonal",
-    zoom: 0.75,
+    zoom: 0.5,
   };
 }

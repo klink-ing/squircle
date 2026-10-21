@@ -55,6 +55,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(CHECKPOINTS.map((cue) => f.at(cue.id, 2.7))).toEqual(expected);
     CHECKPOINTS.forEach((cue) => expect(f.timeline.labels[cue.id]).toBe(cue.time));
     expect(f.at("rounded").amount).toBe(1);
+    expect(f.at("rounded").zoom).toBe(0.5); // A 1.00 radius spans half the fixed box.
     expect(f.at("utilities").correctionAmount).toBe(1);
   });
 
@@ -240,9 +241,9 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(coordinate(top, "cx")).toBe(cx);
       expect(190 - cx).toBeCloseTo(radius);
       expect(x - cx).toBeCloseTo(cy - y); // 45 degrees from the blue center.
-      const cssRadius = 135;
+      const cssRadius = 90;
       const n = 2 ** amount;
-      expect(((x - 55) / cssRadius) ** n + ((145 - y) / cssRadius) ** n).toBeCloseTo(1);
+      expect(((x - 100) / cssRadius) ** n + ((100 - y) / cssRadius) ** n).toBeCloseTo(1);
       expect(after).toMatch(new RegExp(`data-radius-number="blue"[^>]*>${readout}</text>`));
       expect(after).toMatch(/data-radius-number="specified"[^>]*>1.00<\/text>/);
       expect(tag(after, 'data-radius-number="magenta"')).toContain('opacity="0"');
@@ -283,10 +284,12 @@ describe("tour behavior on the real GSAP timeline", () => {
     const end = tag(after, 'data-radius-point="css"');
     const cx = coordinate(center, "cx"),
       cy = coordinate(center, "cy");
-    expect(coordinate(cssTop, "cx")).toBeLessThan(10);
-    expect(coordinate(top, "cx")).toBeCloseTo(55);
-    expect(cy - coordinate(top, "cy")).toBeCloseTo(135);
-    expect(Math.hypot(coordinate(end, "cx") - cx, coordinate(end, "cy") - cy)).toBeCloseTo(135);
+    expect(coordinate(cssTop, "cx")).toBeLessThan(coordinate(top, "cx"));
+    const larger = renderToStaticMarkup(createElement(ExplorerGraphic, f.at(CORRECTION.id, 3)));
+    expect(coordinate(tag(larger, 'data-radius-point="specified"'), "cx")).toBeLessThan(10);
+    expect(coordinate(top, "cx")).toBeCloseTo(100);
+    expect(cy - coordinate(top, "cy")).toBeCloseTo(90);
+    expect(Math.hypot(coordinate(end, "cx") - cx, coordinate(end, "cy") - cy)).toBeCloseTo(90);
     expect(after).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
     expect(after).toMatch(/data-radius-number="specified"[^>]*>1.35<\/text>/);
     f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
