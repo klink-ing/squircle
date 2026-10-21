@@ -19,6 +19,8 @@ export function graphicFromTracks(
     showRefLine: 0,
     showMeasurement: tracks.roundedOpacity - tracks.radiusComparison,
     radiusComparison: tracks.radiusComparison,
+    radiusSweep: tracks.radiusSweep,
+    radiusLabels: tracks.radiusLabels,
     measureArc: time >= CORRECTION.start ? "corrected" : "rounded",
     measureMode: "radius",
     measureAngle: "diagonal",

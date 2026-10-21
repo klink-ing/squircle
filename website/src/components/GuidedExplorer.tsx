@@ -93,7 +93,7 @@ export default function GuidedExplorer() {
     else controls.current?.resume();
   });
   const strengthActive =
-    active === 3 && Math.abs(view.time - STRENGTH.time) < 0.001 && !playback.moving;
+    cue.id === STRENGTH.id && Math.abs(view.time - STRENGTH.time) < 0.001 && !playback.moving;
 
   return (
     <div ref={root} className="tour-root">

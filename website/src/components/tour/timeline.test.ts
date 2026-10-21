@@ -1,7 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 import gsap from "gsap";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import ExplorerGraphic from "../ExplorerGraphic";
 import { graphicFromTracks } from "./graphic-state";
-import { CHECKPOINTS, CORRECTION, createTourTimeline, DURATION, STRENGTH } from "./timeline";
+import {
+  CHECKPOINTS,
+  CORRECTION,
+  createTourTimeline,
+  DURATION,
+  RADIUS_SWEEP,
+  STRENGTH,
+} from "./timeline";
 import { createPlayback, type PlaybackState } from "./playback";
 import { correctedRadius, perceivedRadius } from "../../math";
 
@@ -35,7 +45,7 @@ function finishDriver(timeline: gsap.core.Timeline, progress = 1) {
 }
 
 describe("tour behavior on the real GSAP timeline", () => {
-  it("seeks to all seven reading stops deterministically, in any order", () => {
+  it("seeks to all eight reading stops deterministically, in any order", () => {
     const f = fixture();
     const expected = CHECKPOINTS.map((cue) => f.at(cue.id, 2.7));
     [...CHECKPOINTS].reverse().forEach((cue) => f.at(cue.id, 2.7));
@@ -53,12 +63,42 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(f.at(CORRECTION.start, amount).amount).toBe(amount);
       expect(f.at(CORRECTION.start + 0.5, amount).amount).toBeCloseTo((amount + 2) / 2);
       expect(f.at("correction", amount).amount).toBe(2);
-      f.controls.checkpoint(4);
+      f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
       f.controls.back();
       expect(graphicFromTracks(f.tracks, f.timeline.time(), amount).amount).toBe(amount);
       // Reset is a live input, independent of the timeline's authored values.
       expect(graphicFromTracks(f.tracks, f.timeline.time(), 2).amount).toBe(2);
     }
+  });
+
+  it("paints only the red vertical marker before Next, then sweeps both markers before dissolving labels", () => {
+    const f = fixture();
+    const paint = (position: string | number) =>
+      renderToStaticMarkup(createElement(ExplorerGraphic, f.at(position)));
+    const vertical = paint("radius");
+    expect(f.tracks.radiusSweep).toBe(0);
+    expect(vertical).toContain('data-radius-marker="visual"');
+    expect(vertical).not.toContain('data-radius-marker="css"');
+    expect(vertical).not.toContain("data-radius-label=");
+    expect(paint(RADIUS_SWEEP.start)).not.toContain('data-radius-marker="css"');
+
+    const moving = paint(RADIUS_SWEEP.start + 0.5);
+    expect(f.tracks.radiusSweep).toBeCloseTo(0.5);
+    expect(moving).toContain('data-radius-marker="css"');
+    expect(moving).not.toContain("data-radius-label=");
+
+    paint(RADIUS_SWEEP.start + 1.2);
+    expect(f.tracks.radiusSweep).toBe(1);
+    expect(f.tracks.radiusLabels).toBeGreaterThan(0);
+    expect(f.tracks.radiusLabels).toBeLessThan(1);
+    const diagonal = paint("visual-radius");
+    expect(f.tracks.radiusLabels).toBe(1);
+    expect(diagonal).toContain('data-radius-label="css"');
+    expect(diagonal).toContain('data-radius-label="visual"');
+    expect(paint("strength")).not.toContain("data-radius-comparison=");
+    // Reverse seeking must restore the initial unpainted blue marker and labels.
+    expect(paint("radius")).not.toContain('data-radius-marker="css"');
+    expect(f.tracks.radiusLabels).toBe(0);
   });
 
   it("ignores rapid Next, stops precisely, and permits interruption with Back", () => {
@@ -107,7 +147,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.focusCount()).toBe(focused);
     f.controls.next();
     expect(f.timeline.time()).toBe(STRENGTH.time);
-    expect(f.state().destination).toBe(3);
+    expect(f.state().destination).toBe(CHECKPOINTS.indexOf(STRENGTH));
     f.controls.next();
     expect(f.timeline.time()).toBe(CORRECTION.time);
     f.controls.seek(100);

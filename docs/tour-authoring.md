@@ -1,6 +1,6 @@
 # Guided tour authoring · GSAP with React
 
-The `/tour` page is responsive HTML/CSS driven by one native GSAP timeline. It uses `gsap@3.15.0` and the official `@gsap/react@2.1.2` integration. The seven beats and copy remain rounded corner, superellipse, radius comparison, strength exploration, correction, alignment, and utility usage. This branch has no Remotion runtime, Player, Studio, video configuration, or interpolation imports.
+The `/tour` page is responsive HTML/CSS driven by one native GSAP timeline. It uses `gsap@3.15.0` and the official `@gsap/react@2.1.2` integration. There are eight reading stops: rounded corner, superellipse, vertical radius, diagonal radius comparison, strength exploration, correction, alignment, and utility usage. Existing slide copy is preserved; the inserted comparison slide uses placeholder copy. This branch has no Remotion runtime, Player, Studio, video configuration, or interpolation imports.
 
 ## Run
 
@@ -29,19 +29,19 @@ The production tour is http://localhost:4432/tour. The development transport is 
 
 ## Edit and retime
 
-`website/src/components/tour/timeline.ts` contains the native choreography. `CHECKPOINTS` lists entrance times and settled reading times in **seconds**. `createTourTimeline` adds a label for each reading stop (`strength`, `correction`, etc.) and an entrance label (`strength:enter`, etc.). Numeric geometry tracks and DOM entrances share that timeline. Reading stops are at 0.8, 2, 3.2, 4.2, 5.4, 6.4, and 7.4 seconds.
+`website/src/components/tour/timeline.ts` contains the native choreography. `CHECKPOINTS` lists entrance times and settled reading times in **seconds**. `createTourTimeline` adds a label for each reading stop (`strength`, `correction`, etc.) and an entrance label (`strength:enter`, etc.). Numeric geometry tracks and DOM entrances share that timeline. Reading stops are at 0.8, 2, 3.2, 4.9, 5.9, 7.1, 8.1, and 9.1 seconds.
 
 Edit copy and interleaved controls in `TourNarrative.tsx`. Each section remains mounted with a stable identity; only the current section participates in layout. React applies `hidden` and `inert` to outgoing sections. GSAP owns each section's opacity and transform; React never writes those properties. Entrances take 0.4 seconds. There is no outgoing crossfade or fixed-height stage: the next paragraph reflows normally. Keep each reading label after its narrative entrance and geometry tweens finish.
 
-For retiming, change the cue's `start`/`time` and any numeric tween duration together. Geometry tweens use entrance labels rather than duplicated absolute starts. Extending the beat list also requires updating the explicit strength/correction indices, final duration, narrative heading choices, and behavioral tests. This is intentionally small, tour-specific choreography.
+For retiming, change the cue's `start`/`time` and any numeric tween duration together. Geometry tweens use entrance labels rather than duplicated absolute starts. Strength/correction checkpoints and the final duration are resolved by ID/the last reading stop. Extending the beat list also requires updating narrative content and behavioral tests. This is intentionally small, tour-specific choreography.
 
 `tour.css` uses a single column below 768px and a fluid two-column grid above it. Narrative font sizes are 17.6–22px; headings are 28.8–44px; navigation and slider controls have 48px minimum heights. SVG `viewBox` coordinates describe the existing mathematical illustration, not a composition viewport. Page scrolling is normal. There is no resize measurement or layout-dependent timeline rebuild.
 
-The third beat compares the shared CSS radius with diagonal visual reach. `RadiusComparison.tsx` marks the common curve endpoints, the CSS axis radius (normalized to 1.00), and the circle/superellipse diagonal intersections (1.00 and approximately 1.19 at strength 2). Both diagonal values use the circle's reference center and the existing `perceivedRadius` math. Its annotations fade in/out on the native `radiusComparison` track, and the diagram expands on narrow screens to keep its labels readable. Back and arbitrary seeking restore the same measurements.
+Slide 3 shows only a vertical dashed measurement, a red endpoint, and a red 1.00. Next advances to the inserted comparison slide. Its native `radiusSweep` track rotates the measurement to 45 degrees over one second: the red marker follows the superellipse, while a blue marker follows the circle at one CSS radius. Both numbers stay 1.00 as specified. The blue marker and number are not mounted until the sweep has begun, and are painted underneath their red counterparts. After the sweep, `radiusLabels` dissolves in the two-line `CSS` / `radius` caption below the blue number and `Visual` / `“radius”` above the red number. The shared `radiusComparison` track fades the whole illustration in/out. Back and arbitrary seeking restore all three tracks, including the absence of blue before the sweep.
 
 ## Geometry and controls
 
-GSAP owns a plain numeric proxy: `baseAmount`, `choiceWeight`, `correction`, `roundedOpacity`, and `radiusComparison`. Its `onUpdate` publishes an immutable snapshot through `graphicFromTracks`. React alone renders the existing SVG paths from that snapshot using `website/src/math.ts`. There are no competing SVG attribute writes, previous-frame replay, generic animation engine, or React render loops while paused.
+GSAP owns a plain numeric proxy: `baseAmount`, `choiceWeight`, `correction`, `roundedOpacity`, `radiusComparison`, `radiusSweep`, and `radiusLabels`. Its `onUpdate` publishes an immutable snapshot through `graphicFromTracks`. React alone renders the existing SVG paths from that snapshot using `website/src/math.ts`. There are no competing SVG attribute writes, previous-frame replay, generic animation engine, or React render loops while paused.
 
 The remembered strength is React state plus a ref for synchronous publishing. At the settled strength label, the native range input (1–3, step 0.1, initial 2) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to 2. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
 
@@ -65,7 +65,7 @@ GSAP uses Webflow's [Standard “No Charge” License](https://gsap.com/communit
 
 ## Current-site integration
 
-`feat/tour-gsap-ready` ports the tour onto current `alpha`. `pnpm exec vp run ready` passes: root lint and formatting, package TypeScript and its 567 tests, seven tour tests, the tour TypeScript check, and the 12-page production build. `website#typecheck` intentionally uses `tsconfig.tour.json` to check the complete tour and its imports. A separate full-site `tsc --noEmit` still reports existing errors in `PillAlgorithmsDemo.tsx` (experimental Paint API typing) and `StyleXDemo.tsx` (StyleX call signatures); those unrelated demos are not changed here.
+`feat/tour-gsap-ready` ports the tour onto current `alpha`. `pnpm exec vp run ready` passes: root lint and formatting, package TypeScript and its 567 tests, the tour tests, the tour TypeScript check, and the 12-page production build. `website#typecheck` intentionally uses `tsconfig.tour.json` to check the complete tour and its imports. A separate full-site `tsc --noEmit` still reports existing errors in `PillAlgorithmsDemo.tsx` (experimental Paint API typing) and `StyleXDemo.tsx` (StyleX call signatures); those unrelated demos are not changed here.
 
 ## Original comparison verification, 2026-10-20
 

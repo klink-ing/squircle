@@ -4,16 +4,18 @@ import gsap from "gsap";
 export const CHECKPOINTS = [
   { id: "rounded", start: 0, time: 0.8, nextLabel: "Apply it" },
   { id: "superellipse", start: 0.82, time: 2, nextLabel: "What gives?" },
-  { id: "radius", start: 2.02, time: 3.2, nextLabel: "Let me try" },
-  { id: "strength", start: 3.22, time: 4.2, nextLabel: "Show the correction" },
-  { id: "correction", start: 4.22, time: 5.4, nextLabel: "Next" },
-  { id: "alignment", start: 5.42, time: 6.4, nextLabel: "How do I use it?" },
-  { id: "utilities", start: 6.42, time: 7.4, nextLabel: "Explore" },
+  { id: "radius", start: 2.02, time: 3.2, nextLabel: "Next" },
+  { id: "visual-radius", start: 3.22, time: 4.9, nextLabel: "Let me try" },
+  { id: "strength", start: 4.92, time: 5.9, nextLabel: "Show the correction" },
+  { id: "correction", start: 5.92, time: 7.1, nextLabel: "Next" },
+  { id: "alignment", start: 7.12, time: 8.1, nextLabel: "How do I use it?" },
+  { id: "utilities", start: 8.12, time: 9.1, nextLabel: "Explore" },
 ] as const;
 
-export const DURATION = CHECKPOINTS[6].time;
-export const STRENGTH = CHECKPOINTS[3];
-export const CORRECTION = CHECKPOINTS[4];
+export const DURATION = CHECKPOINTS.at(-1)!.time;
+export const RADIUS_SWEEP = CHECKPOINTS.find((cue) => cue.id === "visual-radius")!;
+export const STRENGTH = CHECKPOINTS.find((cue) => cue.id === "strength")!;
+export const CORRECTION = CHECKPOINTS.find((cue) => cue.id === "correction")!;
 
 export function checkpointAtTime(time: number) {
   return Math.max(
@@ -23,7 +25,15 @@ export function checkpointAtTime(time: number) {
 }
 
 export function initialTracks() {
-  return { baseAmount: 1, choiceWeight: 0, correction: 0, roundedOpacity: 0, radiusComparison: 0 };
+  return {
+    baseAmount: 1,
+    choiceWeight: 0,
+    correction: 0,
+    roundedOpacity: 0,
+    radiusComparison: 0,
+    radiusSweep: 0,
+    radiusLabels: 0,
+  };
 }
 
 export type GraphicTracks = ReturnType<typeof initialTracks>;
@@ -54,6 +64,8 @@ export function createTourTimeline(onUpdate: () => void, panels: HTMLElement[] =
   timeline.to(tracks, { baseAmount: 2, duration: 1, ease: "power2.inOut" }, "superellipse:enter");
   timeline.to(tracks, { roundedOpacity: 1, duration: 0.8, ease: "power2.inOut" }, "radius:enter");
   timeline.to(tracks, { radiusComparison: 1, duration: 0.8, ease: "power2.inOut" }, "radius:enter");
+  timeline.to(tracks, { radiusSweep: 1, duration: 1, ease: "power2.inOut" }, "visual-radius:enter");
+  timeline.to(tracks, { radiusLabels: 1, duration: 0.45, ease: "none" }, "visual-radius:enter+=1");
   timeline.to(tracks, { radiusComparison: 0, duration: 0.3 }, "strength:enter");
   timeline.to(tracks, { choiceWeight: 1, duration: 0.5, ease: "power2.inOut" }, "strength:enter");
   timeline.to(

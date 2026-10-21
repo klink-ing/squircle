@@ -27,6 +27,8 @@ export interface GraphicState {
   measureAngle?: "diagonal" | "edge"; // default: "diagonal"
   zoom: number;
   radiusComparison?: number;
+  radiusSweep?: number;
+  radiusLabels?: number;
 }
 
 const BOX = 180;
@@ -64,6 +66,8 @@ export default function ExplorerGraphic({
   correctionAmount,
   zoom,
   radiusComparison = 0,
+  radiusSweep = 0,
+  radiusLabels = 0,
 }: GraphicState) {
   const id = useId();
   const clipCircle = `${id}-clip-circle`;
@@ -190,7 +194,6 @@ export default function ExplorerGraphic({
     measure,
     refLine,
     r,
-    superR,
     mathN,
   } = data;
 
@@ -199,10 +202,12 @@ export default function ExplorerGraphic({
       role="img"
       aria-label={
         radiusComparison > 0
-          ? `Same CSS radius, different diagonal reach. Circle: 1.00. Superellipse: ${(perceivedRadius(r, superR, mathN) / r).toFixed(2)}.`
+          ? radiusSweep === 0
+            ? "A vertical dashed radius with a red endpoint labeled 1.00."
+            : "CSS and visual radius markers sweeping from vertical to the diagonal."
           : "Comparison of rounded and superellipse corners"
       }
-      viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
+      viewBox={`${PAD} ${PAD - PAD_EXTRA - (radiusComparison > 0 ? 20 : 0)} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA + (radiusComparison > 0 ? 20 : 0)}`}
       className="w-full max-w-md"
     >
       <defs>
@@ -319,8 +324,9 @@ export default function ExplorerGraphic({
         <g opacity={radiusComparison} aria-hidden="true">
           <RadiusComparison
             radius={r}
-            superRadius={superR}
             exponent={mathN}
+            sweep={radiusSweep}
+            labelOpacity={radiusLabels}
             corner={{ x: cornerX, y: cornerY }}
             circle={circleSvg}
             superellipse={superSvg}
