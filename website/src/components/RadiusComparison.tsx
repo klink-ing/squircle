@@ -41,6 +41,19 @@ export default function RadiusComparison({
         fillOpacity={0.2}
         strokeWidth={1.7}
       />
+      {sweep > 0 && (
+        <line
+          data-radius-axis="origin"
+          x1={center.x}
+          y1={center.y}
+          x2={center.x}
+          y2={corner.y}
+          stroke="#e4e4e7"
+          strokeWidth={MARKER_RADIUS}
+          strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
+          opacity={0.25}
+        />
+      )}
       <line
         data-radius-axis="visual"
         x1={center.x}
