@@ -79,7 +79,7 @@ export function createTourTimeline(onUpdate: () => void, panels: HTMLElement[] =
     { apparentRadius: 1, duration: 1, ease: "power2.inOut" },
     "apparent-radius:enter",
   );
-  timeline.to(tracks, { radiusComparison: 0, duration: 0.3 }, "correction:enter");
+  timeline.to(tracks, { radiusComparison: 0, duration: 0.3 }, "alignment:enter");
   timeline.to(
     tracks,
     {

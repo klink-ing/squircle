@@ -132,7 +132,8 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(diagonal).toContain('data-radius-label="css"');
     expect(diagonal).toContain('data-radius-label="visual"');
     expect(diagonal).toContain(">???</text>");
-    expect(paint("correction")).not.toContain("data-radius-comparison=");
+    expect(paint("correction")).toContain("data-radius-comparison=");
+    expect(paint("alignment")).not.toContain("data-radius-comparison=");
     // Reverse seeking must restore the initial unpainted blue marker and labels.
     expect(paint("radius")).not.toContain('data-radius-marker="css"');
     expect(f.tracks.radiusLabels).toBe(0);
@@ -242,6 +243,51 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(after).toContain(">Apparent</tspan>");
       expect(paint(STRENGTH.id, amount)).toBe(before);
     }
+  });
+
+  it("grows the apparent radius to one while the CSS radius can leave the fixed box", () => {
+    const f = fixture();
+    const paint = (position: string | number) =>
+      renderToStaticMarkup(createElement(ExplorerGraphic, f.at(position)));
+    const tag = (html: string, attribute: string) =>
+      html.match(new RegExp(`<[^>]+ ${attribute}[^>]*>`))![0];
+    const coordinate = (element: string, name: string) =>
+      Number(element.match(new RegExp(` ${name}="([^"]+)"`))![1]);
+    const before = paint(APPARENT_RADIUS.id);
+    const viewBox = before.match(/viewBox="[^"]+"/)![0];
+    const box = before.match(/<rect [^>]+>/)![0];
+    let lastRadius = 0;
+    for (let offset = 0; offset <= 1; offset += 0.1) {
+      const html = paint(CORRECTION.start + offset);
+      const center = tag(html, 'data-radius-center="apparent"');
+      const top = tag(html, 'data-radius-point="apparent-top"');
+      const apparent = coordinate(center, "cy") - coordinate(top, "cy");
+      expect(apparent).toBeGreaterThanOrEqual(lastRadius);
+      expect(html.match(/viewBox="[^"]+"/)![0]).toBe(viewBox);
+      expect(html.match(/<rect [^>]+>/)![0]).toBe(box);
+      expect(f.tracks.radiusComparison).toBe(1);
+      lastRadius = apparent;
+    }
+    const after = paint(CORRECTION.id);
+    const cssTop = tag(after, 'data-radius-point="specified"');
+    const center = tag(after, 'data-radius-center="apparent"');
+    const top = tag(after, 'data-radius-point="apparent-top"');
+    const end = tag(after, 'data-radius-point="css"');
+    const cx = coordinate(center, "cx"),
+      cy = coordinate(center, "cy");
+    expect(coordinate(cssTop, "cx")).toBeLessThan(10);
+    expect(coordinate(top, "cx")).toBeCloseTo(55);
+    expect(cy - coordinate(top, "cy")).toBeCloseTo(135);
+    expect(Math.hypot(coordinate(end, "cx") - cx, coordinate(end, "cy") - cy)).toBeCloseTo(135);
+    expect(after).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
+    expect(after).toMatch(/data-radius-number="specified"[^>]*>1.84<\/text>/);
+    f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
+    f.controls.back();
+    expect(
+      renderToStaticMarkup(
+        createElement(ExplorerGraphic, graphicFromTracks(f.tracks, f.timeline.time())),
+      ),
+    ).toBe(before);
   });
 
   it("ignores rapid Next, stops precisely, and permits interruption with Back", () => {

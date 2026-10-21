@@ -74,6 +74,7 @@ export default function ExplorerGraphic({
   const id = useId();
   const clipCircle = `${id}-clip-circle`;
   const clipSuper = `${id}-clip-super`;
+  const clipBox = `${id}-clip-box`;
 
   const data = useMemo(() => {
     const mathN = Math.pow(2, amount);
@@ -196,6 +197,7 @@ export default function ExplorerGraphic({
     measure,
     refLine,
     r,
+    superR,
     mathN,
   } = data;
 
@@ -213,8 +215,12 @@ export default function ExplorerGraphic({
       }
       viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
       className="w-full max-w-md"
+      style={{ overflow: "visible" }}
     >
       <defs>
+        <clipPath id={clipBox}>
+          <rect x={PAD - 0.85} y={PAD - 0.85} width={BOX + 1.7} height={BOX + 1.7} />
+        </clipPath>
         <clipPath id={clipCircle}>
           <path d={circleClip} />
         </clipPath>
@@ -225,7 +231,8 @@ export default function ExplorerGraphic({
 
       {/* Superellipse and circle — z-order swaps when superellipse crosses circle */}
       {(() => {
-        const correctionPercent = Math.min(1, Math.max(0, correctionAmount)) * 100;
+        const correctionPercent =
+          Math.min(1, Math.max(0, correctionAmount)) * (1 - radiusComparison) * 100;
         const superFillColor = `color-mix(in srgb, var(--color-adjusted-fill) ${correctionPercent}%, var(--color-squircle-fill))`;
         const superStrokeColor = `color-mix(in srgb, var(--color-adjusted-border) ${correctionPercent}%, var(--color-squircle-border))`;
 
@@ -242,6 +249,7 @@ export default function ExplorerGraphic({
                 strokeWidth={1.7}
                 strokeOpacity={radiusComparison}
                 strokeLinejoin="round"
+                clipPath={`url(#${clipBox})`}
               />
               {/* Stroke — crossfades in/out */}
               <g opacity={Number(arcSuperellipse.showOutline)}>
@@ -398,6 +406,8 @@ export default function ExplorerGraphic({
         <g opacity={radiusComparison} aria-hidden="true">
           <RadiusComparison
             radius={r}
+            cssRadius={superR}
+            labelMinX={PAD}
             exponent={mathN}
             sweep={radiusSweep}
             labelOpacity={radiusLabels}

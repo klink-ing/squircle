@@ -11,6 +11,8 @@ const TEXT_LINE_HEIGHT = 12;
 // CSS radius from the reference center; the red marker follows the superellipse.
 export default function RadiusComparison({
   radius,
+  cssRadius,
+  labelMinX,
   exponent,
   sweep,
   labelOpacity,
@@ -18,6 +20,8 @@ export default function RadiusComparison({
   corner,
 }: {
   radius: number;
+  cssRadius: number;
+  labelMinX: number;
   exponent: number;
   sweep: number;
   labelOpacity: number;
@@ -25,15 +29,15 @@ export default function RadiusComparison({
   corner: Point;
 }) {
   const sharedDotGradient = useId();
-  const center = { x: corner.x - radius, y: corner.y + radius };
+  const center = { x: corner.x - cssRadius, y: corner.y + cssRadius };
   const angle = (sweep * Math.PI) / 4;
   const dx = Math.sin(angle);
   const dy = Math.cos(angle);
-  const visualRadius = radius / (dx ** exponent + dy ** exponent) ** (1 / exponent);
+  const visualRadius = cssRadius / (dx ** exponent + dy ** exponent) ** (1 / exponent);
   const red = { x: center.x + dx * visualRadius, y: center.y - dy * visualRadius };
   // Invert the package's correction: this circle has the same diagonal inset
   // as the uncorrected superellipse, while sharing its top/right edges.
-  const apparent = radius / correctedRadius(1, exponent);
+  const apparent = cssRadius / correctedRadius(1, exponent);
   const blueRadius = radius + (apparent - radius) * apparentProgress;
   const blueCenter = { x: corner.x - blueRadius, y: corner.y + blueRadius };
   const blueAngle = (sweep * Math.PI) / 4;
@@ -47,6 +51,12 @@ export default function RadiusComparison({
   const blueNumberY = blue.y - 9 + 24 * sweep * (1 - apparentProgress);
   const redLabelX = red.x + 6;
   const blueLabelX = blueNumberX;
+  // Center each line until its own left edge reaches the SVG boundary. CSS
+  // resolves the text width, so this clamps smoothly without measuring the DOM.
+  const specifiedTextStyle = {
+    transformBox: "fill-box" as const,
+    transform: `translateX(max(-50%, ${labelMinX - center.x}px))`,
+  };
   const specified = { x: center.x, y: corner.y };
   const blueTop = { x: blueCenter.x, y: corner.y };
   const magentaDots = [
@@ -128,16 +138,18 @@ export default function RadiusComparison({
           data-radius-number="specified"
           x={center.x}
           y={corner.y - 9}
-          textAnchor="middle"
+          textAnchor="start"
+          style={specifiedTextStyle}
           fontSize={10}
         >
-          1.00
+          {(cssRadius / radius).toFixed(2)}
         </text>
         <text
           data-radius-label="specified"
           x={center.x}
           y={corner.y - 23}
-          textAnchor="middle"
+          textAnchor="start"
+          style={specifiedTextStyle}
           fontSize={10}
         >
           CSS Radius
