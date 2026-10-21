@@ -127,6 +127,9 @@
   height: 3rem;
   margin: 0;
 }
+.tour-strength input {
+  height: 2rem;
+}
 .tour-explore {
   align-items: start;
 }
