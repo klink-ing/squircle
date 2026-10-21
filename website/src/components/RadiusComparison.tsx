@@ -5,6 +5,7 @@ const MAGENTA = "var(--color-squircle-border)";
 const BLUE = "var(--color-rounded-border)";
 const MARKER_RADIUS = 3;
 const LINE_DOT_DIAMETER = (MARKER_RADIUS * 2) / 3;
+const TEXT_LINE_HEIGHT = 12;
 
 // Sweep from the top tangent toward the diagonal. The blue marker stays one
 // CSS radius from the reference center; the red marker follows the superellipse.
@@ -41,11 +42,11 @@ export default function RadiusComparison({
     y: blueCenter.y - Math.cos(blueAngle) * blueRadius,
   };
   const redNumberX = red.x + 18 * sweep;
-  const blueNumberX = blue.x + 18 * sweep * (1 - apparentProgress) + 6 * apparentProgress;
+  const blueNumberX = blue.x + 6;
   const redNumberY = red.y - 9 + 6 * sweep;
   const blueNumberY = blue.y - 9 + 24 * sweep * (1 - apparentProgress);
   const redLabelX = red.x + 6;
-  const blueLabelX = blue.x + 6;
+  const blueLabelX = blueNumberX;
   const specified = { x: center.x, y: corner.y };
   const blueTop = { x: blueCenter.x, y: corner.y };
   const magentaDots = [
@@ -205,7 +206,7 @@ export default function RadiusComparison({
             data-radius-number="blue"
             x={blueNumberX}
             y={blueNumberY}
-            textAnchor="middle"
+            textAnchor="start"
             fontSize={10}
           >
             {(blueRadius / radius).toFixed(2)}
@@ -220,7 +221,7 @@ export default function RadiusComparison({
               opacity={labelOpacity * (1 - apparentProgress)}
             >
               <tspan x={blueLabelX}>CSS</tspan>
-              <tspan x={blueLabelX} dy={12}>
+              <tspan x={blueLabelX} dy={TEXT_LINE_HEIGHT}>
                 radius
               </tspan>
             </text>
@@ -229,13 +230,13 @@ export default function RadiusComparison({
             <text
               data-radius-label="apparent"
               x={blueLabelX}
-              y={blueNumberY - 28}
+              y={blueNumberY - 2 * TEXT_LINE_HEIGHT}
               textAnchor="start"
               fontSize={10}
               opacity={apparentProgress}
             >
               <tspan x={blueLabelX}>Apparent</tspan>
-              <tspan x={blueLabelX} dy={12}>
+              <tspan x={blueLabelX} dy={TEXT_LINE_HEIGHT}>
                 Radius
               </tspan>
             </text>
