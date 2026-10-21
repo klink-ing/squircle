@@ -46,9 +46,9 @@ export default function RadiusComparison({
     y: blueCenter.y - Math.cos(blueAngle) * blueRadius,
   };
   const redNumberX = red.x + 18 * sweep;
-  const blueNumberX = blue.x + 6;
+  const blueNumberX = blue.x - 30 * (1 - apparentProgress) + 6 * apparentProgress;
   const redNumberY = red.y - 9 + 6 * sweep;
-  const blueNumberY = blue.y - 9 + 24 * sweep * (1 - apparentProgress);
+  const blueNumberY = blue.y + 15 * (1 - apparentProgress) - 9 * apparentProgress;
   const redLabelX = red.x + 6;
   const blueLabelX = blueNumberX;
   // Center each line until its own left edge reaches the SVG boundary. CSS
@@ -147,7 +147,7 @@ export default function RadiusComparison({
         <text
           data-radius-label="specified"
           x={center.x}
-          y={corner.y - 23}
+          y={corner.y - 9 - TEXT_LINE_HEIGHT}
           textAnchor="start"
           style={specifiedTextStyle}
           fontSize={10}
@@ -180,7 +180,7 @@ export default function RadiusComparison({
             <text
               data-radius-label="css"
               x={blueLabelX}
-              y={blueNumberY + 16}
+              y={blueNumberY + TEXT_LINE_HEIGHT}
               textAnchor="start"
               fontSize={10}
               opacity={labelOpacity * (1 - apparentProgress)}
@@ -225,7 +225,7 @@ export default function RadiusComparison({
             <text
               data-radius-label="visual"
               x={redLabelX}
-              y={redNumberY - 16}
+              y={redNumberY - TEXT_LINE_HEIGHT}
               textAnchor="start"
               fontSize={10}
               opacity={labelOpacity * (1 - apparentProgress)}

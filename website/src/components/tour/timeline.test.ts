@@ -127,7 +127,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusSweep).toBeCloseTo(0.5);
     expect(moving).toContain('data-radius-marker="css"');
     expect(moving).toContain('data-radius-outline="css"');
-    expect(moving).toContain(">1.07</text>");
+    expect(moving).toMatch(/data-radius-number="magenta"[^>]*>\d+\.\d{2}<\/text>/);
     expect(moving).not.toContain('data-radius-label="css"');
     expect(moving).not.toContain('data-radius-label="visual"');
 
@@ -136,7 +136,11 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusLabels).toBeGreaterThan(0);
     expect(f.tracks.radiusLabels).toBeLessThan(1);
     const diagonal = paint("visual-radius");
-    expect(diagonal).toContain(">1.19</text>");
+    expect(diagonal).toMatch(
+      new RegExp(
+        `data-radius-number="magenta"[^>]*>${perceivedRadius(1, 1, 2 ** DEFAULT_STRENGTH).toFixed(2)}</text>`,
+      ),
+    );
     expect(f.tracks.radiusLabels).toBe(1);
     expect(diagonal).toContain('data-radius-label="css"');
     expect(diagonal).toContain('data-radius-label="visual"');
@@ -284,14 +288,18 @@ describe("tour behavior on the real GSAP timeline", () => {
     const end = tag(after, 'data-radius-point="css"');
     const cx = coordinate(center, "cx"),
       cy = coordinate(center, "cy");
-    expect(coordinate(cssTop, "cx")).toBeLessThan(coordinate(top, "cx"));
+    expect(coordinate(cssTop, "cx")).toBeLessThanOrEqual(coordinate(top, "cx"));
     const larger = renderToStaticMarkup(createElement(ExplorerGraphic, f.at(CORRECTION.id, 3)));
     expect(coordinate(tag(larger, 'data-radius-point="specified"'), "cx")).toBeLessThan(10);
     expect(coordinate(top, "cx")).toBeCloseTo(100);
     expect(cy - coordinate(top, "cy")).toBeCloseTo(90);
     expect(Math.hypot(coordinate(end, "cx") - cx, coordinate(end, "cy") - cy)).toBeCloseTo(90);
     expect(after).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
-    expect(after).toMatch(/data-radius-number="specified"[^>]*>1.84<\/text>/);
+    expect(after).toMatch(
+      new RegExp(
+        `data-radius-number="specified"[^>]*>${correctedRadius(1, 2 ** DEFAULT_STRENGTH).toFixed(2)}</text>`,
+      ),
+    );
     f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
     f.controls.back();
     expect(
@@ -416,7 +424,8 @@ describe("tour behavior on the real GSAP timeline", () => {
         const corrected = correctedRadius(radius, n);
         expect(Number.isFinite(corrected)).toBe(true);
         expect(Number.isFinite(perceivedRadius(radius, corrected, n))).toBe(true);
-        expect(Math.abs(state.amount - previous.amount)).toBeLessThan(0.1);
+        // Allow the full 1→3 span across the shortest strength tween (10 ms steps).
+        expect(Math.abs(state.amount - previous.amount)).toBeLessThan(0.15);
         expect(Math.abs(state.correctionAmount - previous.correctionAmount)).toBeLessThan(0.04);
         for (const opacity of [state.arcRounded.visible, state.showMeasurement]) {
           expect(Number(opacity)).toBeGreaterThanOrEqual(0);

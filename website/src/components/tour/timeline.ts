@@ -1,5 +1,6 @@
 import gsap from "gsap";
 
+// Change only this value to update the tour default, Reset, and numeric copy (1–3).
 export const DEFAULT_STRENGTH = 2;
 
 // Seconds on one native timeline. Each label is a settled reading stop.
