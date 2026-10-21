@@ -60,7 +60,7 @@ describe("tour behavior on the real GSAP timeline", () => {
   });
 
   it("keeps the chosen strength at its stop, interpolates correction, and restores it on Back", () => {
-    for (const amount of [1, DEFAULT_STRENGTH, 2, 2.7, 3]) {
+    for (const amount of [1, 1.5, DEFAULT_STRENGTH, 2.7, 3]) {
       const f = fixture();
       expect(f.at("radius", amount).amount).toBe(DEFAULT_STRENGTH);
       expect(f.at(STRENGTH.id, amount).amount).toBe(amount);
@@ -127,7 +127,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusSweep).toBeCloseTo(0.5);
     expect(moving).toContain('data-radius-marker="css"');
     expect(moving).toContain('data-radius-outline="css"');
-    expect(moving).toContain(">1.05</text>");
+    expect(moving).toContain(">1.07</text>");
     expect(moving).not.toContain('data-radius-label="css"');
     expect(moving).not.toContain('data-radius-label="visual"');
 
@@ -136,7 +136,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusLabels).toBeGreaterThan(0);
     expect(f.tracks.radiusLabels).toBeLessThan(1);
     const diagonal = paint("visual-radius");
-    expect(diagonal).toContain(">1.11</text>");
+    expect(diagonal).toContain(">1.19</text>");
     expect(f.tracks.radiusLabels).toBe(1);
     expect(diagonal).toContain('data-radius-label="css"');
     expect(diagonal).toContain('data-radius-label="visual"');
@@ -291,7 +291,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(cy - coordinate(top, "cy")).toBeCloseTo(90);
     expect(Math.hypot(coordinate(end, "cx") - cx, coordinate(end, "cy") - cy)).toBeCloseTo(90);
     expect(after).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
-    expect(after).toMatch(/data-radius-number="specified"[^>]*>1.35<\/text>/);
+    expect(after).toMatch(/data-radius-number="specified"[^>]*>1.84<\/text>/);
     f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
     f.controls.back();
     expect(

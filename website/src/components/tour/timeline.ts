@@ -1,6 +1,6 @@
 import gsap from "gsap";
 
-export const DEFAULT_STRENGTH = 1.5;
+export const DEFAULT_STRENGTH = 2;
 
 // Seconds on one native timeline. Each label is a settled reading stop.
 export const CHECKPOINTS = [
