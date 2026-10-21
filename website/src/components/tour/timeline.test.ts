@@ -645,6 +645,12 @@ describe("tour behavior on the real GSAP timeline", () => {
         `data-radius-number="specified"[^>]*>${correctedRadius(1, 2 ** DEFAULT_STRENGTH).toFixed(2)}</text>`,
       ),
     );
+    for (const attribute of ['data-radius-number="specified"', 'data-radius-label="specified"']) {
+      const text = tag(after, attribute);
+      expect(coordinate(text, "x")).toBe(10);
+      expect(text).toContain('text-anchor="start"');
+      expect(text).toContain("translateX(max(0%, 0px))");
+    }
     f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
     f.controls.back();
     expect(renderToStaticMarkup(createElement(ExplorerGraphic, graphicFromTracks(f.tracks)))).toBe(

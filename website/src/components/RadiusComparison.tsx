@@ -18,6 +18,7 @@ export default function RadiusComparison({
   labelOpacity,
   apparentProgress,
   apparentCorrection,
+  cssCorrection,
   corner,
 }: {
   radius: number;
@@ -28,6 +29,7 @@ export default function RadiusComparison({
   labelOpacity: number;
   apparentProgress: number;
   apparentCorrection: number;
+  cssCorrection: number;
   corner: Point;
 }) {
   const sharedDotGradient = useId();
@@ -55,11 +57,12 @@ export default function RadiusComparison({
   const blueNumberY = blue.y + 15 * (1 - apparentProgress) - 9 * apparentProgress;
   const redLabelX = red.x + 6;
   const blueLabelX = blueNumberX;
-  // Center each line until its own left edge reaches the SVG boundary. CSS
-  // resolves the text width, so this clamps smoothly without measuring the DOM.
+  // Transition both lines from centered over the dot to the same left-aligned anchor.
+  // CSS resolves their widths and keeps either line from crossing the shape's left edge.
+  const specifiedTextX = center.x + (labelMinX - center.x) * cssCorrection;
   const specifiedTextStyle = {
     transformBox: "fill-box" as const,
-    transform: `translateX(max(-50%, ${labelMinX - center.x}px))`,
+    transform: `translateX(max(${-50 * (1 - cssCorrection)}%, ${labelMinX - specifiedTextX}px))`,
   };
   const specified = { x: center.x, y: corner.y };
   const blueTop = { x: blueCenter.x, y: corner.y };
@@ -140,7 +143,7 @@ export default function RadiusComparison({
       <g data-radius-marker="specified" fill={MAGENTA}>
         <text
           data-radius-number="specified"
-          x={center.x}
+          x={specifiedTextX}
           y={corner.y - 9}
           textAnchor="start"
           style={specifiedTextStyle}
@@ -150,7 +153,7 @@ export default function RadiusComparison({
         </text>
         <text
           data-radius-label="specified"
-          x={center.x}
+          x={specifiedTextX}
           y={corner.y - 9 - TEXT_LINE_HEIGHT}
           textAnchor="start"
           style={specifiedTextStyle}

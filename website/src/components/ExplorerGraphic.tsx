@@ -449,6 +449,7 @@ export default function ExplorerGraphic({
             labelOpacity={radiusLabels}
             apparentProgress={apparentRadius}
             apparentCorrection={apparentCorrection}
+            cssCorrection={correctionAmount}
             corner={{ x: cornerX, y: cornerY }}
           />
         </g>
