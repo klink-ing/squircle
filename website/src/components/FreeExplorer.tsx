@@ -109,7 +109,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
             checked={correctionAmount > 0}
             onChange={(e) => onGraphicStateChange({ correctionAmount: e.target.checked ? 1 : 0 })}
           />
-          <span style={{ color: "var(--color-adjusted-border)" }}>Corrected</span>
+          <span style={{ color: "var(--color-squircle-border)" }}>Corrected</span>
         </label>
       </div>
 
@@ -149,7 +149,7 @@ export default function FreeExplorer({ graphicState, onGraphicStateChange }: Fre
               <td className="py-1">{formatDiff(superDiff)}</td>
             </tr>
             <tr>
-              <td className="py-1 pr-4" style={{ color: "var(--color-adjusted-border)" }}>
+              <td className="py-1 pr-4" style={{ color: "var(--color-squircle-border)" }}>
                 Corrected
               </td>
               <td className="py-1 pr-4">{corrR.toFixed(1)}px</td>

@@ -8,7 +8,7 @@ export function graphicFromTracks(
 ): GraphicState {
   return {
     arcRounded: {
-      visible: tracks.roundedOpacity - tracks.radiusComparison,
+      visible: tracks.roundedOpacity,
       showFill: 1,
       showOutline: 0,
     },

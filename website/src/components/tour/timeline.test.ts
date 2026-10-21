@@ -342,6 +342,37 @@ describe("tour behavior on the real GSAP timeline", () => {
     }
   });
 
+  it("keeps the tour comparison usable with Explore's independent curve and correction toggles", () => {
+    const f = fixture();
+    const explore = { ...f.at("utilities"), apparentCorrection: undefined };
+    const paint = (state = explore) => renderToStaticMarkup(createElement(ExplorerGraphic, state));
+    expect(paint()).toBe(renderToStaticMarkup(createElement(ExplorerGraphic, f.at("utilities"))));
+    expect(paint()).toContain('data-radius-dot-layer="blue-half"');
+    for (const amount of [-3, 0, 1, 2, 3]) {
+      const uncorrected = paint({ ...explore, amount, correctionAmount: 0 });
+      expect(uncorrected).toMatch(
+        new RegExp(
+          `data-radius-number="blue"[^>]*>${(1 / correctedRadius(1, 2 ** amount)).toFixed(2)}</text>`,
+        ),
+      );
+      const corrected = paint({ ...explore, amount, correctionAmount: 1 });
+      expect(corrected).toMatch(/data-radius-number="blue"[^>]*>1.00<\/text>/);
+      expect(corrected).not.toContain("NaN");
+      expect(corrected).not.toContain("Infinity");
+    }
+    const noCircle = paint({ ...explore, arcRounded: { ...explore.arcRounded, visible: false } });
+    expect(noCircle).toContain(
+      'data-radius-marker="css" fill="var(--color-rounded-border)" opacity="0"',
+    );
+    const noSuper = paint({
+      ...explore,
+      arcSuperellipse: { ...explore.arcSuperellipse, visible: false },
+    });
+    expect(noSuper).toContain(
+      'data-radius-marker="specified" fill="var(--color-squircle-border)" opacity="0"',
+    );
+  });
+
   it("keeps the chosen strength at its stop, interpolates correction, and restores it on Back", () => {
     for (const amount of [1, 1.5, DEFAULT_STRENGTH, 2.7, 3]) {
       const f = fixture();
@@ -374,6 +405,7 @@ describe("tour behavior on the real GSAP timeline", () => {
 
     for (const time of [0, 0.2, 0.4, 0.6, 0.8].map((offset) => CHECKPOINTS[2]!.start + offset)) {
       const markup = paint(time);
+      expect(markup).toContain('data-reference-circle="" opacity="0"');
       expect(markup.match(/viewBox="[^"]+"/)![0]).toBe(before.match(/viewBox="[^"]+"/)![0]);
       expect(shape(markup)).toHaveLength(1);
       expect(unchanged(shape(markup)[0]!)).toBe(unchanged(original));
@@ -391,7 +423,7 @@ describe("tour behavior on the real GSAP timeline", () => {
       renderToStaticMarkup(createElement(ExplorerGraphic, f.at(position)));
     const vertical = paint("radius");
     expect(f.tracks.radiusSweep).toBe(0);
-    expect(f.at("radius").arcRounded.visible).toBe(0);
+    expect(f.at("radius").arcRounded.visible).toBe(1); // The blue arc waits for the sweep.
     expect(vertical).toContain('data-radius-outline="visual"');
     expect(vertical).not.toContain('data-radius-outline="css"');
     expect(vertical).toContain('data-radius-marker="specified"');

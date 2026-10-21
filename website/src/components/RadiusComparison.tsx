@@ -19,6 +19,8 @@ export default function RadiusComparison({
   apparentProgress,
   apparentCorrection,
   cssCorrection,
+  blueOpacity,
+  magentaOpacity,
   corner,
 }: {
   radius: number;
@@ -30,6 +32,8 @@ export default function RadiusComparison({
   apparentProgress: number;
   apparentCorrection: number;
   cssCorrection: number;
+  blueOpacity: number;
+  magentaOpacity: number;
   corner: Point;
 }) {
   const blueLeftClip = useId();
@@ -106,11 +110,11 @@ export default function RadiusComparison({
           stroke="#e4e4e7"
           strokeWidth={LINE_DOT_DIAMETER}
           strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
-          opacity={0.25}
+          opacity={0.25 * magentaOpacity}
         />
       )}
       {apparentProgress > 0 && (
-        <g data-apparent-construction="" opacity={apparentProgress}>
+        <g data-apparent-construction="" opacity={apparentProgress * blueOpacity}>
           <g
             stroke={BLUE}
             strokeWidth={LINE_DOT_DIAMETER}
@@ -143,10 +147,10 @@ export default function RadiusComparison({
         // Round caps make circular dots one-third of the endpoint diameter.
         strokeWidth={LINE_DOT_DIAMETER}
         strokeDasharray={`0 ${MARKER_RADIUS * 2.5}`}
-        opacity={1 - 0.75 * apparentProgress}
+        opacity={(1 - 0.75 * apparentProgress) * magentaOpacity}
       />
 
-      <g data-radius-marker="specified" fill={MAGENTA}>
+      <g data-radius-marker="specified" fill={MAGENTA} opacity={magentaOpacity}>
         <text
           data-radius-number="specified"
           x={specifiedTextX}
@@ -171,7 +175,7 @@ export default function RadiusComparison({
 
       {/* Blue is not mounted until the sweep actually starts. */}
       {sweep > 0 && (
-        <g data-radius-marker="css" fill={BLUE}>
+        <g data-radius-marker="css" fill={BLUE} opacity={blueOpacity}>
           <path
             data-radius-outline="css"
             d={`M ${blueCenter.x} ${corner.y} A ${blueRadius} ${blueRadius} 0 0 1 ${blue.x} ${blue.y}`}
@@ -222,7 +226,7 @@ export default function RadiusComparison({
       )}
 
       {sweep > 0 && (
-        <g data-radius-marker="visual" fill={MAGENTA}>
+        <g data-radius-marker="visual" fill={MAGENTA} opacity={magentaOpacity}>
           <text
             data-radius-number="magenta"
             x={redNumberX}
@@ -260,11 +264,11 @@ export default function RadiusComparison({
               cx={point.x}
               cy={point.y}
               r={MARKER_RADIUS}
-              opacity={opacity}
+              opacity={opacity * blueOpacity}
             />
           ))}
         </g>
-        <g data-radius-dot-layer="magenta" fill={MAGENTA}>
+        <g data-radius-dot-layer="magenta" fill={MAGENTA} opacity={magentaOpacity}>
           {apparentProgress > 0 && (
             <circle
               data-radius-center="css"
@@ -286,7 +290,7 @@ export default function RadiusComparison({
               cx={point.x}
               cy={point.y}
               r={MARKER_RADIUS}
-              opacity={opacity}
+              opacity={opacity * blueOpacity}
               clipPath={`url(#${blueLeftClip})`}
             />
           ))}
@@ -297,6 +301,7 @@ export default function RadiusComparison({
           cy={specified.y}
           r={MARKER_RADIUS}
           fill={MAGENTA}
+          opacity={magentaOpacity}
         />
       </g>
     </g>

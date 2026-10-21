@@ -320,7 +320,11 @@ export default function ExplorerGraphic({
         );
 
         const circleGroup = (
-          <g key="circle" opacity={Number(arcRounded.visible)}>
+          <g
+            key="circle"
+            data-reference-circle=""
+            opacity={Math.max(0, Number(arcRounded.visible) - radiusComparison)}
+          >
             {/* Fill — crossfades in/out */}
             <path
               d={circleFillPath}
@@ -450,6 +454,8 @@ export default function ExplorerGraphic({
             apparentProgress={apparentRadius}
             apparentCorrection={apparentCorrection}
             cssCorrection={correctionAmount}
+            blueOpacity={Number(arcRounded.visible)}
+            magentaOpacity={Number(arcSuperellipse.visible)}
             corner={{ x: cornerX, y: cornerY }}
           />
         </g>

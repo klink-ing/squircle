@@ -103,8 +103,11 @@ export default function GuidedExplorer() {
     controls.current?.next(() => {
       const current = tour.current;
       if (current) {
-        // Explore has its own curve toggles and measurements rather than tour annotations.
-        setExplore(graphicFromTracks({ ...current.tracks, radiusComparison: 0 }, chosen.current));
+        // Keep the tour drawing; the correction toggle now drives both radii together.
+        setExplore({
+          ...graphicFromTracks(current.tracks, chosen.current),
+          apparentCorrection: undefined,
+        });
       }
     });
   });
