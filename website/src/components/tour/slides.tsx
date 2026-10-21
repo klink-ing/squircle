@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import StrengthControl from "./StrengthControl";
 import { DEFAULT_STRENGTH, type GraphicTracks } from "./state";
 
+export const TEXT_ENTER_DISTANCE = 64;
+export const TEXT_EXIT_DISTANCE = 48;
+
 export interface SlideContentProps {
   amount: number;
   enabled: boolean;
@@ -36,7 +39,7 @@ function enterText(
   timeline.addLabel("text:enter", at);
   timeline.fromTo(
     text,
-    { opacity: 0, x: 12 },
+    { opacity: 0, x: TEXT_ENTER_DISTANCE },
     { opacity: 1, x: 0, duration, ease: "power3.out", immediateRender: false },
     "text:enter",
   );
@@ -50,7 +53,7 @@ function exitText(
   timeline.fromTo(
     text,
     { opacity: 1, x: 0 },
-    { opacity: 0, x: -6, duration, ease: "power1.in", immediateRender: false },
+    { opacity: 0, x: -TEXT_EXIT_DISTANCE, duration, ease: "power1.in", immediateRender: false },
     at,
   );
 }

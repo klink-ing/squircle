@@ -7,7 +7,7 @@ import TourNarrative from "./TourNarrative";
 import { graphicFromTracks } from "./graphic-state";
 import { checkpointAtTime, createTourTimeline, narrativeAtTime } from "./timeline";
 import { DEFAULT_STRENGTH } from "./state";
-import { SLIDES, type TourSlide } from "./slides";
+import { SLIDES, TEXT_ENTER_DISTANCE, type TourSlide } from "./slides";
 import { createPlayback, STRENGTH_RETURN_SPEED, type PlaybackState } from "./playback";
 import { correctedRadius, perceivedRadius } from "../../math";
 
@@ -167,7 +167,7 @@ describe("strength return before Next", () => {
 
 describe("tour behavior on the real GSAP timeline", () => {
   it("keeps outgoing copy visible for its exit, then reveals the eased incoming copy", () => {
-    const texts = SLIDES.map(() => ({ opacity: 0, x: 12 }));
+    const texts = SLIDES.map(() => ({ opacity: 0, x: TEXT_ENTER_DISTANCE }));
     const panels = texts.map(
       (text) => ({ querySelectorAll: () => [text] }) as unknown as HTMLElement,
     );
@@ -196,7 +196,7 @@ describe("tour behavior on the real GSAP timeline", () => {
   });
 
   it("restores text entrances and exits when scrubbing in either direction", () => {
-    const texts = SLIDES.map(() => ({ opacity: 0, x: 12 }));
+    const texts = SLIDES.map(() => ({ opacity: 0, x: TEXT_ENTER_DISTANCE }));
     const panels = texts.map(
       (text) => ({ querySelectorAll: () => [text] }) as unknown as HTMLElement,
     );

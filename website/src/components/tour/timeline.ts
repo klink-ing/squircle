@@ -1,5 +1,5 @@
 import gsap from "gsap";
-import { SLIDES, type TourSlide } from "./slides";
+import { SLIDES, TEXT_ENTER_DISTANCE, type TourSlide } from "./slides";
 import { initialTracks } from "./state";
 
 export interface Checkpoint {
@@ -41,7 +41,7 @@ export function createTourTimeline(
   const texts = slides.map((_, index) =>
     panels[index]
       ? Array.from(panels[index]!.querySelectorAll("h2, .tour-copy p"))
-      : { opacity: 0, x: 12 },
+      : { opacity: 0, x: TEXT_ENTER_DISTANCE },
   );
   const transitions = slides.map((slide, index) => {
     const transition = gsap.timeline();

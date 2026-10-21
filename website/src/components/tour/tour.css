@@ -24,6 +24,8 @@
 }
 .tour-content {
   min-width: 0;
+  overflow-x: clip;
+  overflow-clip-margin: 0.5rem;
 }
 .tour-content h2 {
   font-size: clamp(1.8rem, 4vw, 2.75rem);
