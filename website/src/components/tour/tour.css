@@ -23,9 +23,23 @@
   display: block;
 }
 .tour-content {
+  position: relative;
   min-width: 0;
   overflow-x: clip;
   overflow-clip-margin: 0.5rem;
+}
+/* Match Tailwind's base layer so its important [hidden] rule can be overridden. */
+@layer base {
+  /* Hidden slides stay measurable for line splitting, outside normal flow and accessibility. */
+  .tour-content [data-tour-panel][hidden] {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    visibility: hidden;
+    pointer-events: none;
+  }
 }
 .tour-content h2 {
   font-size: clamp(1.8rem, 4vw, 2.75rem);

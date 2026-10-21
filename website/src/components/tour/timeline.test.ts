@@ -8,6 +8,7 @@ import TourNarrative from "./TourNarrative";
 import { graphicFromTracks } from "./graphic-state";
 import { checkpointAtTime, createTourTimeline, narrativeAtTime } from "./timeline";
 import { DEFAULT_STRENGTH } from "./state";
+import { HEADLINE_LINE_STAGGER, PARAGRAPH_DELAY, PARAGRAPH_STAGGER, type TextProxy } from "./text";
 import { SLIDES, TEXT_ENTER_DISTANCE, type TourSlide } from "./slides";
 import { createPlayback, STRENGTH_RETURN_SPEED, type PlaybackState } from "./playback";
 import { correctedRadius, perceivedRadius } from "../../math";
@@ -169,15 +170,11 @@ describe("strength return before Next", () => {
 
 describe("tour behavior on the real GSAP timeline", () => {
   it("keeps outgoing copy visible for its exit, then reveals the eased incoming copy", () => {
-    const texts = SLIDES.map(() => ({ opacity: 0, x: TEXT_ENTER_DISTANCE }));
-    const panels = texts.map(
-      (text) => ({ querySelectorAll: () => [text] }) as unknown as HTMLElement,
-    );
-    const tour = createTourTimeline(() => {}, panels);
+    const tour = createTourTimeline(() => {});
     for (let index = 1; index < tour.checkpoints.length; index++) {
       const cue = tour.checkpoints[index]!;
-      const oldText = texts[index - 1]!;
-      const newText = texts[index]!;
+      const oldText = tour.texts[index - 1]!.heading as TextProxy;
+      const newText = tour.texts[index]!.lines[0]! as TextProxy;
       tour.timeline.seek((cue.start + cue.textStart) / 2);
       expect(narrativeAtTime(tour.timeline.time(), tour.checkpoints)).toBe(index - 1);
       expect(oldText.opacity).toBeGreaterThan(0);
@@ -198,11 +195,7 @@ describe("tour behavior on the real GSAP timeline", () => {
   });
 
   it("restores text entrances and exits when scrubbing in either direction", () => {
-    const texts = SLIDES.map(() => ({ opacity: 0, x: TEXT_ENTER_DISTANCE }));
-    const panels = texts.map(
-      (text) => ({ querySelectorAll: () => [text] }) as unknown as HTMLElement,
-    );
-    const tour = createTourTimeline(() => {}, panels);
+    const tour = createTourTimeline(() => {});
     const times = tour.checkpoints.flatMap((cue) => [
       cue.start,
       (cue.start + cue.textStart) / 2,
@@ -213,7 +206,9 @@ describe("tour behavior on the real GSAP timeline", () => {
     const read = (time: number) => {
       tour.timeline.seek(time);
       const active = narrativeAtTime(time, tour.checkpoints);
-      return { active, opacity: texts[active]!.opacity, x: texts[active]!.x };
+      const heading = tour.texts[active]!.heading as TextProxy;
+      const line = tour.texts[active]!.lines[0]! as TextProxy;
+      return { active, opacity: heading.opacity * line.opacity, x: heading.x + line.x };
     };
     const expected = times.map(read);
     [...times].reverse().forEach((time, index) => {
@@ -223,6 +218,36 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(actual.opacity).toBeCloseTo(frame.opacity!, 5);
       expect(actual.x).toBeCloseTo(frame.x!, 5);
     });
+  });
+
+  it("staggers headline lines, pauses, then enters paragraphs and the slider in order", () => {
+    const f = fixture();
+    const heading = f.texts[1]!;
+    const lines = heading.lines as TextProxy[];
+    const cue = CHECKPOINTS[1]!;
+    expect(lines).toHaveLength(2);
+    f.timeline.seek(cue.textStart + HEADLINE_LINE_STAGGER / 2);
+    expect(lines[0]!.opacity).toBeGreaterThan(0);
+    expect(lines[1]!.opacity).toBe(0);
+    const bodyStart = cue.start + f.transitions[1]!.labels["text:body"]!;
+    f.timeline.seek(bodyStart - PARAGRAPH_DELAY / 2);
+    expect(lines.every((line) => line.opacity === 1)).toBe(true);
+    expect((heading.paragraphs[0] as TextProxy).opacity).toBe(0);
+
+    const body = f.texts[3]!.paragraphs as TextProxy[];
+    expect(body).toHaveLength(3); // paragraph, complete slider, paragraph
+    const sliderBodyStart = STRENGTH.start + f.transitions[3]!.labels["text:body"]!;
+    f.timeline.seek(sliderBodyStart + PARAGRAPH_STAGGER / 2);
+    expect(body[0]!.opacity).toBeGreaterThan(0);
+    expect(body[1]!.opacity).toBe(0);
+    expect(body[2]!.opacity).toBe(0);
+    f.timeline.seek(sliderBodyStart + PARAGRAPH_STAGGER * 1.5);
+    expect(body[1]!.opacity).toBeGreaterThan(0);
+    expect(body[2]!.opacity).toBe(0);
+    f.timeline.seek(STRENGTH.time);
+    expect(body.every((beat) => beat.opacity === 1 && beat.x === 0)).toBe(true);
+    f.timeline.seek(sliderBodyStart - 0.01);
+    expect(body.every((beat) => beat.opacity === 0 && beat.x === TEXT_ENTER_DISTANCE)).toBe(true);
   });
 
   it("nests each slide's text and graphic animation on a local timeline starting at zero", () => {
@@ -249,8 +274,14 @@ describe("tour behavior on the real GSAP timeline", () => {
         ...original,
         transition(timeline, targets) {
           original.transition(timeline, targets);
-          if (target === "text") timeline.to(targets.text, { opacity: 1, duration: 2 }, 0);
-          else timeline.to(targets.tracks, { baseAmount: DEFAULT_STRENGTH, duration: 2 }, 0);
+          if (target === "text")
+            timeline.to(targets.text.lines, { opacity: 1, duration: 1 }, timeline.duration());
+          else
+            timeline.to(
+              targets.tracks,
+              { baseAmount: DEFAULT_STRENGTH, duration: 1 },
+              timeline.duration(),
+            );
         },
       };
       const tour = createTourTimeline(() => {}, [], [SLIDES[0]!, edited, ...SLIDES.slice(2)]);

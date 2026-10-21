@@ -1,5 +1,6 @@
 import gsap from "gsap";
-import { SLIDES, TEXT_ENTER_DISTANCE, type TourSlide } from "./slides";
+import { SLIDES, type TourSlide } from "./slides";
+import { createTextTargets } from "./text";
 import { initialTracks } from "./state";
 
 export interface Checkpoint {
@@ -37,19 +38,18 @@ export function createTourTimeline(
   const tracks = initialTracks();
   const timeline = gsap.timeline({ paused: true, onUpdate });
   const checkpoints: Checkpoint[] = [];
-  // Controllers never participate in the text entrance or exit.
-  const texts = slides.map((_, index) =>
-    panels[index]
-      ? Array.from(panels[index]!.querySelectorAll("h2, .tour-copy p"))
-      : { opacity: 0, x: TEXT_ENTER_DISTANCE },
-  );
+  const texts = slides.map((slide, index) => createTextTargets(slide, panels[index]));
   const transitions = slides.map((slide, index) => {
     const transition = gsap.timeline();
     // The proxy gives headless timelines the same text duration as mounted timelines.
     slide.transition(transition, {
       tracks,
       text: texts[index]!,
-      previousText: texts[index - 1] ?? [],
+      previousText: texts[index - 1] ?? {
+        heading: { opacity: 1, x: 0 },
+        lines: [],
+        paragraphs: [],
+      },
     });
     transition.to({}, { duration: slide.hold });
     const start = index === 0 ? 0 : Number((timeline.duration() + SLIDE_GAP).toFixed(7));
@@ -61,5 +61,5 @@ export function createTourTimeline(
     checkpoints.push({ id: slide.id, start, duration: transition.duration(), textStart, time });
     return transition;
   });
-  return { timeline, tracks, checkpoints, transitions };
+  return { timeline, tracks, checkpoints, transitions, texts };
 }

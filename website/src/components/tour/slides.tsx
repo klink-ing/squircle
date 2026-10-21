@@ -4,8 +4,8 @@ import StrengthControl from "./StrengthControl";
 import { DEFAULT_STRENGTH, type GraphicTracks } from "./state";
 import { correctedRadius } from "../../math";
 
-export const TEXT_ENTER_DISTANCE = 64;
-export const TEXT_EXIT_DISTANCE = 48;
+import { enterText, exitText, type TextTargets } from "./text";
+export { TEXT_ENTER_DISTANCE, TEXT_EXIT_DISTANCE } from "./text";
 
 export interface SlideContentProps {
   amount: number;
@@ -23,40 +23,12 @@ export interface TourSlide {
   hold: number;
   transition: (
     timeline: gsap.core.Timeline,
-    targets: { tracks: GraphicTracks; text: gsap.TweenTarget; previousText: gsap.TweenTarget },
+    targets: { tracks: GraphicTracks; text: TextTargets; previousText: TextTargets },
   ) => void;
 }
 
 function Code({ children }: { children: ReactNode }) {
   return <code>{children}</code>;
-}
-
-// A DOM entrance on the slide's own timeline. Timing is supplied in each slide below.
-function enterText(
-  timeline: gsap.core.Timeline,
-  text: gsap.TweenTarget,
-  { at, duration }: { at: gsap.Position; duration: number },
-) {
-  timeline.addLabel("text:enter", at);
-  timeline.fromTo(
-    text,
-    { opacity: 0, x: TEXT_ENTER_DISTANCE },
-    { opacity: 1, x: 0, duration, ease: "power3.out", immediateRender: false },
-    "text:enter",
-  );
-}
-
-function exitText(
-  timeline: gsap.core.Timeline,
-  text: gsap.TweenTarget,
-  { at, duration }: { at: gsap.Position; duration: number },
-) {
-  timeline.fromTo(
-    text,
-    { opacity: 1, x: 0 },
-    { opacity: 0, x: -TEXT_EXIT_DISTANCE, duration, ease: "power1.in", immediateRender: false },
-    at,
-  );
 }
 
 // Each block owns one slide, including the transition INTO it. Every timeline starts at 0.
