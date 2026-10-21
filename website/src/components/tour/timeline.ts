@@ -6,6 +6,7 @@ export interface Checkpoint {
   id: string;
   start: number;
   duration: number;
+  textStart: number;
   time: number;
 }
 
@@ -13,6 +14,13 @@ export function checkpointAtTime(time: number, checkpoints: readonly Checkpoint[
   return Math.max(
     0,
     checkpoints.findLastIndex((cue) => time >= cue.start),
+  );
+}
+
+export function narrativeAtTime(time: number, checkpoints: readonly Checkpoint[]) {
+  return Math.max(
+    0,
+    checkpoints.findLastIndex((cue) => time >= cue.textStart),
   );
 }
 
@@ -29,15 +37,19 @@ export function createTourTimeline(
   const tracks = initialTracks();
   const timeline = gsap.timeline({ paused: true, onUpdate });
   const checkpoints: Checkpoint[] = [];
+  // Controllers never participate in the text entrance or exit.
+  const texts = slides.map((_, index) =>
+    panels[index]
+      ? Array.from(panels[index]!.querySelectorAll("h2, .tour-copy p"))
+      : { opacity: 0, x: 12 },
+  );
   const transitions = slides.map((slide, index) => {
     const transition = gsap.timeline();
     // The proxy gives headless timelines the same text duration as mounted timelines.
     slide.transition(transition, {
       tracks,
-      // Animate copy only. The interleaved controller takes its new layout position immediately.
-      text: panels[index]
-        ? Array.from(panels[index]!.querySelectorAll("h2, .tour-copy p"))
-        : { opacity: 0, x: 16 },
+      text: texts[index]!,
+      previousText: texts[index - 1] ?? [],
     });
     transition.to({}, { duration: slide.hold });
     const start = index === 0 ? 0 : Number((timeline.duration() + SLIDE_GAP).toFixed(7));
@@ -45,7 +57,8 @@ export function createTourTimeline(
     const time = timeline.duration();
     timeline.addLabel(`${slide.id}:enter`, start);
     timeline.addLabel(slide.id, time);
-    checkpoints.push({ id: slide.id, start, duration: transition.duration(), time });
+    const textStart = Number((start + (transition.labels["text:enter"] ?? 0)).toFixed(7));
+    checkpoints.push({ id: slide.id, start, duration: transition.duration(), textStart, time });
     return transition;
   });
   return { timeline, tracks, checkpoints, transitions };

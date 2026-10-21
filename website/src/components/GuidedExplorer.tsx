@@ -5,7 +5,12 @@ import ExplorerGraphic, { type GraphicState } from "./ExplorerGraphic";
 import FreeExplorer from "./FreeExplorer";
 import TourNarrative from "./tour/TourNarrative";
 import { graphicFromTracks } from "./tour/graphic-state";
-import { checkpointAtTime, createTourTimeline, type Checkpoint } from "./tour/timeline";
+import {
+  checkpointAtTime,
+  createTourTimeline,
+  narrativeAtTime,
+  type Checkpoint,
+} from "./tour/timeline";
 import { DEFAULT_STRENGTH, initialTracks } from "./tour/state";
 import { SLIDES } from "./tour/slides";
 import { createPlayback, type PlaybackState } from "./tour/playback";
@@ -27,6 +32,7 @@ export default function GuidedExplorer() {
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const active = checkpointAtTime(view.time, checkpoints);
+  const narrativeActive = narrativeAtTime(view.time, checkpoints);
   const cue = SLIDES[active]!;
   const stop = checkpoints[active];
   const transitionDuration = stop?.duration ?? 0;
@@ -132,7 +138,7 @@ export default function GuidedExplorer() {
           </div>
           <div className="tour-content">
             <TourNarrative
-              active={active}
+              active={narrativeActive}
               amount={amount}
               strengthActive={strengthActive}
               onAmountChange={changeAmount}

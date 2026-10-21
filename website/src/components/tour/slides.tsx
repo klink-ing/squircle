@@ -19,7 +19,7 @@ export interface TourSlide {
   hold: number;
   transition: (
     timeline: gsap.core.Timeline,
-    targets: { tracks: GraphicTracks; text: gsap.TweenTarget },
+    targets: { tracks: GraphicTracks; text: gsap.TweenTarget; previousText: gsap.TweenTarget },
   ) => void;
 }
 
@@ -31,12 +31,26 @@ function Code({ children }: { children: ReactNode }) {
 function enterText(
   timeline: gsap.core.Timeline,
   text: gsap.TweenTarget,
-  { at, duration }: { at: number; duration: number },
+  { at, duration }: { at: gsap.Position; duration: number },
+) {
+  timeline.addLabel("text:enter", at);
+  timeline.fromTo(
+    text,
+    { opacity: 0, x: 12 },
+    { opacity: 1, x: 0, duration, ease: "power3.out", immediateRender: false },
+    "text:enter",
+  );
+}
+
+function exitText(
+  timeline: gsap.core.Timeline,
+  text: gsap.TweenTarget,
+  { at, duration }: { at: gsap.Position; duration: number },
 ) {
   timeline.fromTo(
     text,
-    { opacity: 0, x: 16 },
-    { opacity: 1, x: 0, duration, ease: "power2.out", immediateRender: false },
+    { opacity: 1, x: 0 },
+    { opacity: 0, x: -6, duration, ease: "power1.in", immediateRender: false },
     at,
   );
 }
@@ -56,7 +70,7 @@ export const SLIDES: readonly TourSlide[] = [
     nextLabel: "Apply it",
     hold: 0.4,
     transition(timeline, { text }) {
-      enterText(timeline, text, { at: 0, duration: 0.4 });
+      enterText(timeline, text, { at: 0, duration: 0.7 });
     },
   },
   {
@@ -76,8 +90,9 @@ export const SLIDES: readonly TourSlide[] = [
     ),
     nextLabel: "It is, but...",
     hold: 0.18,
-    transition(timeline, { tracks, text }) {
-      enterText(timeline, text, { at: 0, duration: 0.4 });
+    transition(timeline, { tracks, text, previousText }) {
+      exitText(timeline, previousText, { at: 0, duration: 0.18 });
+      enterText(timeline, text, { at: ">", duration: 0.7 });
       timeline.to(tracks, { baseAmount: DEFAULT_STRENGTH, duration: 1, ease: "power2.inOut" }, 0);
     },
   },
@@ -98,8 +113,9 @@ export const SLIDES: readonly TourSlide[] = [
     ),
     nextLabel: "Next",
     hold: 0.38,
-    transition(timeline, { tracks, text }) {
-      enterText(timeline, text, { at: 0, duration: 0.4 });
+    transition(timeline, { tracks, text, previousText }) {
+      exitText(timeline, previousText, { at: 0, duration: 0.18 });
+      enterText(timeline, text, { at: ">", duration: 0.7 });
       timeline.to(
         tracks,
         { roundedOpacity: 1, radiusComparison: 1, duration: 0.8, ease: "power2.inOut" },
@@ -131,8 +147,9 @@ export const SLIDES: readonly TourSlide[] = [
     nextLabel: "Next",
     strength: true,
     hold: 0.23,
-    transition(timeline, { tracks, text }) {
-      enterText(timeline, text, { at: 0, duration: 0.4 });
+    transition(timeline, { tracks, text, previousText }) {
+      exitText(timeline, previousText, { at: 0, duration: 0.18 });
+      enterText(timeline, text, { at: ">", duration: 0.7 });
       timeline.to(tracks, { radiusSweep: 1, duration: 1, ease: "power2.inOut" }, 0);
       timeline.addLabel("labels", ">");
       timeline.to(tracks, { radiusLabels: 1, duration: 0.45, ease: "none" }, "labels");
@@ -156,8 +173,9 @@ export const SLIDES: readonly TourSlide[] = [
     nextLabel: "Show the correction",
     strength: true,
     hold: 0.18,
-    transition(timeline, { tracks, text }) {
-      enterText(timeline, text, { at: 0, duration: 0.4 });
+    transition(timeline, { tracks, text, previousText }) {
+      exitText(timeline, previousText, { at: 0, duration: 0.18 });
+      enterText(timeline, text, { at: ">", duration: 0.7 });
       timeline.to(tracks, { apparentRadius: 1, duration: 1, ease: "power2.inOut" }, 0);
     },
   },
@@ -181,8 +199,9 @@ export const SLIDES: readonly TourSlide[] = [
     nextLabel: "Next",
     strength: true,
     hold: 0.18,
-    transition(timeline, { tracks, text }) {
-      enterText(timeline, text, { at: 0, duration: 0.4 });
+    transition(timeline, { tracks, text, previousText }) {
+      exitText(timeline, previousText, { at: 0, duration: 0.18 });
+      enterText(timeline, text, { at: ">", duration: 0.7 });
       timeline.to(tracks, { correction: 1, duration: 1, ease: "power2.inOut" }, 0);
     },
   },
@@ -197,8 +216,9 @@ export const SLIDES: readonly TourSlide[] = [
     ),
     nextLabel: "How do I use it?",
     hold: 0.18,
-    transition(timeline, { tracks, text }) {
-      enterText(timeline, text, { at: 0, duration: 0.4 });
+    transition(timeline, { tracks, text, previousText }) {
+      exitText(timeline, previousText, { at: 0, duration: 0.18 });
+      enterText(timeline, text, { at: ">", duration: 0.7 });
       timeline.to(tracks, { radiusComparison: 0, duration: 0.3 }, 0);
       timeline.to(tracks, { choiceWeight: 0, duration: 0.8, ease: "power2.inOut" }, 0);
     },
@@ -215,8 +235,9 @@ export const SLIDES: readonly TourSlide[] = [
     ),
     nextLabel: "Explore",
     hold: 0.58,
-    transition(timeline, { text }) {
-      enterText(timeline, text, { at: 0, duration: 0.4 });
+    transition(timeline, { text, previousText }) {
+      exitText(timeline, previousText, { at: 0, duration: 0.18 });
+      enterText(timeline, text, { at: ">", duration: 0.7 });
     },
   },
 ];

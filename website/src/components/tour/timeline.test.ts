@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ExplorerGraphic from "../ExplorerGraphic";
 import TourNarrative from "./TourNarrative";
 import { graphicFromTracks } from "./graphic-state";
-import { checkpointAtTime, createTourTimeline } from "./timeline";
+import { checkpointAtTime, createTourTimeline, narrativeAtTime } from "./timeline";
 import { DEFAULT_STRENGTH } from "./state";
 import { SLIDES, type TourSlide } from "./slides";
 import { createPlayback, STRENGTH_RETURN_SPEED, type PlaybackState } from "./playback";
@@ -166,6 +166,63 @@ describe("strength return before Next", () => {
 });
 
 describe("tour behavior on the real GSAP timeline", () => {
+  it("keeps outgoing copy visible for its exit, then reveals the eased incoming copy", () => {
+    const texts = SLIDES.map(() => ({ opacity: 0, x: 12 }));
+    const panels = texts.map(
+      (text) => ({ querySelectorAll: () => [text] }) as unknown as HTMLElement,
+    );
+    const tour = createTourTimeline(() => {}, panels);
+    for (let index = 1; index < tour.checkpoints.length; index++) {
+      const cue = tour.checkpoints[index]!;
+      const oldText = texts[index - 1]!;
+      const newText = texts[index]!;
+      tour.timeline.seek((cue.start + cue.textStart) / 2);
+      expect(narrativeAtTime(tour.timeline.time(), tour.checkpoints)).toBe(index - 1);
+      expect(oldText.opacity).toBeGreaterThan(0);
+      expect(oldText.opacity).toBeLessThan(1);
+      tour.timeline.seek(cue.textStart + 0.1);
+      expect(narrativeAtTime(tour.timeline.time(), tour.checkpoints)).toBe(index);
+      expect(oldText.opacity).toBe(0);
+      expect(newText.opacity).toBeGreaterThan(0);
+      expect(newText.opacity).toBeLessThan(1);
+      expect(newText.x).toBeGreaterThan(0);
+      tour.timeline.seek(cue.time);
+      expect(newText.opacity).toBe(1);
+      expect(newText.x).toBe(0);
+      tour.timeline.seek(tour.checkpoints[index - 1]!.time);
+      expect(oldText.opacity).toBe(1);
+      expect(oldText.x).toBe(0);
+    }
+  });
+
+  it("restores text entrances and exits when scrubbing in either direction", () => {
+    const texts = SLIDES.map(() => ({ opacity: 0, x: 12 }));
+    const panels = texts.map(
+      (text) => ({ querySelectorAll: () => [text] }) as unknown as HTMLElement,
+    );
+    const tour = createTourTimeline(() => {}, panels);
+    const times = tour.checkpoints.flatMap((cue) => [
+      cue.start,
+      (cue.start + cue.textStart) / 2,
+      cue.textStart,
+      cue.textStart + 0.35,
+      cue.time,
+    ]);
+    const read = (time: number) => {
+      tour.timeline.seek(time);
+      const active = narrativeAtTime(time, tour.checkpoints);
+      return { active, opacity: texts[active]!.opacity, x: texts[active]!.x };
+    };
+    const expected = times.map(read);
+    [...times].reverse().forEach((time, index) => {
+      const actual = read(time);
+      const frame = expected[times.length - 1 - index]!;
+      expect(actual.active).toBe(frame.active);
+      expect(actual.opacity).toBeCloseTo(frame.opacity!, 5);
+      expect(actual.x).toBeCloseTo(frame.x!, 5);
+    });
+  });
+
   it("nests each slide's text and graphic animation on a local timeline starting at zero", () => {
     const f = fixture();
     expect(f.timeline.getChildren(false, false, true)).toEqual(f.transitions);
