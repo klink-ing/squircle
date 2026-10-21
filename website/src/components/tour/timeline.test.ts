@@ -73,6 +73,30 @@ describe("tour behavior on the real GSAP timeline", () => {
     }
   });
 
+  it("preserves the shape and viewport while fading its fill and outline from slide 2 to 3", () => {
+    const f = fixture();
+    const paint = (time: number) =>
+      renderToStaticMarkup(createElement(ExplorerGraphic, f.at(time)));
+    const shape = (markup: string) => markup.match(/<path data-radius-outline="visual"[^>]+>/g)!;
+    const unchanged = (path: string) => path.replace(/ (?:fill|stroke)-opacity="[^"]+"/g, "");
+    const before = paint(2);
+    const original = shape(before)[0]!;
+    expect(original).toContain('fill-opacity="1"');
+    expect(original).toContain('stroke-opacity="0"');
+
+    for (const time of [2.02, 2.22, 2.42, 2.62, 2.82, 3.2]) {
+      const markup = paint(time);
+      expect(markup.match(/viewBox="[^"]+"/)![0]).toBe(before.match(/viewBox="[^"]+"/)![0]);
+      expect(shape(markup)).toHaveLength(1);
+      expect(unchanged(shape(markup)[0]!)).toBe(unchanged(original));
+      expect(Number(f.at(time).arcSuperellipse.showFill)).toBeCloseTo(
+        1 - 0.8 * f.tracks.radiusComparison,
+      );
+    }
+    expect(Number(f.at("radius").arcSuperellipse.showFill)).toBeCloseTo(0.2);
+    expect(shape(paint(3.2))[0]).toContain('stroke-opacity="1"');
+  });
+
   it("starts with only magenta, then draws the blue arc with the sweep before dissolving labels", () => {
     const f = fixture();
     const paint = (position: string | number) =>

@@ -33,7 +33,7 @@ export interface GraphicState {
 
 const BOX = 180;
 const PAD = 10;
-const PAD_EXTRA = 20; // extra padding on top and right for serifs/labels
+const PAD_EXTRA = 40; // reserve room for serifs and radius labels in every scene
 const cornerX = PAD + BOX; // 190
 const cornerY = PAD; // 10
 const DASH = "4 3";
@@ -207,7 +207,7 @@ export default function ExplorerGraphic({
             : "CSS and visual radius markers sweeping from vertical to the diagonal."
           : "Comparison of rounded and superellipse corners"
       }
-      viewBox={`${PAD} ${PAD - PAD_EXTRA - (radiusComparison > 0 ? 20 : 0)} ${BOX + PAD_EXTRA + (radiusComparison > 0 ? 20 : 0)} ${BOX + PAD_EXTRA + (radiusComparison > 0 ? 20 : 0)}`}
+      viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
       className="w-full max-w-md"
     >
       <defs>
@@ -228,12 +228,16 @@ export default function ExplorerGraphic({
         const superellipseGroup = (
           <g key="super" opacity={Number(arcSuperellipse.visible)}>
             <g style={{ color: superStrokeColor }}>
-              {/* Fill — crossfades in/out */}
+              {/* One persistent shape: fade its fill and solid outline independently. */}
               <path
+                data-radius-outline="visual"
                 d={`${superPath} L ${PAD} ${PAD + BOX} Z`}
                 style={{ fill: superFillColor }}
-                stroke="none"
-                opacity={Number(arcSuperellipse.showFill)}
+                fillOpacity={Number(arcSuperellipse.showFill)}
+                stroke="currentColor"
+                strokeWidth={1.7}
+                strokeOpacity={radiusComparison}
+                strokeLinejoin="round"
               />
               {/* Stroke — crossfades in/out */}
               <g opacity={Number(arcSuperellipse.showOutline)}>
@@ -328,7 +332,6 @@ export default function ExplorerGraphic({
             sweep={radiusSweep}
             labelOpacity={radiusLabels}
             corner={{ x: cornerX, y: cornerY }}
-            superellipsePath={`${superPath} L ${PAD} ${PAD + BOX} Z`}
           />
         </g>
       )}

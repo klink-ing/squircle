@@ -13,14 +13,12 @@ export default function RadiusComparison({
   sweep,
   labelOpacity,
   corner,
-  superellipsePath,
 }: {
   radius: number;
   exponent: number;
   sweep: number;
   labelOpacity: number;
   corner: Point;
-  superellipsePath: string;
 }) {
   const center = { x: corner.x - radius, y: corner.y + radius };
   const angle = (sweep * Math.PI) / 4;
@@ -38,14 +36,6 @@ export default function RadiusComparison({
 
   return (
     <g data-radius-comparison="" fill="none" strokeLinecap="round" strokeLinejoin="round">
-      <path
-        data-radius-outline="visual"
-        d={superellipsePath}
-        stroke={MAGENTA}
-        fill={MAGENTA}
-        fillOpacity={0.2}
-        strokeWidth={1.7}
-      />
       {sweep > 0 && (
         <line
           data-radius-axis="origin"

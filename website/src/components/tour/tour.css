@@ -13,16 +13,13 @@
   align-items: center;
 }
 .tour-graphic {
-  width: min(65%, 15rem);
+  width: 100%;
+  max-width: 23rem;
   justify-self: center;
   min-width: 0;
 }
 .tour-graphic svg {
   display: block;
-}
-.tour-graphic[data-tour-radius-comparison="true"] {
-  width: 100%;
-  max-width: 23rem;
 }
 .tour-content {
   min-width: 0;
@@ -156,9 +153,5 @@
   .tour-layout {
     grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
     gap: clamp(2rem, 4vw, 3rem);
-  }
-  .tour-graphic {
-    width: 100%;
-    max-width: 23rem;
   }
 }
