@@ -328,19 +328,6 @@ export default function ExplorerGraphic({
         );
       })()}
 
-      {radiusComparison > 0 && (
-        <g opacity={radiusComparison} aria-hidden="true">
-          <RadiusComparison
-            radius={r}
-            exponent={mathN}
-            sweep={radiusSweep}
-            labelOpacity={radiusLabels}
-            apparentProgress={apparentRadius}
-            corner={{ x: cornerX, y: cornerY }}
-          />
-        </g>
-      )}
-
       {/* Animated diagonal line — morphs between reference line and measurement line */}
       {(() => {
         const visible = Math.max(Number(showRefLine), measure ? Number(showMeasurement) : 0);
@@ -407,6 +394,18 @@ export default function ExplorerGraphic({
           </g>
         );
       })()}
+      {radiusComparison > 0 && (
+        <g opacity={radiusComparison} aria-hidden="true">
+          <RadiusComparison
+            radius={r}
+            exponent={mathN}
+            sweep={radiusSweep}
+            labelOpacity={radiusLabels}
+            apparentProgress={apparentRadius}
+            corner={{ x: cornerX, y: cornerY }}
+          />
+        </g>
+      )}
     </svg>
   );
 }

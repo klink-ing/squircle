@@ -88,13 +88,6 @@ export default function RadiusComparison({
       )}
       {apparentProgress > 0 && (
         <g data-apparent-construction="" opacity={apparentProgress}>
-          <circle
-            data-radius-center="css"
-            cx={center.x}
-            cy={center.y}
-            r={MARKER_RADIUS}
-            {...dotPaint(center, MAGENTA)}
-          />
           <g
             stroke={BLUE}
             strokeWidth={LINE_DOT_DIAMETER}
@@ -115,20 +108,6 @@ export default function RadiusComparison({
               y2={blue.y}
             />
           </g>
-          <circle
-            data-radius-center="apparent"
-            cx={blueCenter.x}
-            cy={blueCenter.y}
-            r={MARKER_RADIUS}
-            {...dotPaint(blueCenter, BLUE)}
-          />
-          <circle
-            data-radius-point="apparent-top"
-            cx={blueCenter.x}
-            cy={corner.y}
-            r={MARKER_RADIUS}
-            {...dotPaint(blueTop, BLUE)}
-          />
         </g>
       )}
       <line
@@ -145,13 +124,6 @@ export default function RadiusComparison({
       />
 
       <g data-radius-marker="specified" fill={MAGENTA}>
-        <circle
-          data-radius-point="specified"
-          cx={center.x}
-          cy={corner.y}
-          r={MARKER_RADIUS}
-          {...dotPaint(specified, MAGENTA)}
-        />
         <text
           data-radius-number="specified"
           x={center.x}
@@ -182,13 +154,6 @@ export default function RadiusComparison({
             fill="none"
             stroke={BLUE}
             strokeWidth={1.7}
-          />
-          <circle
-            data-radius-point="css"
-            cx={blue.x}
-            cy={blue.y}
-            r={MARKER_RADIUS}
-            {...dotPaint(blue, BLUE)}
           />
           <text
             data-radius-number="blue"
@@ -234,13 +199,6 @@ export default function RadiusComparison({
 
       {sweep > 0 && (
         <g data-radius-marker="visual" fill={MAGENTA}>
-          <circle
-            data-radius-point="visual"
-            cx={red.x}
-            cy={red.y}
-            r={MARKER_RADIUS}
-            {...dotPaint(red, MAGENTA)}
-          />
           <text
             data-radius-number="magenta"
             x={redNumberX}
@@ -265,6 +223,60 @@ export default function RadiusComparison({
           )}
         </g>
       )}
+
+      {/* SVG paint order: all dots sit above every curve, guide, and label. */}
+      <g data-radius-dots="">
+        {sweep > 0 && (
+          <circle
+            data-radius-point="css"
+            cx={blue.x}
+            cy={blue.y}
+            r={MARKER_RADIUS}
+            {...dotPaint(blue, BLUE)}
+          />
+        )}
+        {apparentProgress > 0 && (
+          <g opacity={apparentProgress}>
+            <circle
+              data-radius-center="css"
+              cx={center.x}
+              cy={center.y}
+              r={MARKER_RADIUS}
+              {...dotPaint(center, MAGENTA)}
+            />
+            <circle
+              data-radius-center="apparent"
+              cx={blueCenter.x}
+              cy={blueCenter.y}
+              r={MARKER_RADIUS}
+              {...dotPaint(blueCenter, BLUE)}
+            />
+            <circle
+              data-radius-point="apparent-top"
+              cx={blueCenter.x}
+              cy={corner.y}
+              r={MARKER_RADIUS}
+              {...dotPaint(blueTop, BLUE)}
+            />
+          </g>
+        )}
+        <circle
+          data-radius-point="specified"
+          cx={center.x}
+          cy={corner.y}
+          r={MARKER_RADIUS}
+          {...dotPaint(specified, MAGENTA)}
+        />
+        {sweep > 0 && (
+          <circle
+            data-radius-point="visual"
+            cx={red.x}
+            cy={red.y}
+            r={MARKER_RADIUS}
+            {...dotPaint(red, MAGENTA)}
+          />
+        )}
+      </g>
     </g>
   );
 }
