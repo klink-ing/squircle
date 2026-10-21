@@ -45,7 +45,7 @@ Slide 5 adds the apparent-radius construction from the reference sketch. The mag
 
 GSAP owns a plain numeric proxy: `baseAmount`, `choiceWeight`, `correction`, `roundedOpacity`, `radiusComparison`, `radiusSweep`, `radiusLabels`, and `apparentRadius`. Its `onUpdate` publishes an immutable snapshot through `graphicFromTracks`. React alone renders the existing SVG paths from that snapshot using `website/src/math.ts`. There are no competing SVG attribute writes, previous-frame replay, generic animation engine, or React render loops while paused.
 
-The remembered strength is React state plus a ref for synchronous publishing. At the settled `visual-radius` label, the native range input (1–3, step 0.1, initial 2) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to 2. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
+The remembered strength is React state plus a ref for synchronous publishing. At the settled `visual-radius` and `apparent-radius` labels, the shared strength control’s native range input (1–3, step 0.1, initial 2) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to 2. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
 
 The graphic's amount is `baseAmount + (chosenAmount - 2) * choiceWeight`. As the comparison labels dissolve in, the choice weight rises to 1, restoring the remembered strength by the comparison reading stop. Correction animates it to 0 while the correction track rises to 1, so the diagram smoothly returns from the user's choice to canonical strength 2. Direct seeking or Back restores the same numeric result, including the chosen strength. Measurement endpoints and color follow the correction continuously.
 
@@ -55,7 +55,7 @@ The graphic's amount is `baseAmount + (chosenAmount - 2) * choiceWeight`. As the
 
 ## Development transport
 
-Open **Author transport · GSAP** below the tour on the development server. It has a labeled seconds scrubber, reading-stop select, and Pause / Play to checkpoint button. Arbitrary seeks are deterministic and keep input focus. Play finishes the selected reading stop. After a scrub, Next first settles the current scene before advancing. The strength input is enabled only at its exact settled label.
+Open **Author transport · GSAP** below the tour on the development server. It has a labeled seconds scrubber, reading-stop select, and Pause / Play to checkpoint button. Arbitrary seeks are deterministic and keep input focus. Play finishes the selected reading stop. After a scrub, Next first settles the current scene before advancing. The strength inputs are enabled only at their exact settled comparison/apparent-radius labels. Both use the same remembered value and Reset handler, with distinct IDs for their labels; inactive inputs are disabled.
 
 This is a small development preview transport, not a visual animation editor. It has no timeline editing, keyframe authoring, source rewriting, recording, or export. The `import.meta.env.DEV` block is removed from the production bundle. There is no separate Studio application or Studio server on this branch.
 

@@ -5,6 +5,42 @@ function Code({ children }: { children: ReactNode }) {
   return <code>{children}</code>;
 }
 
+function StrengthControl({
+  id,
+  amount,
+  enabled,
+  onAmountChange,
+}: {
+  id: string;
+  amount: number;
+  enabled: boolean;
+  onAmountChange: (value: number) => void;
+}) {
+  return (
+    <div className="tour-strength">
+      <div className="tour-strength-label">
+        <label htmlFor={id}>
+          Strength <output htmlFor={id}>{amount.toFixed(1)}</output>
+        </label>
+        <button type="button" disabled={!enabled} onClick={() => onAmountChange(2)}>
+          Reset
+        </button>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={1}
+        max={3}
+        step={0.1}
+        value={amount}
+        disabled={!enabled}
+        onChange={(e) => onAmountChange(Number(e.target.value))}
+        className="slider-unfilled"
+      />
+    </div>
+  );
+}
+
 export default function TourNarrative({
   active,
   amount,
@@ -31,30 +67,23 @@ export default function TourNarrative({
     </p>,
     <div key="visual-radius">
       <p>Higher strength makes a squarer corner. Try it.</p>
-      <div className="tour-strength">
-        <div className="tour-strength-label">
-          <label htmlFor="tour-strength">
-            Strength <output htmlFor="tour-strength">{amount.toFixed(1)}</output>
-          </label>
-          <button type="button" disabled={!strengthActive} onClick={() => onAmountChange(2)}>
-            Reset
-          </button>
-        </div>
-        <input
-          id="tour-strength"
-          type="range"
-          min={1}
-          max={3}
-          step={0.1}
-          value={amount}
-          disabled={!strengthActive}
-          onChange={(e) => onAmountChange(Number(e.target.value))}
-          className="slider-unfilled"
-        />
-      </div>
+      <StrengthControl
+        id="tour-strength"
+        amount={amount}
+        enabled={strengthActive && CHECKPOINTS[active]?.id === "visual-radius"}
+        onAmountChange={onAmountChange}
+      />
       <p>Next, we'll restore strength 2 and correct the radius.</p>
     </div>,
-    <p key="apparent-radius">Placeholder copy.</p>,
+    <div key="apparent-radius">
+      <p>Placeholder copy.</p>
+      <StrengthControl
+        id="tour-apparent-strength"
+        amount={amount}
+        enabled={strengthActive && CHECKPOINTS[active]?.id === "apparent-radius"}
+        onAmountChange={onAmountChange}
+      />
+    </div>,
     <p key="correction">
       We can calculate a <em>corrected radius</em>. Increasing the superellipse's radius brings its
       diagonal point into alignment with the circle.

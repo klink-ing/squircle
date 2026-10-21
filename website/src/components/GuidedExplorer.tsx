@@ -7,6 +7,7 @@ import TourNarrative from "./tour/TourNarrative";
 import { graphicFromTracks } from "./tour/graphic-state";
 import {
   CHECKPOINTS,
+  APPARENT_RADIUS,
   checkpointAtTime,
   createTourTimeline,
   DURATION,
@@ -93,7 +94,9 @@ export default function GuidedExplorer() {
     else controls.current?.resume();
   });
   const strengthActive =
-    cue.id === STRENGTH.id && Math.abs(view.time - STRENGTH.time) < 0.001 && !playback.moving;
+    (cue.id === STRENGTH.id || cue.id === APPARENT_RADIUS.id) &&
+    Math.abs(view.time - cue.time) < 0.001 &&
+    !playback.moving;
 
   return (
     <div ref={root} className="tour-root">
