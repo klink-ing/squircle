@@ -9,7 +9,8 @@ export function graphicFromTracks(
   return {
     arcRounded: {
       visible: tracks.roundedOpacity,
-      showFill: 1,
+      // Blue is drawn only by the swept comparison arc, never as a filled backdrop.
+      showFill: 0,
       showOutline: 0,
     },
     arcSuperellipse: { visible: 1, showFill: 1 - 0.8 * tracks.radiusComparison, showOutline: 0 },

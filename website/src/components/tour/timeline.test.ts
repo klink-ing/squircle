@@ -403,9 +403,12 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(original).toContain('fill-opacity="1"');
     expect(original).toContain('stroke-opacity="0"');
 
-    for (const time of [0, 0.2, 0.4, 0.6, 0.8].map((offset) => CHECKPOINTS[2]!.start + offset)) {
+    const times = Array.from({ length: 81 }, (_, frame) => CHECKPOINTS[2]!.start + frame / 100);
+    for (const time of [...times, ...times.toReversed()]) {
       const markup = paint(time);
-      expect(markup).toContain('data-reference-circle="" opacity="0"');
+      expect(markup).not.toContain("data-reference-circle");
+      expect(markup).not.toContain("--color-rounded-fill");
+      expect(markup).not.toContain('data-radius-outline="css"');
       expect(markup.match(/viewBox="[^"]+"/)![0]).toBe(before.match(/viewBox="[^"]+"/)![0]);
       expect(shape(markup)).toHaveLength(1);
       expect(unchanged(shape(markup)[0]!)).toBe(unchanged(original));

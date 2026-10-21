@@ -319,49 +319,50 @@ export default function ExplorerGraphic({
           </g>
         );
 
-        const circleGroup = (
-          <g
-            key="circle"
-            data-reference-circle=""
-            opacity={Math.max(0, Number(arcRounded.visible) - radiusComparison)}
-          >
-            {/* Fill — crossfades in/out */}
-            <path
-              d={circleFillPath}
-              style={{ fill: "var(--color-rounded-fill)" }}
-              stroke="none"
-              opacity={Number(arcRounded.showFill)}
-            />
-            {/* Stroke — crossfades in/out */}
-            <g opacity={Number(arcRounded.showOutline)}>
+        const circleGroup =
+          Number(arcRounded.showFill) > 0 || Number(arcRounded.showOutline) > 0 ? (
+            <g
+              key="circle"
+              data-reference-circle=""
+              opacity={Math.max(0, Number(arcRounded.visible) - radiusComparison)}
+            >
+              {/* Fill — crossfades in/out */}
               <path
-                d={circlePath}
-                fill="none"
-                style={{ stroke: "var(--color-rounded-border)" }}
-                strokeWidth={3}
-                strokeDasharray={DASH}
-                strokeDashoffset={0}
-                clipPath={`url(#${clipCircle})`}
+                d={circleFillPath}
+                style={{ fill: "var(--color-rounded-fill)" }}
+                stroke="none"
+                opacity={Number(arcRounded.showFill)}
               />
-              <line
-                x1={circleSvg[0]!.x}
-                y1={circleSvg[0]!.y - SERIF_W / 2}
-                x2={circleSvg[0]!.x - SERIF_LEN}
-                y2={circleSvg[0]!.y - SERIF_W / 2}
-                style={{ stroke: "var(--color-rounded-border)" }}
-                strokeWidth={SERIF_W}
-              />
-              <line
-                x1={circleSvg[circleSvg.length - 1]!.x + SERIF_W / 2}
-                y1={circleSvg[circleSvg.length - 1]!.y}
-                x2={circleSvg[circleSvg.length - 1]!.x + SERIF_W / 2}
-                y2={circleSvg[circleSvg.length - 1]!.y + SERIF_LEN}
-                style={{ stroke: "var(--color-rounded-border)" }}
-                strokeWidth={SERIF_W}
-              />
+              {/* Stroke — crossfades in/out */}
+              <g opacity={Number(arcRounded.showOutline)}>
+                <path
+                  d={circlePath}
+                  fill="none"
+                  style={{ stroke: "var(--color-rounded-border)" }}
+                  strokeWidth={3}
+                  strokeDasharray={DASH}
+                  strokeDashoffset={0}
+                  clipPath={`url(#${clipCircle})`}
+                />
+                <line
+                  x1={circleSvg[0]!.x}
+                  y1={circleSvg[0]!.y - SERIF_W / 2}
+                  x2={circleSvg[0]!.x - SERIF_LEN}
+                  y2={circleSvg[0]!.y - SERIF_W / 2}
+                  style={{ stroke: "var(--color-rounded-border)" }}
+                  strokeWidth={SERIF_W}
+                />
+                <line
+                  x1={circleSvg[circleSvg.length - 1]!.x + SERIF_W / 2}
+                  y1={circleSvg[circleSvg.length - 1]!.y}
+                  x2={circleSvg[circleSvg.length - 1]!.x + SERIF_W / 2}
+                  y2={circleSvg[circleSvg.length - 1]!.y + SERIF_LEN}
+                  style={{ stroke: "var(--color-rounded-border)" }}
+                  strokeWidth={SERIF_W}
+                />
+              </g>
             </g>
-          </g>
-        );
+          ) : null;
 
         return superAboveCircle ? (
           <>
