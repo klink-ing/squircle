@@ -29,8 +29,12 @@ export default function RadiusComparison({
   const visualRadius = radius / (dx ** exponent + dy ** exponent) ** (1 / exponent);
   const red = { x: center.x + dx * visualRadius, y: center.y - dy * visualRadius };
   const blue = { x: center.x + dx * radius, y: center.y - dy * radius };
-  const redNumberY = red.y - 9;
+  const redNumberX = red.x + 18 * sweep;
+  const blueNumberX = blue.x + 18 * sweep;
+  const redNumberY = red.y - 9 + 6 * sweep;
   const blueNumberY = blue.y - 9 + 24 * sweep;
+  const redLabelX = red.x + 6;
+  const blueLabelX = blue.x + 6;
 
   return (
     <g data-radius-comparison="" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -91,20 +95,20 @@ export default function RadiusComparison({
             strokeWidth={1.7}
           />
           <circle data-radius-point="css" cx={blue.x} cy={blue.y} r={MARKER_RADIUS} />
-          <text x={blue.x} y={blueNumberY} textAnchor="middle" fontSize={10}>
+          <text x={blueNumberX} y={blueNumberY} textAnchor="middle" fontSize={10}>
             1.00
           </text>
           {labelOpacity > 0 && (
             <text
               data-radius-label="css"
-              x={blue.x}
+              x={blueLabelX}
               y={blueNumberY + 16}
-              textAnchor="middle"
+              textAnchor="start"
               fontSize={10}
               opacity={labelOpacity}
             >
-              <tspan x={blue.x}>CSS</tspan>
-              <tspan x={blue.x} dy={12}>
+              <tspan x={blueLabelX}>CSS</tspan>
+              <tspan x={blueLabelX} dy={12}>
                 radius
               </tspan>
             </text>
@@ -114,20 +118,20 @@ export default function RadiusComparison({
 
       <g data-radius-marker="visual" fill={MAGENTA}>
         <circle data-radius-point="visual" cx={red.x} cy={red.y} r={MARKER_RADIUS} />
-        <text x={red.x} y={redNumberY} textAnchor="middle" fontSize={10}>
+        <text x={redNumberX} y={redNumberY} textAnchor="middle" fontSize={10}>
           {(visualRadius / radius).toFixed(2)}
         </text>
         {labelOpacity > 0 && (
           <text
             data-radius-label="visual"
-            x={red.x}
+            x={redLabelX}
             y={redNumberY - 28}
-            textAnchor="middle"
+            textAnchor="start"
             fontSize={10}
             opacity={labelOpacity}
           >
-            <tspan x={red.x}>Visual</tspan>
-            <tspan x={red.x} dy={12}>
+            <tspan x={redLabelX}>Visual</tspan>
+            <tspan x={redLabelX} dy={12}>
               “radius”
             </tspan>
           </text>

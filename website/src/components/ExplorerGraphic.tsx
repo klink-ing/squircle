@@ -207,7 +207,7 @@ export default function ExplorerGraphic({
             : "CSS and visual radius markers sweeping from vertical to the diagonal."
           : "Comparison of rounded and superellipse corners"
       }
-      viewBox={`${PAD} ${PAD - PAD_EXTRA - (radiusComparison > 0 ? 20 : 0)} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA + (radiusComparison > 0 ? 20 : 0)}`}
+      viewBox={`${PAD} ${PAD - PAD_EXTRA - (radiusComparison > 0 ? 20 : 0)} ${BOX + PAD_EXTRA + (radiusComparison > 0 ? 20 : 0)} ${BOX + PAD_EXTRA + (radiusComparison > 0 ? 20 : 0)}`}
       className="w-full max-w-md"
     >
       <defs>
