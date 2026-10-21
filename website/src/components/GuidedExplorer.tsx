@@ -5,17 +5,9 @@ import ExplorerGraphic, { type GraphicState } from "./ExplorerGraphic";
 import FreeExplorer from "./FreeExplorer";
 import TourNarrative from "./tour/TourNarrative";
 import { graphicFromTracks } from "./tour/graphic-state";
-import {
-  CHECKPOINTS,
-  APPARENT_RADIUS,
-  CORRECTION,
-  checkpointAtTime,
-  createTourTimeline,
-  DURATION,
-  DEFAULT_STRENGTH,
-  initialTracks,
-  STRENGTH,
-} from "./tour/timeline";
+import { checkpointAtTime, createTourTimeline, type Checkpoint } from "./tour/timeline";
+import { DEFAULT_STRENGTH, initialTracks } from "./tour/state";
+import { SLIDES } from "./tour/slides";
 import { createPlayback, type PlaybackState } from "./tour/playback";
 import { useMediaQuery } from "./tour/useMediaQuery";
 import "./tour/tour.css";
@@ -28,19 +20,23 @@ export default function GuidedExplorer() {
   const controls = useRef<ReturnType<typeof createPlayback> | null>(null);
   const chosen = useRef(DEFAULT_STRENGTH);
   const [amount, setAmount] = useState(DEFAULT_STRENGTH);
-  const [view, setView] = useState({ time: 0, graphic: graphicFromTracks(initialTracks(), 0) });
+  const [view, setView] = useState({ time: 0, graphic: graphicFromTracks(initialTracks()) });
   const [playback, setPlayback] = useState<PlaybackState>({ destination: 0, moving: true });
   const [focusRequest, requestFocus] = useState(0);
   const [explore, setExplore] = useState<GraphicState | null>(null);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const active = checkpointAtTime(view.time);
-  const cue = CHECKPOINTS[active]!;
+  const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
+  const active = checkpointAtTime(view.time, checkpoints);
+  const cue = SLIDES[active]!;
+  const stop = checkpoints[active];
+  const transitionDuration = stop?.duration ?? 0;
+  const localTime = Math.max(0, Math.min(view.time - (stop?.start ?? 0), transitionDuration));
 
   const publish = useCallback(() => {
     const current = tour.current;
     if (current) {
       const time = current.timeline.time();
-      setView({ time, graphic: graphicFromTracks(current.tracks, time, chosen.current) });
+      setView({ time, graphic: graphicFromTracks(current.tracks, chosen.current) });
     }
   }, []);
 
@@ -49,7 +45,8 @@ export default function GuidedExplorer() {
       const panels = Array.from(root.current!.querySelectorAll<HTMLElement>("[data-tour-panel]"));
       const current = createTourTimeline(publish, panels);
       tour.current = current;
-      const transport = createPlayback(current.timeline, publish, setPlayback, () =>
+      setCheckpoints(current.checkpoints);
+      const transport = createPlayback(current, publish, setPlayback, () =>
         requestFocus((v) => v + 1),
       );
       controls.current = transport;
@@ -96,8 +93,9 @@ export default function GuidedExplorer() {
     else controls.current?.resume();
   });
   const strengthActive =
-    (cue.id === STRENGTH.id || cue.id === APPARENT_RADIUS.id || cue.id === CORRECTION.id) &&
-    Math.abs(view.time - cue.time) < 0.001 &&
+    cue.strength === true &&
+    stop !== undefined &&
+    Math.abs(view.time - stop.time) < 0.001 &&
     !playback.moving;
 
   return (
@@ -107,6 +105,7 @@ export default function GuidedExplorer() {
           className="tour-layout"
           data-tour-checkpoint={cue.id}
           data-tour-time={view.time}
+          data-tour-local-time={localTime}
           data-tour-moving={playback.moving}
         >
           <div
@@ -128,15 +127,15 @@ export default function GuidedExplorer() {
               <button type="button" onClick={back} disabled={playback.destination === 0}>
                 ← Back
               </button>
-              <span aria-label={`Scene ${active + 1} of ${CHECKPOINTS.length}`}>
-                {active + 1} / {CHECKPOINTS.length}
+              <span aria-label={`Scene ${active + 1} of ${SLIDES.length}`}>
+                {active + 1} / {SLIDES.length}
               </span>
               <button type="button" onClick={next} disabled={playback.moving}>
-                {CHECKPOINTS[playback.destination]!.nextLabel}
+                {SLIDES[playback.destination]!.nextLabel}
               </button>
             </nav>
             <p className="sr-only" role="status">
-              {!playback.moving && `Scene ${active + 1} of ${CHECKPOINTS.length}`}
+              {!playback.moving && `Scene ${active + 1} of ${SLIDES.length}`}
             </p>
           </div>
         </div>
@@ -144,7 +143,8 @@ export default function GuidedExplorer() {
           <details className="tour-transport">
             <summary>Author transport · GSAP</summary>
             <p>
-              Development preview. Seek the shared timeline in seconds or jump to a reading stop.
+              Development preview. Each slide's transition starts at 0 seconds. Scrub this
+              transition or jump to a reading stop.
             </p>
             <div className="tour-transport-actions">
               <button type="button" onClick={togglePlayback}>
@@ -156,7 +156,7 @@ export default function GuidedExplorer() {
                 value={playback.destination}
                 onChange={(e) => checkpoint(Number(e.target.value))}
               >
-                {CHECKPOINTS.map((stop, index) => (
+                {SLIDES.map((stop, index) => (
                   <option key={stop.id} value={index}>
                     {index + 1}. {stop.id}
                   </option>
@@ -164,19 +164,19 @@ export default function GuidedExplorer() {
               </select>
             </div>
             <label htmlFor="tour-time">
-              Timeline{" "}
+              Slide transition{" "}
               <output htmlFor="tour-time">
-                {view.time.toFixed(2)} / {DURATION.toFixed(2)} s
+                {localTime.toFixed(2)} / {transitionDuration.toFixed(2)} s
               </output>
             </label>
             <input
               id="tour-time"
               type="range"
               min={0}
-              max={DURATION}
+              max={transitionDuration}
               step={0.01}
-              value={view.time}
-              onChange={(e) => seek(Number(e.target.value))}
+              value={localTime}
+              onChange={(e) => seek((stop?.start ?? 0) + Number(e.target.value))}
             />
           </details>
         )}

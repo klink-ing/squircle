@@ -1,10 +1,9 @@
 import type { GraphicState } from "../ExplorerGraphic";
-import { CORRECTION, DEFAULT_STRENGTH, type GraphicTracks } from "./timeline";
+import { DEFAULT_STRENGTH, type GraphicTracks } from "./state";
 
 // Pure bridge: no previous rendered geometry and no DOM mutation.
 export function graphicFromTracks(
   tracks: GraphicTracks,
-  time: number,
   chosenAmount = DEFAULT_STRENGTH,
 ): GraphicState {
   return {
@@ -22,7 +21,7 @@ export function graphicFromTracks(
     radiusSweep: tracks.radiusSweep,
     radiusLabels: tracks.radiusLabels,
     apparentRadius: tracks.apparentRadius,
-    measureArc: time >= CORRECTION.start ? "corrected" : "rounded",
+    measureArc: tracks.correction > 0 ? "corrected" : "rounded",
     measureMode: "radius",
     measureAngle: "diagonal",
     zoom: 0.5,

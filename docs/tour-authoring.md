@@ -1,6 +1,6 @@
 # Guided tour authoring · GSAP with React
 
-The `/tour` page is responsive HTML/CSS driven by one native GSAP timeline. It uses `gsap@3.15.0` and the official `@gsap/react@2.1.2` integration. There are eight reading stops: rounded corner, superellipse, vertical radius, diagonal radius comparison with strength exploration, apparent radius, correction, alignment, and utility usage. The original strength copy and controls accompany the diagonal comparison; there is no separate strength visual or reading stop. This branch has no Remotion runtime, Player, Studio, video configuration, or interpolation imports.
+The `/tour` page is responsive HTML/CSS driven by a native GSAP parent timeline containing one nested timeline per slide. It uses `gsap@3.15.0` and the official `@gsap/react@2.1.2` integration. There are eight reading stops: rounded corner, superellipse, vertical radius, diagonal radius comparison with strength exploration, apparent radius, correction, alignment, and utility usage. The original strength copy and controls accompany the diagonal comparison; there is no separate strength visual or reading stop. This branch has no Remotion runtime, Player, Studio, video configuration, or interpolation imports.
 
 ## Run
 
@@ -29,11 +29,23 @@ The production tour is http://localhost:4432/tour. The development transport is 
 
 ## Edit and retime
 
-`website/src/components/tour/timeline.ts` contains the native choreography. `CHECKPOINTS` lists entrance times and settled reading times in **seconds**. `createTourTimeline` adds a label for each reading stop (`visual-radius`, `correction`, etc.) and an entrance label (`visual-radius:enter`, etc.). Numeric geometry tracks and DOM entrances share that timeline. Reading stops are at 0.8, 2, 3.2, 4.9, 6.1, 7.3, 8.3, and 9.3 seconds.
+Edit **`website/src/components/tour/slides.tsx`**. Each ordered block owns a complete slide: `heading`, `content` (including interleaved React controls), `nextLabel`, `transition`, and `hold`. The transition is the entrance **into that slide**, and its GSAP positions always start at **local time 0**. Text entrance timing is inside that same transition, beside the graphic tweens:
 
-Edit copy and interleaved controls in `TourNarrative.tsx`. Each section remains mounted with a stable identity; only the current section participates in layout. React applies `hidden` and `inert` to outgoing sections. GSAP owns each section's opacity and transform; React never writes those properties. Entrances take 0.4 seconds. There is no outgoing crossfade or fixed-height stage: the next paragraph reflows normally. Keep each reading label after its narrative entrance and geometry tweens finish.
+```tsx
+transition(timeline, { tracks, text }) {
+  enterText(timeline, text, { at: 0, duration: 0.4 });
+  timeline.to(tracks, { radiusSweep: 1, duration: 1, ease: "power2.inOut" }, 0);
+  timeline.addLabel("labels", ">");
+  timeline.to(tracks, { radiusLabels: 1, duration: 0.45, ease: "none" }, "labels");
+  timeline.to(tracks, { choiceWeight: 1, duration: 0.45, ease: "power2.inOut" }, "labels");
+},
+```
 
-For retiming, change the cue's `start`/`time` and any numeric tween duration together. Geometry tweens use entrance labels rather than duplicated absolute starts. The strength interaction shares the comparison checkpoint; correction and the final duration are resolved by ID/the last reading stop. Extending the beat list also requires updating narrative content and behavioral tests. This is intentionally small, tour-specific choreography.
+These are ordinary nested GSAP timelines. Use numeric seconds, local labels, `"<"`, `">"`, or GSAP relative positions. In this example, the labels fade in after the sweep finishes; changing the sweep duration also moves that local label. Change the copy and entrance timing in this block together. `text` targets the complete narrative section, including its heading and controls; GSAP owns its opacity and transform. The `enterText` helper only supplies the shared entrance styling and easing; each slide explicitly supplies its start and duration. `tracks` is the shared numeric geometry proxy.
+
+`hold` adds a short breathing interval **after the last animation** before the tour pauses for the reader; it is not a fixed slide duration. `timeline.ts` builds and nests each slide's timeline, then derives its entrance label, settled reading label, and navigation checkpoint from the actual child duration. Longer text or geometry animations automatically move every later slide. There is no authored absolute schedule or separate checkpoint list to maintain. A 0.02-second boundary gap keeps exact checkpoint seeks on the settled slide. Add/reorder slide blocks in `SLIDES`; narrative, navigation, and the author transport follow that order. The behavior tests protect the existing geometry and interaction expectations.
+
+`TourNarrative.tsx` renders these blocks with stable section identities. Only the current section participates in layout; outgoing sections are `hidden` and `inert`. Copy remains selectable, responsive React HTML. There is no outgoing crossfade or fixed-height stage: the next paragraph reflows normally. Slides with a strength controller also declare `strength: true`, enabling their input at the settled reading stop. Geometry, remembered strength, and keyboard/focus behavior are unchanged by this authoring structure.
 
 `tour.css` uses a single column below 768px and a fluid two-column grid above it. Narrative font sizes are 17.6–22px; headings are 28.8–44px; navigation and slider controls have 48px minimum heights. SVG `viewBox` coordinates describe the existing mathematical illustration, not a composition viewport. The graphic width and viewBox stay fixed across reading stops, reserving room for radius labels from the start. The box stays 180 × 180 SVG units; a normalized 1.00 radius spans 90 units (half the box side), using tour zoom 0.5. Readouts normalize against those 90 units, so the smaller displayed radius still reads 1.00. Page scrolling is normal. There is no resize measurement or layout-dependent timeline rebuild.
 
@@ -45,13 +57,13 @@ Slide 6 keeps the comparison visible as the correction track grows the CSS radiu
 
 ## Default strength
 
-Change only `DEFAULT_STRENGTH` at the top of `website/src/components/tour/timeline.ts` (supported range 1–3). It drives the initial tour shape, all three strength controls and Reset buttons, the timeline’s return value, and numeric copy. Reload an already-open tour to start a fresh session with the new default. Tests derive their default-dependent expectations from that same constant; the numeric examples in this guide use strength 2.0 independently of the configured default.
+Change only `DEFAULT_STRENGTH` in `website/src/components/tour/state.ts` (supported range 1–3). It drives the initial tour shape, all three strength controls and Reset buttons, the timeline’s return value, and numeric copy. Reload an already-open tour to start a fresh session with the new default. Tests derive their default-dependent expectations from that same constant; the numeric examples in this guide use strength 2.0 independently of the configured default.
 
 ## Geometry and controls
 
 GSAP owns a plain numeric proxy: `baseAmount`, `choiceWeight`, `correction`, `roundedOpacity`, `radiusComparison`, `radiusSweep`, `radiusLabels`, and `apparentRadius`. Its `onUpdate` publishes an immutable snapshot through `graphicFromTracks`. React alone renders the existing SVG paths from that snapshot using `website/src/math.ts`. There are no competing SVG attribute writes, previous-frame replay, generic animation engine, or React render loops while paused.
 
-The remembered strength is React state plus a ref for synchronous publishing. At the settled `visual-radius`, `apparent-radius`, and `correction` labels, the shared strength control’s native range input (1–3, step 0.1, initial `DEFAULT_STRENGTH`) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to `DEFAULT_STRENGTH`. `DEFAULT_STRENGTH` in `timeline.ts` is shared by the timeline, state bridge, controls, and numeric copy. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
+The remembered strength is React state plus a ref for synchronous publishing. At the settled `visual-radius`, `apparent-radius`, and `correction` labels, the shared strength control’s native range input (1–3, step 0.1, initial `DEFAULT_STRENGTH`) updates the diagram immediately without remounting the input, changing the playhead, or rebuilding the timeline. Reset sets the remembered value to `DEFAULT_STRENGTH`. `DEFAULT_STRENGTH` in `state.ts` is shared by the timeline, state bridge, controls, and numeric copy. Memory lasts for this mounted tour session, including Back and Explore return; it does not persist across page reloads.
 
 The graphic's amount is `baseAmount + (chosenAmount - DEFAULT_STRENGTH) * choiceWeight`. As the comparison labels dissolve in, the choice weight rises to 1, restoring the remembered strength by the comparison reading stop. Correction keeps the choice weight at 1 while the correction track rises to 1, so the chosen strength remains live on slide 6. The following alignment transition animates the choice weight to 0, returning to `DEFAULT_STRENGTH` after the interactive stops. Direct seeking or Back restores the same numeric result, including the chosen strength. Measurement endpoints and color follow the correction continuously.
 
@@ -61,7 +73,7 @@ The graphic's amount is `baseAmount + (chosenAmount - DEFAULT_STRENGTH) * choice
 
 ## Development transport
 
-Open **Author transport · GSAP** below the tour on the development server. It has a labeled seconds scrubber, reading-stop select, and Pause / Play to checkpoint button. Arbitrary seeks are deterministic and keep input focus. Play finishes the selected reading stop. After a scrub, Next first settles the current scene before advancing. The strength inputs are enabled only at their exact settled comparison, apparent-radius, or correction labels. Both use the same remembered value and Reset handler, with distinct IDs for their labels; inactive inputs are disabled.
+Open **Author transport · GSAP** below the tour on the development server. It has a labeled **slide-local** seconds scrubber, reading-stop select, and Pause / Play to checkpoint button. Select a reading stop, then scrub its entrance from 0 seconds to the end of its nested timeline, including its hold. The displayed time restarts at 0 for each slide. Arbitrary seeks are deterministic and keep input focus. Play finishes the selected reading stop. After a scrub, Next first settles the current scene before advancing. The strength inputs are enabled only at their exact settled comparison, apparent-radius, or correction labels. Both use the same remembered value and Reset handler, with distinct IDs for their labels; inactive inputs are disabled.
 
 This is a small development preview transport, not a visual animation editor. It has no timeline editing, keyframe authoring, source rewriting, recording, or export. The `import.meta.env.DEV` block is removed from the production bundle. There is no separate Studio application or Studio server on this branch.
 
@@ -73,7 +85,9 @@ GSAP uses Webflow's [Standard “No Charge” License](https://gsap.com/communit
 
 ## Current-site integration
 
-`feat/tour-gsap-ready` ports the tour onto current `alpha`. `pnpm exec vp run ready` passes: root lint and formatting, package TypeScript and its 567 tests, the tour tests, the tour TypeScript check, and the 12-page production build. `website#typecheck` intentionally uses `tsconfig.tour.json` to check the complete tour and its imports. A separate full-site `tsc --noEmit` still reports existing errors in `PillAlgorithmsDemo.tsx` (experimental Paint API typing) and `StyleXDemo.tsx` (StyleX call signatures); those unrelated demos are not changed here.
+`feat/tour-gsap-ready` ports the tour onto current `alpha`. The initial port passed `pnpm exec vp run ready`: root lint and formatting, package TypeScript and its 567 tests, the tour tests, the tour TypeScript check, and the 12-page production build. `website#typecheck` intentionally uses `tsconfig.tour.json` to check the complete tour and its imports. A separate full-site `tsc --noEmit` still reports existing errors in `PillAlgorithmsDemo.tsx` (experimental Paint API typing) and `StyleXDemo.tsx` (StyleX call signatures); those unrelated demos are not changed here.
+
+The nested-timeline authoring refactor passes 18 tour tests, focused TypeScript, scoped lint/formatting, and the production build. Tests cover independent local timelines, automatically shifted reading stops after extending text or geometry, native context cleanup, forward/reverse seeks at boundaries and intermediate frames, navigation, remembered strength, and continuous geometry. Rendered narrative was compared against the pre-refactor markup, preserving the author's current copy. Chrome checks verified all eight slide-local scrubber endpoints, live strength, correction/Back restoration, separate Explore state, and all eight stops at 320px without page overflow.
 
 ## Original comparison verification, 2026-10-20
 

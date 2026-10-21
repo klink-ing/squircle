@@ -5,18 +5,20 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ExplorerGraphic from "../ExplorerGraphic";
 import TourNarrative from "./TourNarrative";
 import { graphicFromTracks } from "./graphic-state";
-import {
-  CHECKPOINTS,
-  APPARENT_RADIUS,
-  CORRECTION,
-  createTourTimeline,
-  DURATION,
-  DEFAULT_STRENGTH,
-  RADIUS_SWEEP,
-  STRENGTH,
-} from "./timeline";
+import { checkpointAtTime, createTourTimeline } from "./timeline";
+import { DEFAULT_STRENGTH } from "./state";
+import { SLIDES, type TourSlide } from "./slides";
 import { createPlayback, type PlaybackState } from "./playback";
 import { correctedRadius, perceivedRadius } from "../../math";
+
+const authored = createTourTimeline(() => {});
+const CHECKPOINTS = authored.checkpoints;
+const DURATION = authored.timeline.duration();
+const RADIUS_SWEEP = CHECKPOINTS.find((cue) => cue.id === "visual-radius")!;
+const STRENGTH = RADIUS_SWEEP;
+const APPARENT_RADIUS = CHECKPOINTS.find((cue) => cue.id === "apparent-radius")!;
+const CORRECTION = CHECKPOINTS.find((cue) => cue.id === "correction")!;
+authored.timeline.kill();
 
 afterEach(() => {
   gsap.globalTimeline.clear();
@@ -27,7 +29,7 @@ function fixture() {
   let state: PlaybackState = { destination: 0, moving: false };
   let focusCount = 0;
   const controls = createPlayback(
-    tour.timeline,
+    tour,
     () => {},
     (value) => {
       state = value;
@@ -36,7 +38,7 @@ function fixture() {
   );
   const at = (position: number | string, amount = DEFAULT_STRENGTH) => {
     tour.timeline.seek(position);
-    return graphicFromTracks(tour.tracks, tour.timeline.time(), amount);
+    return graphicFromTracks(tour.tracks, amount);
   };
   return { ...tour, controls, at, state: () => state, focusCount: () => focusCount };
 }
@@ -48,6 +50,83 @@ function finishDriver(timeline: gsap.core.Timeline, progress = 1) {
 }
 
 describe("tour behavior on the real GSAP timeline", () => {
+  it("nests each slide's text and graphic animation on a local timeline starting at zero", () => {
+    const f = fixture();
+    expect(f.timeline.getChildren(false, false, true)).toEqual(f.transitions);
+    f.transitions.forEach((transition, index) => {
+      const cue = f.checkpoints[index]!;
+      expect(transition.parent).toBe(f.timeline);
+      expect(transition.startTime()).toBe(cue.start);
+      expect(transition.getChildren()[0]!.startTime()).toBe(0);
+      expect(transition.duration()).toBeCloseTo(cue.time - cue.start);
+      expect(f.timeline.labels[cue.id]).toBe(cue.time);
+      expect(checkpointAtTime(cue.time, f.checkpoints)).toBe(index);
+      expect(checkpointAtTime(cue.start, f.checkpoints)).toBe(index);
+    });
+    expect(f.transitions[3]!.labels.labels).toBe(1);
+  });
+
+  it.each(["text", "geometry"] as const)(
+    "automatically moves navigation stops when a slide's %s animation is extended",
+    (target) => {
+      const original = SLIDES[1]!;
+      const edited: TourSlide = {
+        ...original,
+        transition(timeline, targets) {
+          original.transition(timeline, targets);
+          if (target === "text") timeline.to(targets.text, { opacity: 1, duration: 2 }, 0);
+          else timeline.to(targets.tracks, { baseAmount: DEFAULT_STRENGTH, duration: 2 }, 0);
+        },
+      };
+      const tour = createTourTimeline(() => {}, [], [SLIDES[0]!, edited, ...SLIDES.slice(2)]);
+      expect(tour.checkpoints[0]).toEqual(CHECKPOINTS[0]);
+      expect(tour.checkpoints[1]!.time).toBeCloseTo(CHECKPOINTS[1]!.time + 1);
+      tour.checkpoints.slice(2).forEach((cue, offset) => {
+        const index = offset + 2;
+        expect(cue.start).toBeCloseTo(CHECKPOINTS[index]!.start + 1);
+        expect(cue.time).toBeCloseTo(CHECKPOINTS[index]!.time + 1);
+        // Later slides' local choreography is unchanged by an earlier edit.
+        expect(tour.transitions[index]!.duration()).toBe(authored.transitions[index]!.duration());
+        expect(tour.transitions[index]!.labels).toEqual(authored.transitions[index]!.labels);
+      });
+      const controls = createPlayback(
+        tour,
+        () => {},
+        () => {},
+        () => {},
+      );
+      controls.start(true);
+      controls.next();
+      expect(tour.timeline.time()).toBe(tour.checkpoints[1]!.time);
+      controls.next();
+      expect(tour.timeline.time()).toBe(tour.checkpoints[2]!.time);
+      controls.back();
+      expect(tour.timeline.time()).toBe(tour.checkpoints[1]!.time);
+      controls.seek(100);
+      expect(tour.timeline.time()).toBeCloseTo(DURATION + 1);
+      expect(controls.next()).toBe(true);
+    },
+  );
+
+  it("removes nested timelines and an interrupted playhead driver when the GSAP context reverts", () => {
+    let dispose: (() => void) | undefined;
+    const context = gsap.context(() => {
+      const tour = createTourTimeline(() => {});
+      const controls = createPlayback(
+        tour,
+        () => {},
+        () => {},
+        () => {},
+      );
+      controls.start(false);
+      finishDriver(tour.timeline, 0.5);
+      dispose = controls.dispose;
+    });
+    dispose!();
+    context.revert();
+    expect(gsap.globalTimeline.getChildren()).toHaveLength(0);
+  });
+
   it("seeks to all eight reading stops deterministically, in any order", () => {
     const f = fixture();
     const expected = CHECKPOINTS.map((cue) => f.at(cue.id, 2.7));
@@ -57,6 +136,15 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.at("rounded").amount).toBe(1);
     expect(f.at("rounded").zoom).toBe(0.5); // A 1.00 radius spans half the fixed box.
     expect(f.at("utilities").correctionAmount).toBe(1);
+  });
+
+  it("restores transition boundaries and intermediate frames after reverse seeking", () => {
+    const f = fixture();
+    const times = CHECKPOINTS.flatMap((cue) => [cue.start, cue.start + cue.duration / 2, cue.time]);
+    const expected = times.map((time) => f.at(time, 2.7));
+    [...times].reverse().forEach((time, index) => {
+      expect(f.at(time, 2.7)).toEqual(expected[times.length - 1 - index]);
+    });
   });
 
   it("keeps the chosen strength at its stop, interpolates correction, and restores it on Back", () => {
@@ -75,11 +163,9 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(f.at("alignment", amount).amount).toBe(DEFAULT_STRENGTH);
       f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
       f.controls.back();
-      expect(graphicFromTracks(f.tracks, f.timeline.time(), amount).amount).toBe(amount);
+      expect(graphicFromTracks(f.tracks, amount).amount).toBe(amount);
       // Reset is a live input, independent of the timeline's authored values.
-      expect(graphicFromTracks(f.tracks, f.timeline.time(), DEFAULT_STRENGTH).amount).toBe(
-        DEFAULT_STRENGTH,
-      );
+      expect(graphicFromTracks(f.tracks, DEFAULT_STRENGTH).amount).toBe(DEFAULT_STRENGTH);
     }
   });
 
@@ -89,12 +175,12 @@ describe("tour behavior on the real GSAP timeline", () => {
       renderToStaticMarkup(createElement(ExplorerGraphic, f.at(time)));
     const shape = (markup: string) => markup.match(/<path data-radius-outline="visual"[^>]+>/g)!;
     const unchanged = (path: string) => path.replace(/ (?:fill|stroke)-opacity="[^"]+"/g, "");
-    const before = paint(2);
+    const before = paint(CHECKPOINTS[1]!.time);
     const original = shape(before)[0]!;
     expect(original).toContain('fill-opacity="1"');
     expect(original).toContain('stroke-opacity="0"');
 
-    for (const time of [2.02, 2.22, 2.42, 2.62, 2.82, 3.2]) {
+    for (const time of [0, 0.2, 0.4, 0.6, 0.8].map((offset) => CHECKPOINTS[2]!.start + offset)) {
       const markup = paint(time);
       expect(markup.match(/viewBox="[^"]+"/)![0]).toBe(before.match(/viewBox="[^"]+"/)![0]);
       expect(shape(markup)).toHaveLength(1);
@@ -104,7 +190,7 @@ describe("tour behavior on the real GSAP timeline", () => {
       );
     }
     expect(Number(f.at("radius").arcSuperellipse.showFill)).toBeCloseTo(0.2);
-    expect(shape(paint(3.2))[0]).toContain('stroke-opacity="1"');
+    expect(shape(paint(CHECKPOINTS[2]!.time))[0]).toContain('stroke-opacity="1"');
   });
 
   it("starts with only magenta, then draws the blue arc with the sweep before dissolving labels", () => {
@@ -302,11 +388,9 @@ describe("tour behavior on the real GSAP timeline", () => {
     );
     f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
     f.controls.back();
-    expect(
-      renderToStaticMarkup(
-        createElement(ExplorerGraphic, graphicFromTracks(f.tracks, f.timeline.time())),
-      ),
-    ).toBe(before);
+    expect(renderToStaticMarkup(createElement(ExplorerGraphic, graphicFromTracks(f.tracks)))).toBe(
+      before,
+    );
   });
 
   it("lets enlarged strokes leave the box without reversing into hooks at its corners", () => {
@@ -403,7 +487,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     f.controls.start(false);
     finishDriver(f.timeline, 0.5);
     f.controls.pause();
-    expect(f.timeline.time()).toBeCloseTo(0.4);
+    expect(f.timeline.time()).toBeCloseTo(CHECKPOINTS[0]!.time / 2);
     f.controls.resume();
     finishDriver(f.timeline);
     expect(f.timeline.time()).toBe(CHECKPOINTS[0].time);
