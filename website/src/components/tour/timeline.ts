@@ -83,12 +83,12 @@ export function createTourTimeline(onUpdate: () => void, panels: HTMLElement[] =
   timeline.to(
     tracks,
     {
-      choiceWeight: 0,
       correction: 1,
       duration: 1,
       ease: "power2.inOut",
     },
     "correction:enter",
   );
+  timeline.to(tracks, { choiceWeight: 0, duration: 0.8, ease: "power2.inOut" }, "alignment:enter");
   return { timeline, tracks };
 }

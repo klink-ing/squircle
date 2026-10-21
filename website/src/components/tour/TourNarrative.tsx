@@ -84,10 +84,18 @@ export default function TourNarrative({
         onAmountChange={onAmountChange}
       />
     </div>,
-    <p key="correction">
-      We can calculate a <em>corrected radius</em>. Increasing the superellipse's radius brings its
-      diagonal point into alignment with the circle.
-    </p>,
+    <div key="correction">
+      <p>
+        We can calculate a <em>corrected radius</em>. Increasing the superellipse's radius brings
+        its diagonal point into alignment with the circle.
+      </p>
+      <StrengthControl
+        id="tour-corrected-strength"
+        amount={amount}
+        enabled={strengthActive && CHECKPOINTS[active]?.id === "correction"}
+        onAmountChange={onAmountChange}
+      />
+    </div>,
     <p key="alignment">
       Now the two corners have the same visual size. You get the smooth superellipse shape while
       preserving the roundness you intended.

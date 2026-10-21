@@ -64,8 +64,11 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(f.at(STRENGTH.id, amount).amount).toBe(amount);
       expect(f.at(STRENGTH.id, amount).radiusComparison).toBe(1);
       expect(f.at(CORRECTION.start, amount).amount).toBe(amount);
-      expect(f.at(CORRECTION.start + 0.5, amount).amount).toBeCloseTo((amount + 2) / 2);
-      expect(f.at("correction", amount).amount).toBe(2);
+      expect(f.at(CORRECTION.start + 0.5, amount).amount).toBe(amount);
+      expect(f.at("correction", amount).amount).toBe(amount);
+      const alignment = CHECKPOINTS.find((cue) => cue.id === "alignment")!;
+      expect(f.at(alignment.start + 0.4, amount).amount).toBeCloseTo((amount + 2) / 2);
+      expect(f.at("alignment", amount).amount).toBe(2);
       f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
       f.controls.back();
       expect(graphicFromTracks(f.tracks, f.timeline.time(), amount).amount).toBe(amount);

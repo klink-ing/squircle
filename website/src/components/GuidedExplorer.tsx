@@ -8,6 +8,7 @@ import { graphicFromTracks } from "./tour/graphic-state";
 import {
   CHECKPOINTS,
   APPARENT_RADIUS,
+  CORRECTION,
   checkpointAtTime,
   createTourTimeline,
   DURATION,
@@ -94,7 +95,7 @@ export default function GuidedExplorer() {
     else controls.current?.resume();
   });
   const strengthActive =
-    (cue.id === STRENGTH.id || cue.id === APPARENT_RADIUS.id) &&
+    (cue.id === STRENGTH.id || cue.id === APPARENT_RADIUS.id || cue.id === CORRECTION.id) &&
     Math.abs(view.time - cue.time) < 0.001 &&
     !playback.moving;
 
