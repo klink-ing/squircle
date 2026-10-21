@@ -245,7 +245,8 @@ export default function ExplorerGraphic({
       }
       viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
       className="w-full max-w-md"
-      style={{ overflow: "visible" }}
+      // Preserve annotation space above/right, but crop at the shape's left/bottom edges.
+      style={{ overflow: "visible", clipPath: "inset(-100% -100% 0 0)" }}
     >
       <defs>
         <clipPath id={clipBox}>

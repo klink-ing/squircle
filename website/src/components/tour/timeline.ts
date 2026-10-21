@@ -32,7 +32,13 @@ export function createTourTimeline(
   const transitions = slides.map((slide, index) => {
     const transition = gsap.timeline();
     // The proxy gives headless timelines the same text duration as mounted timelines.
-    slide.transition(transition, { tracks, text: panels[index] ?? { opacity: 0, x: 16 } });
+    slide.transition(transition, {
+      tracks,
+      // Animate copy only. The interleaved controller takes its new layout position immediately.
+      text: panels[index]
+        ? Array.from(panels[index]!.querySelectorAll("h2, .tour-copy p"))
+        : { opacity: 0, x: 16 },
+    });
     transition.to({}, { duration: slide.hold });
     const start = index === 0 ? 0 : Number((timeline.duration() + SLIDE_GAP).toFixed(7));
     timeline.add(transition, start);

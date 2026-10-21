@@ -46,8 +46,19 @@ export default function GuidedExplorer() {
       const current = createTourTimeline(publish, panels);
       tour.current = current;
       setCheckpoints(current.checkpoints);
-      const transport = createPlayback(current, publish, setPlayback, () =>
-        requestFocus((v) => v + 1),
+      const transport = createPlayback(
+        current,
+        publish,
+        setPlayback,
+        () => requestFocus((v) => v + 1),
+        {
+          get: () => chosen.current,
+          set: (value) => {
+            chosen.current = value;
+            setAmount(value);
+            publish();
+          },
+        },
       );
       controls.current = transport;
       transport.start(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -83,7 +94,10 @@ export default function GuidedExplorer() {
     publish(); // Immediate graphic update without recreating the input or the timeline.
   };
   const next = contextSafe(() => {
-    if (controls.current?.next()) setExplore({ ...view.graphic });
+    controls.current?.next(() => {
+      const current = tour.current;
+      if (current) setExplore(graphicFromTracks(current.tracks, chosen.current));
+    });
   });
   const back = contextSafe(() => controls.current?.back());
   const seek = contextSafe((time: number) => controls.current?.seek(time));

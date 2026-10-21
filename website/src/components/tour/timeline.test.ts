@@ -8,7 +8,7 @@ import { graphicFromTracks } from "./graphic-state";
 import { checkpointAtTime, createTourTimeline } from "./timeline";
 import { DEFAULT_STRENGTH } from "./state";
 import { SLIDES, type TourSlide } from "./slides";
-import { createPlayback, type PlaybackState } from "./playback";
+import { createPlayback, STRENGTH_RETURN_SPEED, type PlaybackState } from "./playback";
 import { correctedRadius, perceivedRadius } from "../../math";
 
 const authored = createTourTimeline(() => {});
@@ -24,10 +24,11 @@ afterEach(() => {
   gsap.globalTimeline.clear();
 });
 
-function fixture() {
+function fixture(initialAmount = DEFAULT_STRENGTH) {
   const tour = createTourTimeline(() => {});
   let state: PlaybackState = { destination: 0, moving: false };
   let focusCount = 0;
+  let chosen = initialAmount;
   const controls = createPlayback(
     tour,
     () => {},
@@ -35,12 +36,25 @@ function fixture() {
       state = value;
     },
     () => focusCount++,
+    {
+      get: () => chosen,
+      set: (value) => {
+        chosen = value;
+      },
+    },
   );
-  const at = (position: number | string, amount = DEFAULT_STRENGTH) => {
+  const at = (position: number | string, amount = chosen) => {
     tour.timeline.seek(position);
     return graphicFromTracks(tour.tracks, amount);
   };
-  return { ...tour, controls, at, state: () => state, focusCount: () => focusCount };
+  return {
+    ...tour,
+    controls,
+    at,
+    state: () => state,
+    focusCount: () => focusCount,
+    strength: () => chosen,
+  };
 }
 
 function finishDriver(timeline: gsap.core.Timeline, progress = 1) {
@@ -48,6 +62,108 @@ function finishDriver(timeline: gsap.core.Timeline, progress = 1) {
   expect(driver).toBeDefined();
   driver!.progress(progress);
 }
+
+function strengthDriver() {
+  const driver = gsap.globalTimeline.getChildren(false, true, false).at(-1)!;
+  expect(driver).toBeDefined();
+  return driver;
+}
+
+describe("strength return before Next", () => {
+  it.each([1, 1.5, DEFAULT_STRENGTH, 2.7, 3])(
+    "returns strength %s with distance-based duration before starting the next slide",
+    (amount) => {
+      const f = fixture(amount);
+      f.controls.checkpoint(CHECKPOINTS.indexOf(STRENGTH));
+      f.controls.next();
+      const distance = Math.abs(amount - DEFAULT_STRENGTH);
+      if (distance > 0) {
+        const reset = strengthDriver();
+        expect(reset.duration()).toBeCloseTo(distance / STRENGTH_RETURN_SPEED);
+        expect(gsap.getTweensOf(f.timeline)).toHaveLength(0);
+        reset.progress(0.5);
+        expect(Math.abs(f.strength() - DEFAULT_STRENGTH)).toBeGreaterThan(0);
+        expect(Math.abs(f.strength() - DEFAULT_STRENGTH)).toBeLessThan(distance / 2);
+        expect(f.timeline.time()).toBe(STRENGTH.time);
+        f.controls.next(); // Repeated clicks must not queue or restart the return.
+        expect(strengthDriver()).toBe(reset);
+        reset.progress(1);
+      } else {
+        // No return tween and no delay when the input is already the default.
+        expect(strengthDriver().targets()).toContain(f.timeline);
+      }
+      expect(f.strength()).toBe(DEFAULT_STRENGTH);
+      expect(gsap.getTweensOf(f.timeline)).toHaveLength(1);
+      finishDriver(f.timeline);
+      expect(f.timeline.time()).toBe(APPARENT_RADIUS.time);
+    },
+  );
+
+  it.each(["back", "seek", "checkpoint", "dispose"] as const)(
+    "cancels the return and pending advance on %s",
+    (action) => {
+      const f = fixture(3);
+      f.controls.checkpoint(CHECKPOINTS.indexOf(STRENGTH));
+      f.controls.next();
+      const reset = strengthDriver();
+      reset.progress(0.4);
+      if (action === "seek") f.controls.seek(STRENGTH.time);
+      else if (action === "checkpoint") f.controls.checkpoint(0);
+      else f.controls[action]();
+      expect(reset.parent).toBeNull();
+      expect(gsap.getTweensOf(f.timeline)).toHaveLength(0);
+      expect(f.timeline.paused()).toBe(true);
+    },
+  );
+
+  it("resumes the return from its remaining distance before continuing", () => {
+    const f = fixture(3);
+    f.controls.checkpoint(CHECKPOINTS.indexOf(STRENGTH));
+    f.controls.next();
+    strengthDriver().progress(0.4);
+    f.controls.pause();
+    const remaining = Math.abs(f.strength() - DEFAULT_STRENGTH);
+    expect(f.state().moving).toBe(false);
+    f.controls.resume();
+    expect(strengthDriver().duration()).toBeCloseTo(remaining / STRENGTH_RETURN_SPEED);
+    strengthDriver().progress(1);
+    finishDriver(f.timeline);
+    expect(f.timeline.time()).toBe(APPARENT_RADIUS.time);
+  });
+
+  it.each([true, false])(
+    "settles reset and navigation with reduced motion (initially %s)",
+    (initial) => {
+      const f = fixture(3);
+      f.controls.start(initial);
+      if (!initial) finishDriver(f.timeline);
+      f.controls.checkpoint(CHECKPOINTS.indexOf(STRENGTH));
+      f.controls.next();
+      if (!initial) {
+        strengthDriver().progress(0.5);
+        f.controls.setReducedMotion(true);
+      }
+      expect(f.strength()).toBe(DEFAULT_STRENGTH);
+      expect(f.timeline.time()).toBe(APPARENT_RADIUS.time);
+      expect(f.state().moving).toBe(false);
+      expect(gsap.globalTimeline.getChildren(false, true, false)).toHaveLength(0);
+    },
+  );
+
+  it("finishes returning strength before the Explore handoff", () => {
+    const f = fixture(3);
+    f.controls.checkpoint(CHECKPOINTS.length - 1);
+    let explored = false;
+    f.controls.next(() => {
+      explored = true;
+    });
+    expect(explored).toBe(false);
+    strengthDriver().progress(1);
+    expect(f.strength()).toBe(DEFAULT_STRENGTH);
+    expect(explored).toBe(true);
+    expect(f.state().moving).toBe(false);
+  });
+});
 
 describe("tour behavior on the real GSAP timeline", () => {
   it("nests each slide's text and graphic animation on a local timeline starting at zero", () => {
@@ -104,7 +220,11 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(tour.timeline.time()).toBe(tour.checkpoints[1]!.time);
       controls.seek(100);
       expect(tour.timeline.time()).toBeCloseTo(DURATION + 1);
-      expect(controls.next()).toBe(true);
+      let explored = false;
+      controls.next(() => {
+        explored = true;
+      });
+      expect(explored).toBe(true);
     },
   );
 
@@ -477,7 +597,11 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.timeline.time()).toBe(CORRECTION.time);
     f.controls.seek(100);
     expect(f.timeline.time()).toBe(DURATION);
-    expect(f.controls.next()).toBe(true); // Explore handoff only after final stop.
+    let explored = false;
+    f.controls.next(() => {
+      explored = true;
+    });
+    expect(explored).toBe(true); // Explore handoff only after final stop.
     f.controls.seek(-1);
     expect(f.timeline.time()).toBe(0);
   });

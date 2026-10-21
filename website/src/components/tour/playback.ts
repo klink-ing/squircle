@@ -1,5 +1,14 @@
-import type gsap from "gsap";
+import gsap from "gsap";
 import { checkpointAtTime, type createTourTimeline } from "./timeline";
+import { DEFAULT_STRENGTH } from "./state";
+
+// Strength units per second: a full 1.0 change takes 0.25s; no distance takes no time.
+export const STRENGTH_RETURN_SPEED = 4;
+
+interface StrengthInput {
+  get: () => number;
+  set: (value: number) => void;
+}
 
 export interface PlaybackState {
   destination: number;
@@ -12,16 +21,19 @@ export function createPlayback(
   publish: () => void,
   onChange: (state: PlaybackState) => void,
   onSettled: () => void,
+  strength?: StrengthInput,
 ) {
   const { timeline, checkpoints } = tour;
   let destination = 0;
   let moving = false;
   let reduced = false;
   let driver: gsap.core.Tween | undefined;
+  let pendingNext: (() => void) | undefined;
   const notify = () => onChange({ destination, moving });
   const cancel = () => {
     driver?.kill();
     driver = undefined;
+    pendingNext = undefined;
     timeline.pause();
   };
   const settle = (focus: boolean) => {
@@ -50,28 +62,59 @@ export function createPlayback(
       onComplete: () => settle(true),
     });
   };
+  const returnStrength = (advance: () => void, index: number) => {
+    cancel();
+    destination = index;
+    const value = { amount: strength?.get() ?? DEFAULT_STRENGTH };
+    const distance = Math.abs(value.amount - DEFAULT_STRENGTH);
+    if (reduced || distance === 0) {
+      if (distance > 0) strength!.set(DEFAULT_STRENGTH);
+      advance();
+      return;
+    }
+    moving = true;
+    pendingNext = advance;
+    notify();
+    // Keep the slide's playhead still until the live input has returned to the default.
+    driver = gsap.to(value, {
+      amount: DEFAULT_STRENGTH,
+      duration: distance / STRENGTH_RETURN_SPEED,
+      ease: "power2.out",
+      onUpdate: () => strength!.set(value.amount),
+      onComplete: () => {
+        pendingNext = undefined;
+        strength!.set(DEFAULT_STRENGTH);
+        advance();
+      },
+    });
+  };
   return {
     start(reducedMotion: boolean) {
       reduced = reducedMotion;
       move(0);
     },
-    next() {
-      if (moving) return false;
+    next(onExplore?: () => void) {
+      if (moving) return;
       // After an author scrub, settle this scene before continuing.
-      if (timeline.time() < checkpoints[destination]!.time - 0.001) {
-        move(destination);
-        return false;
-      }
-      if (destination === checkpoints.length - 1) return true;
-      move(destination + 1);
-      return false;
+      const unfinished = timeline.time() < checkpoints[destination]!.time - 0.001;
+      const explore = !unfinished && destination === checkpoints.length - 1;
+      const index = unfinished || explore ? destination : destination + 1;
+      returnStrength(() => {
+        if (explore) {
+          settle(false);
+          onExplore?.();
+        } else move(index);
+      }, index);
     },
     back() {
       seekStop(Math.max(0, destination - 1));
     },
     setReducedMotion(value: boolean) {
       reduced = value;
-      if (reduced && moving) seekStop(destination);
+      if (reduced && moving) {
+        if (pendingNext) returnStrength(pendingNext, destination);
+        else seekStop(destination);
+      }
     },
     seek(time: number) {
       cancel();
@@ -83,11 +126,16 @@ export function createPlayback(
       seekStop(index, false);
     },
     pause() {
+      const advance = pendingNext;
       cancel();
+      pendingNext = advance;
       settle(false);
     },
     resume() {
-      if (!moving) move(destination);
+      if (!moving) {
+        if (pendingNext) returnStrength(pendingNext, destination);
+        else move(destination);
+      }
     },
     dispose: cancel,
   };
