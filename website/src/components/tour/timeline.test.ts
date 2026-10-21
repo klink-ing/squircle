@@ -324,6 +324,24 @@ describe("tour behavior on the real GSAP timeline", () => {
     });
   });
 
+  it("keeps the corrected blue/magenta graphic unchanged throughout the last two slides", () => {
+    const f = fixture();
+    for (const amount of [1, DEFAULT_STRENGTH, 2.7, 3]) {
+      const corrected = f.at("correction", amount);
+      const finalSlides = CHECKPOINTS.filter(
+        (cue) => cue.id === "alignment" || cue.id === "utilities",
+      );
+      for (const cue of finalSlides) {
+        for (const time of [cue.start, cue.textStart, cue.start + cue.duration / 2, cue.time]) {
+          expect(f.at(time, amount)).toEqual(corrected);
+        }
+      }
+      expect(corrected.radiusComparison).toBe(1);
+      expect(corrected.showMeasurement).toBe(0);
+      expect(corrected.arcSuperellipse.showFill).toBeCloseTo(0.2);
+    }
+  });
+
   it("keeps the chosen strength at its stop, interpolates correction, and restores it on Back", () => {
     for (const amount of [1, 1.5, DEFAULT_STRENGTH, 2.7, 3]) {
       const f = fixture();
@@ -333,11 +351,8 @@ describe("tour behavior on the real GSAP timeline", () => {
       expect(f.at(CORRECTION.start, amount).amount).toBe(amount);
       expect(f.at(CORRECTION.start + 0.5, amount).amount).toBe(amount);
       expect(f.at("correction", amount).amount).toBe(amount);
-      const alignment = CHECKPOINTS.find((cue) => cue.id === "alignment")!;
-      expect(f.at(alignment.start + 0.4, amount).amount).toBeCloseTo(
-        (amount + DEFAULT_STRENGTH) / 2,
-      );
-      expect(f.at("alignment", amount).amount).toBe(DEFAULT_STRENGTH);
+      expect(f.at("alignment", amount).amount).toBe(amount);
+      expect(f.at("utilities", amount).amount).toBe(amount);
       f.controls.checkpoint(CHECKPOINTS.indexOf(CORRECTION));
       f.controls.back();
       expect(graphicFromTracks(f.tracks, amount).amount).toBe(amount);
@@ -409,7 +424,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(diagonal).toContain('data-radius-label="visual"');
     expect(diagonal).toContain(">???</text>");
     expect(paint("correction")).toContain("data-radius-comparison=");
-    expect(paint("alignment")).not.toContain("data-radius-comparison=");
+    expect(paint("alignment")).toContain("data-radius-comparison=");
     // Reverse seeking must restore the initial unpainted blue marker and labels.
     expect(paint("radius")).not.toContain('data-radius-marker="css"');
     expect(f.tracks.radiusLabels).toBe(0);

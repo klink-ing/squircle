@@ -216,11 +216,9 @@ export const SLIDES: readonly TourSlide[] = [
     ),
     nextLabel: "How do I use it?",
     hold: 0.18,
-    transition(timeline, { tracks, text, previousText }) {
+    transition(timeline, { text, previousText }) {
       exitText(timeline, previousText, { at: 0, duration: 0.18 });
       enterText(timeline, text, { at: ">", duration: 0.7 });
-      timeline.to(tracks, { radiusComparison: 0, duration: 0.3 }, 0);
-      timeline.to(tracks, { choiceWeight: 0, duration: 0.8, ease: "power2.inOut" }, 0);
     },
   },
   {

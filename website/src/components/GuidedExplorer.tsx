@@ -102,7 +102,10 @@ export default function GuidedExplorer() {
   const next = contextSafe(() => {
     controls.current?.next(() => {
       const current = tour.current;
-      if (current) setExplore(graphicFromTracks(current.tracks, chosen.current));
+      if (current) {
+        // Explore has its own curve toggles and measurements rather than tour annotations.
+        setExplore(graphicFromTracks({ ...current.tracks, radiusComparison: 0 }, chosen.current));
+      }
     });
   });
   const back = contextSafe(() => controls.current?.back());
