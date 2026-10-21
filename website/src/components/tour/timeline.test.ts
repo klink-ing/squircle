@@ -107,9 +107,11 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.at("radius").arcRounded.visible).toBe(0);
     expect(vertical).toContain('data-radius-outline="visual"');
     expect(vertical).not.toContain('data-radius-outline="css"');
-    expect(vertical).toContain('data-radius-marker="visual"');
+    expect(vertical).toContain('data-radius-marker="specified"');
+    expect(vertical).not.toContain('data-radius-marker="visual"');
     expect(vertical).not.toContain('data-radius-marker="css"');
-    expect(vertical).not.toContain("data-radius-label=");
+    expect(vertical).toContain('data-radius-label="specified"');
+    expect(vertical).toContain("CSS Radius");
     expect(paint(RADIUS_SWEEP.start)).not.toContain('data-radius-marker="css"');
 
     const moving = paint(RADIUS_SWEEP.start + 0.5);
@@ -117,7 +119,8 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(moving).toContain('data-radius-marker="css"');
     expect(moving).toContain('data-radius-outline="css"');
     expect(moving).toContain(">1.07</text>");
-    expect(moving).not.toContain("data-radius-label=");
+    expect(moving).not.toContain('data-radius-label="css"');
+    expect(moving).not.toContain('data-radius-label="visual"');
 
     paint(RADIUS_SWEEP.start + 1.2);
     expect(f.tracks.radiusSweep).toBe(1);
@@ -128,6 +131,7 @@ describe("tour behavior on the real GSAP timeline", () => {
     expect(f.tracks.radiusLabels).toBe(1);
     expect(diagonal).toContain('data-radius-label="css"');
     expect(diagonal).toContain('data-radius-label="visual"');
+    expect(diagonal).toContain(">???</text>");
     expect(paint("correction")).not.toContain("data-radius-comparison=");
     // Reverse seeking must restore the initial unpainted blue marker and labels.
     expect(paint("radius")).not.toContain('data-radius-marker="css"');
@@ -179,10 +183,20 @@ describe("tour behavior on the real GSAP timeline", () => {
     ] as const) {
       const before = paint(STRENGTH.id, amount);
       const shape = tag(before, 'data-radius-outline="visual"');
+      const fixedMarker = tag(before, 'data-radius-point="specified"');
+      const fixedNumber = tag(before, 'data-radius-number="specified"');
+      const fixedLabel = tag(before, 'data-radius-label="specified"');
+      const movingNumber = tag(before, 'data-radius-number="magenta"');
       expect(before).not.toContain("data-apparent-construction");
       for (const offset of [0, 0.25, 0.5, 0.75, 1]) {
         const html = paint(APPARENT_RADIUS.start + offset, amount);
         expect(tag(html, 'data-radius-outline="visual"')).toBe(shape);
+        expect(tag(html, 'data-radius-point="specified"')).toBe(fixedMarker);
+        expect(tag(html, 'data-radius-number="specified"')).toBe(fixedNumber);
+        expect(tag(html, 'data-radius-label="specified"')).toBe(fixedLabel);
+        expect(tag(html, 'data-radius-number="magenta"').replace(/ opacity="[^"]+"/, "")).toBe(
+          movingNumber.replace(/ opacity="[^"]+"/, ""),
+        );
         expect(f.at(APPARENT_RADIUS.start + offset, amount).amount).toBe(amount);
         expect(f.tracks.correction).toBe(0);
       }
@@ -203,7 +217,9 @@ describe("tour behavior on the real GSAP timeline", () => {
       const n = 2 ** amount;
       expect(((x - 55) / cssRadius) ** n + ((145 - y) / cssRadius) ** n).toBeCloseTo(1);
       expect(after).toMatch(new RegExp(`data-radius-number="blue"[^>]*>${readout}</text>`));
-      expect(after).toMatch(/data-radius-number="magenta"[^>]*>1.00<\/text>/);
+      expect(after).toMatch(/data-radius-number="specified"[^>]*>1.00<\/text>/);
+      expect(tag(after, 'data-radius-number="magenta"')).toContain('opacity="0"');
+      expect(tag(after, 'data-radius-label="visual"')).toContain('opacity="0"');
       expect(after).toContain("CSS Radius");
       expect(after).toContain(">Apparent</tspan>");
       expect(paint(STRENGTH.id, amount)).toBe(before);
