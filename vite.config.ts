@@ -19,6 +19,8 @@ export default defineConfig({
           "@klinking/squircle#typecheck",
           "@klinking/squircle#test",
           "website#build",
+          "website#test",
+          "website#typecheck",
         ],
       },
       "sync-readme": {

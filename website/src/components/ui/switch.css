@@ -1,0 +1,42 @@
+.ui-switch {
+  appearance: none;
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 1.15rem;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #3f3f46;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.ui-switch::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #fafafa;
+  transform: translate(0, -50%);
+  transition: transform 150ms ease;
+}
+.ui-switch:checked {
+  background: var(--color-squircle-border);
+}
+.ui-switch:checked::before {
+  transform: translate(calc(1rem - 2px), -50%);
+}
+.ui-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-switch,
+  .ui-switch::before {
+    transition: none;
+  }
+}
