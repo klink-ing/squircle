@@ -91,20 +91,12 @@ describe("rounded-* utilities reset the corner shape they own", () => {
       });
 
       // The reset accepts the same values the squircle-* utilities do: theme
-      // keys and arbitrary lengths, nothing else. Anything wider would reset
-      // corners for values this package tells you not to write.
-      for (const value of ["lg", "[3px]"]) {
+      // keys and any arbitrary value, including a CSS variable, so a corner
+      // rounded by any value core accepts takes its shape back.
+      for (const value of ["lg", "[3px]", "[var(--my-r)]", "(--my-r)"]) {
         it(`rounded-tl-${value} gets the reset`, async () => {
           const css = await compile([`rounded-tl-${value}`]);
           expect(css).toContain("corner-top-left-shape: round");
-        });
-      }
-
-      // A corner named this way keeps its squircle shape — use a theme key.
-      for (const value of ["[var(--my-r)]", "(--my-r)", "[50%]", "[foo]"]) {
-        it(`rounded-tl-${value} gets no reset (not a length)`, async () => {
-          const css = await compile([`rounded-tl-${value}`]);
-          expect(css).not.toContain("corner-top-left-shape: round");
         });
       }
 
