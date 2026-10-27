@@ -17,14 +17,17 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Support arbitrary, bare, and theme values in one --value() call.
+// Support arbitrary, bare, and theme values in one --value() call. `[*]` lets a
+// CSS variable through (`squircle-(--r)`, `squircle-[var(--r)]`): Tailwind
+// can't type an untyped variable, so like core's rounded-* it takes any
+// arbitrary value, and a typo inside brackets is no longer caught.
 // https://tailwindcss.com/docs/adding-custom-styles#functional-utilities
-const value = "--value(--radius-*, [length])";
+const value = "--value(--radius-*, [length], [*])";
 // The reset re-declares the radius purely so `--value()` still decides what
 // matches. Without it the utility would accept any suffix at all, turning a
 // typo like `rounded-tl-garbage` into a real class. It accepts the same values
-// the squircle-* utilities do — theme keys and arbitrary lengths, not paren
-// refs — and the radius it emits is the one core emits for the same class.
+// the squircle-* utilities do — theme keys and any arbitrary value — and the
+// radius it emits is the one core emits for the same class.
 const roundedValue = value;
 
 /**
@@ -77,7 +80,7 @@ function generateCss(): string {
    --squircle-amt yourself does. It applies no corner-shape of its own, so it
    never reshapes corners that no squircle-* utility claimed. */
 @utility squircle-amt-* {
-  --squircle-amt: --value(--squircle-amt-*, number, [number]);
+  --squircle-amt: --value(--squircle-amt-*, number, [number], [*]);
 }`);
 
   for (const [suffix, entry] of Object.entries(VARIANTS)) {
