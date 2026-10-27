@@ -92,34 +92,34 @@ The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners uti
 
 ### Utilities
 
-| Utility          | Equivalent     | Description                       |
-| ---------------- | -------------- | --------------------------------- |
-| `squircle-*`     | `rounded-*`    | All corners                       |
-| `squircle-t-*`   | `rounded-t-*`  | Top corners                       |
-| `squircle-r-*`   | `rounded-r-*`  | Right corners                     |
-| `squircle-b-*`   | `rounded-b-*`  | Bottom corners                    |
-| `squircle-l-*`   | `rounded-l-*`  | Left corners                      |
-| `squircle-s-*`   | `rounded-s-*`  | Inline-start corners (logical)    |
-| `squircle-e-*`   | `rounded-e-*`  | Inline-end corners (logical)      |
-| `squircle-tl-*`  | `rounded-tl-*` | Top-left corner                   |
-| `squircle-tr-*`  | `rounded-tr-*` | Top-right corner                  |
-| `squircle-br-*`  | `rounded-br-*` | Bottom-right corner               |
-| `squircle-bl-*`  | `rounded-bl-*` | Bottom-left corner                |
-| `squircle-ss-*`  | `rounded-ss-*` | Start-start corner (logical)      |
-| `squircle-se-*`  | `rounded-se-*` | Start-end corner (logical)        |
-| `squircle-es-*`  | `rounded-es-*` | End-start corner (logical)        |
-| `squircle-ee-*`  | `rounded-ee-*` | End-end corner (logical)          |
-| `squircle-amt-*` | —              | Superellipse exponent (default 2) |
-| `squircle-none`  | `rounded-none` | Remove rounding                   |
-| `squircle-full`  | `rounded-full` | Fully rounded (pill)              |
+| Utility          | Equivalent     | Description                                    |
+| ---------------- | -------------- | ---------------------------------------------- |
+| `squircle-*`     | `rounded-*`    | All corners                                    |
+| `squircle-t-*`   | `rounded-t-*`  | Top corners                                    |
+| `squircle-r-*`   | `rounded-r-*`  | Right corners                                  |
+| `squircle-b-*`   | `rounded-b-*`  | Bottom corners                                 |
+| `squircle-l-*`   | `rounded-l-*`  | Left corners                                   |
+| `squircle-s-*`   | `rounded-s-*`  | Inline-start corners (logical)                 |
+| `squircle-e-*`   | `rounded-e-*`  | Inline-end corners (logical)                   |
+| `squircle-tl-*`  | `rounded-tl-*` | Top-left corner                                |
+| `squircle-tr-*`  | `rounded-tr-*` | Top-right corner                               |
+| `squircle-br-*`  | `rounded-br-*` | Bottom-right corner                            |
+| `squircle-bl-*`  | `rounded-bl-*` | Bottom-left corner                             |
+| `squircle-ss-*`  | `rounded-ss-*` | Start-start corner (logical)                   |
+| `squircle-se-*`  | `rounded-se-*` | Start-end corner (logical)                     |
+| `squircle-es-*`  | `rounded-es-*` | End-start corner (logical)                     |
+| `squircle-ee-*`  | `rounded-ee-*` | End-end corner (logical)                       |
+| `squircle-amt-*` | —              | Strength: how square the corner is (default 2) |
+| `squircle-none`  | `rounded-none` | Remove rounding                                |
+| `squircle-full`  | `rounded-full` | Fully rounded (pill)                           |
 
 ### What values are accepted?
 
 Theme keys and bare numbers are checked, so a typo like `squircle-lgg` produces no class instead of invalid CSS. Values in brackets or parentheses are taken as written, as with Tailwind's own `rounded-*`:
 
 - **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, plus anything you add to `@theme`), arbitrary lengths like `squircle-[16px]`, and CSS variables like `squircle-(--my-radius)`. As with `rounded-*`, other arbitrary values aren't type-checked (see [Referencing a runtime CSS variable](#referencing-a-runtime-css-variable)).
-- **`squircle-none` and `squircle-full`** (and their side/corner variants) are static utilities defined the same way as `rounded-none` and `rounded-full`: `0` and `calc(infinity * 1px)`. Neither needs the visual radius correction — correcting zero or infinity is a no-op — so `squircle-full` is just `rounded-full` plus the superellipse corner shape, and `squircle-none` is identical to `rounded-none`.
-- **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), CSS variables (`squircle-amt-(--my-amt)`), and theme values. Other arbitrary values, like `[1em]`, aren't type-checked. It only sets the amount — exactly what writing `--squircle-amt` yourself does — and applies no corner shape of its own, so it never reshapes a corner no `squircle-*` utility claimed.
+- **`squircle-none` and `squircle-full`** (and their side/corner variants) are static utilities defined the same way as `rounded-none` and `rounded-full`: `0` and `calc(infinity * 1px)`. Neither needs a corrected radius — correcting zero or infinity is a no-op — so `squircle-full` is just `rounded-full` plus the superellipse corner shape, and `squircle-none` is identical to `rounded-none`.
+- **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), CSS variables (`squircle-amt-(--my-amt)`), and theme values. Other arbitrary values, like `[1em]`, aren't type-checked. It only sets the strength — exactly what writing `--squircle-amt` yourself does — and applies no corner shape of its own, so it never reshapes a corner no `squircle-*` utility claimed.
 
 ### Mixing squircled and rounded corners
 
@@ -170,7 +170,7 @@ Any `--radius-*` token you define works automatically:
 <div class="squircle-blob">…</div>
 ```
 
-#### Default superellipse amount
+#### Default strength
 
 `--squircle-amt` is a regular CSS custom property — set it anywhere it'll be in scope and it overrides the default of `2` for every `squircle-*` and `squircle-amt-*` utility beneath it:
 
@@ -271,7 +271,7 @@ The naming follows Panda's own border-radius convention exactly — substitute `
 | `squircleStartEndRadius`    | `squircleStartEnd`    | start-end corner (logical)         |
 | `squircleEndStartRadius`    | `squircleEndStart`    | end-start corner (logical)         |
 | `squircleEndEndRadius`      | `squircleEndEnd`      | end-end corner (logical)           |
-| `squircleAmount`            | `squircleAmt`         | superellipse exponent (default 2)  |
+| `squircleAmount`            | `squircleAmt`         | strength (default 2)               |
 
 All radius utilities resolve through your `radii` theme tokens, so `squircle: "md"` reads the same `--radii-md` your `borderRadius: "md"` does:
 
@@ -281,7 +281,7 @@ import { css, cva } from "../styled-system/css";
 // All four corners, token radius
 <div className={css({ squircle: "md", padding: "4" })} />
 
-// Single corner with explicit superellipse amount
+// Single corner with explicit strength
 <div className={css({ squircleTopLeft: "lg", squircleAmt: 3 })} />
 
 // Arbitrary value (any string Panda would accept for borderRadius)
@@ -358,7 +358,7 @@ import { squircle } from "@klinking/squircle/stylex";
 // All four corners
 <div {...stylex.props(squircle.all("1rem"))} />
 
-// Single corner with custom superellipse amount
+// Single corner with custom strength
 <div {...stylex.props(squircle.topLeft("1.5rem", 3))} />
 
 // Per-side
@@ -375,7 +375,7 @@ import { squircle } from "@klinking/squircle/stylex";
 ```
 
 - `radius` — any value valid for `border-radius` (rem, px, %, a `var(--…)` reference, or a number which StyleX converts to px).
-- `amt` — the superellipse exponent. **Defaults to `2`.** Unlike the Tailwind and Panda integrations, this preset does _not_ read `--squircle-amt` from the cascade — pass `amt` explicitly per call site to tune it.
+- `amt` — the strength, how square the corner is. **Defaults to `2`.** Unlike the Tailwind and Panda integrations, this preset does _not_ read `--squircle-amt` from the cascade — pass `amt` explicitly per call site to tune it.
 
 Browsers without `corner-shape` support fall back to a plain `border-radius` at the same size (the `@supports` block silently drops out).
 
@@ -647,7 +647,7 @@ So `.squircle-md` compiles to roughly:
   border-radius: 0.375rem; /* fallback: matches rounded-md visually */
   @supports (corner-shape: superellipse(2)) {
     --squircle-r: calc(0.375rem * (1 - pow(2, -0.5)) / (1 - pow(2, -0.25)));
-    border-radius: var(--squircle-r); /* ≈ 0.690rem, compensated */
+    border-radius: var(--squircle-r); /* ≈ 0.690rem, corrected */
     corner-shape: superellipse(2);
   }
 }
@@ -743,7 +743,7 @@ No. Everything is static CSS — the Tailwind utilities expand at build time int
 <details>
 <summary><strong>What happens once <code>corner-shape</code> is universal?</strong></summary>
 
-Nothing you need to do. The correction lives inside `@supports (corner-shape: superellipse(2))`, so it activates exactly when the shape does. Once the browser ships support, the shape applies _and_ the compensated radius applies, at the same moment. Your layout is identical before and after.
+Nothing you need to do. The correction lives inside `@supports (corner-shape: superellipse(2))`, so it activates exactly when the shape does. Once the browser ships support, the shape applies _and_ the corrected radius applies, at the same moment. Your layout is identical before and after.
 
 </details>
 
@@ -800,11 +800,11 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
  */
 
 /* ── Squircle utilities ─────────────────────────────────────── */
-/* squircle-amt-[n] sets the superellipse amount (default 2)    */
+/* squircle-amt-[n] sets the strength (default 2)               */
 /* squircle-* mirrors rounded-* variants: t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
 /* squircle-*-none and squircle-*-full are static, matching rounded-none and rounded-full */
 
-/* squircle-amt-[n] only sets the amount — the same thing writing
+/* squircle-amt-[n] only sets the strength — the same thing writing
    --squircle-amt yourself does. It applies no corner-shape of its own, so it
    never reshapes corners that no squircle-* utility claimed. */
 @utility squircle-amt-* {
@@ -1376,7 +1376,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
  * must be scaled up to preserve the intended visual size.
  *
  * --radius       The target border-radius (any <length>).
- * --squircle-amt The superellipse exponent passed to corner-shape.
+ * --squircle-amt The strength passed to corner-shape.
  *
  * Parameters are untyped to preserve standard CSS resolution of
  * relative units (em, rem, etc.) — they resolve in the context
@@ -1503,7 +1503,7 @@ import * as stylex from "@stylexjs/stylex";
  * ```
  *
  * If `amt` is omitted, the corrected radius and `corner-shape` use the
- * literal default exponent of `2` — pass `amt` explicitly per-call site to
+ * literal default strength of `2` — pass `amt` explicitly per-call site to
  * tune it. Unlike the Tailwind and Panda integrations, this preset does not
  * read `--squircle-amt`; StyleX's per-call parameter is the only knob.
  *
