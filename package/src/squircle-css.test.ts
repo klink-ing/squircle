@@ -92,19 +92,22 @@ describe("squircle.css utilities", () => {
       expect(css).toContain("calc(1rem *");
     });
 
-    it("squircle-[50%] is rejected (only [length] arbitraries allowed)", async () => {
-      const css = await compileCss(["squircle-[50%]"]);
-      expect(css).not.toContain(".squircle-");
-    });
-
-    it("squircle-(--my-radius) is rejected (use a theme value to reference a var)", async () => {
+    it("squircle-(--my-radius) reads a CSS variable in fallback and calc", async () => {
       const css = await compileCss(["squircle-(--my-radius)"]);
-      expect(css).not.toContain(".squircle-");
+      expect(css).toContain("border-radius: var(--my-radius)");
+      expect(css).toContain("calc(var(--my-radius) *");
     });
 
-    it("squircle-[foo] is rejected", async () => {
-      const css = await compileCss(["squircle-[foo]"]);
-      expect(css).not.toContain(".squircle-");
+    it("squircle-[var(--my-radius)] reads a CSS variable", async () => {
+      const css = await compileCss(["squircle-[var(--my-radius)]"]);
+      expect(css).toContain("border-radius: var(--my-radius)");
+    });
+
+    // Tailwind can't tell a variable from any other untyped arbitrary value,
+    // so, like rounded-*, other arbitrary values pass through unchecked.
+    it("squircle-[50%] passes through unchecked, as rounded-[50%] does", async () => {
+      const css = await compileCss(["squircle-[50%]"]);
+      expect(css).toContain("border-radius: 50%");
     });
 
     for (const [suffix, props] of Object.entries(VARIANTS)) {
@@ -125,19 +128,14 @@ describe("squircle.css utilities", () => {
       expect(css).not.toContain("corner-shape:");
     });
 
-    it("squircle-amt-[1em] is rejected (unit-bearing values are not numbers)", async () => {
-      const css = await compileCss(["squircle-amt-[1em]"]);
-      expect(css).not.toContain("squircle-amt-");
-    });
-
-    it("squircle-amt-[foo] is rejected", async () => {
-      const css = await compileCss(["squircle-amt-[foo]"]);
-      expect(css).not.toContain("squircle-amt-");
-    });
-
-    it("squircle-amt-(--my-amt) is rejected (use a theme value to reference a var)", async () => {
+    it("squircle-amt-(--my-amt) reads a CSS variable", async () => {
       const css = await compileCss(["squircle-amt-(--my-amt)"]);
-      expect(css).not.toContain("squircle-amt-");
+      expect(css).toContain("--squircle-amt: var(--my-amt)");
+    });
+
+    it("squircle-amt-[1em] passes through unchecked, like other arbitrary values", async () => {
+      const css = await compileCss(["squircle-amt-[1em]"]);
+      expect(css).toContain("--squircle-amt: 1em");
     });
   });
 });

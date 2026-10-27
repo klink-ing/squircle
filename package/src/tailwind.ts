@@ -60,9 +60,10 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
       // Only sets the amount — the same thing writing the custom property
       // yourself does. Applying a corner-shape here would reshape all four
       // corners, including ones no squircle-* utility claimed.
+      // "any" lets a CSS variable through, like the radius utilities below.
       matchUtilities(
         { [`${prefix}-amt`]: (value: string) => ({ [amtVar]: value }) },
-        { type: "number" },
+        { type: ["number", "any"] },
       );
 
       for (const [suffix, props] of variantEntries()) {
@@ -85,7 +86,10 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
                 string | Record<string, string>
               >,
           },
-          { type: "length", values: radiusValues },
+          // "any" lets a CSS variable through (`squircle-(--r)`): Tailwind can't
+          // type an untyped variable, so like core's rounded-* every arbitrary
+          // value is taken, and a typo inside brackets is no longer caught.
+          { type: ["length", "any"], values: radiusValues },
         );
 
         // Re-declare the matching rounded-* utility so it also resets the
@@ -94,13 +98,16 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
         // this contributes only the reset — the initial value, so it is inert
         // unless a squircle class set a shape on the same element. Without it a
         // rounded-* utility cannot take a corner back from a squircle, since it
-        // only ever sets a radius. Restricted to lengths, the same values the
-        // squircle-* utilities accept: a paren ref keeps its squircle shape, so
-        // reach for a theme key there as everywhere else in this package.
+        // only ever sets a radius. It accepts the same values the squircle-*
+        // utilities do, so a corner rounded by a CSS variable takes its shape
+        // back too.
         const roundedName = suffix ? `rounded-${suffix}` : "rounded";
         const reset = Object.fromEntries(props.map((p) => [cornerShapeProp(p), "round"]));
         addUtilities({ [`.${roundedName}-full`]: reset });
-        matchUtilities({ [roundedName]: () => reset }, { type: "length", values: radiusValues });
+        // "any" alone, not ["length", "any"]: Tailwind passes over a utility
+        // whose types mix "any" with others while another one (core's
+        // rounded-*) matches the class. `values` still bounds bare names.
+        matchUtilities({ [roundedName]: () => reset }, { type: "any", values: radiusValues });
       }
     },
   );
