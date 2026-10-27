@@ -85,7 +85,7 @@ describe("squircle.css utilities", () => {
     });
   });
 
-  describe("arbitrary values", () => {
+  describe("arbitrary and invalid values", () => {
     it("squircle-[1rem] emits literal length in fallback and calc", async () => {
       const css = await compileCss(["squircle-[1rem]"]);
       expect(css).toContain("border-radius: 1rem");
@@ -98,9 +98,10 @@ describe("squircle.css utilities", () => {
       expect(css).toContain("calc(var(--my-radius) *");
     });
 
-    it("squircle-[var(--my-radius)] reads a CSS variable", async () => {
+    it("squircle-[var(--my-radius)] reads a CSS variable in fallback and calc", async () => {
       const css = await compileCss(["squircle-[var(--my-radius)]"]);
       expect(css).toContain("border-radius: var(--my-radius)");
+      expect(css).toContain("calc(var(--my-radius) *");
     });
 
     // Tailwind can't tell a variable from any other untyped arbitrary value,
@@ -108,6 +109,13 @@ describe("squircle.css utilities", () => {
     it("squircle-[50%] passes through unchecked, as rounded-[50%] does", async () => {
       const css = await compileCss(["squircle-[50%]"]);
       expect(css).toContain("border-radius: 50%");
+    });
+
+    // A bare value must still be a theme key, so a typo in one produces no
+    // class. Threading a variable through a theme key relies on this.
+    it("squircle-lgg is rejected (not a theme key)", async () => {
+      const css = await compileCss(["squircle-lgg"]);
+      expect(css).not.toContain(".squircle-");
     });
 
     for (const [suffix, props] of Object.entries(VARIANTS)) {
@@ -136,6 +144,11 @@ describe("squircle.css utilities", () => {
     it("squircle-amt-[1em] passes through unchecked, like other arbitrary values", async () => {
       const css = await compileCss(["squircle-amt-[1em]"]);
       expect(css).toContain("--squircle-amt: 1em");
+    });
+
+    it("squircle-amt-foo is rejected (not a number or theme key)", async () => {
+      const css = await compileCss(["squircle-amt-foo"]);
+      expect(css).not.toContain("squircle-amt-");
     });
   });
 });

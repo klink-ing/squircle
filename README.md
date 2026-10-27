@@ -115,9 +115,9 @@ The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners uti
 
 ### What values are accepted?
 
-Values are validated strictly so typos fail at build time instead of producing invalid CSS:
+Theme keys and bare numbers are checked, so a typo like `squircle-lgg` produces no class instead of invalid CSS. Values in brackets or parentheses are taken as written, as with Tailwind's own `rounded-*`:
 
-- **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, plus anything you add to `@theme`) arbitrary lengths like `squircle-[16px]`, and CSS variables like `squircle-(--my-radius)`. As with `rounded-*`, other arbitrary values aren't type-checked (see [Referencing a runtime CSS variable](#referencing-a-runtime-css-variable)).
+- **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, plus anything you add to `@theme`), arbitrary lengths like `squircle-[16px]`, and CSS variables like `squircle-(--my-radius)`. As with `rounded-*`, other arbitrary values aren't type-checked (see [Referencing a runtime CSS variable](#referencing-a-runtime-css-variable)).
 - **`squircle-none` and `squircle-full`** (and their side/corner variants) are static utilities defined the same way as `rounded-none` and `rounded-full`: `0` and `calc(infinity * 1px)`. Neither needs the visual radius correction — correcting zero or infinity is a no-op — so `squircle-full` is just `rounded-full` plus the superellipse corner shape, and `squircle-none` is identical to `rounded-none`.
 - **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), CSS variables (`squircle-amt-(--my-amt)`), and theme values. Other arbitrary values, like `[1em]`, aren't type-checked. It only sets the amount — exactly what writing `--squircle-amt` yourself does — and applies no corner shape of its own, so it never reshapes a corner no `squircle-*` utility claimed.
 

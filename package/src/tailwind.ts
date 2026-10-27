@@ -60,9 +60,9 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
       // Only sets the amount — the same thing writing the custom property
       // yourself does. Applying a corner-shape here would reshape all four
       // corners, including ones no squircle-* utility claimed.
-      // "any" lets a CSS variable through, like the radius utilities below.
       matchUtilities(
         { [`${prefix}-amt`]: (value: string) => ({ [amtVar]: value }) },
+        // "any" lets a CSS variable through, like the radius utilities below.
         { type: ["number", "any"] },
       );
 
