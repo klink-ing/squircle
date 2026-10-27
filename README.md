@@ -115,11 +115,11 @@ The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners uti
 
 ### What values are accepted?
 
-Values are validated strictly so typos fail at build time instead of producing invalid CSS:
+Theme keys and bare numbers are checked, so a typo like `squircle-lgg` produces no class instead of invalid CSS. Values in brackets or parentheses are taken as written, as with Tailwind's own `rounded-*`:
 
-- **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, plus anything you add to `@theme`) and arbitrary lengths like `squircle-[16px]`. Non-length arbitraries (`[50%]`, `[foo]`) and paren refs (`squircle-(--my-radius)`) are rejected — use a theme key instead.
+- **`squircle-*` and its variants** accept the same theme values as `rounded-*` (`sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, plus anything you add to `@theme`), arbitrary lengths like `squircle-[16px]`, and CSS variables like `squircle-(--my-radius)`. As with `rounded-*`, other arbitrary values aren't type-checked (see [Referencing a runtime CSS variable](#referencing-a-runtime-css-variable)).
 - **`squircle-none` and `squircle-full`** (and their side/corner variants) are static utilities defined the same way as `rounded-none` and `rounded-full`: `0` and `calc(infinity * 1px)`. Neither needs the visual radius correction — correcting zero or infinity is a no-op — so `squircle-full` is just `rounded-full` plus the superellipse corner shape, and `squircle-none` is identical to `rounded-none`.
-- **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), and theme values. Unit-bearing arbitraries (`[1em]`) and paren refs (`(--my-amt)`) are rejected. It only sets the amount — exactly what writing `--squircle-amt` yourself does — and applies no corner shape of its own, so it never reshapes a corner no `squircle-*` utility claimed.
+- **`squircle-amt-*`** accepts bare numbers (`squircle-amt-2`), arbitrary numbers (`squircle-amt-[3.5]`), CSS variables (`squircle-amt-(--my-amt)`), and theme values. Other arbitrary values, like `[1em]`, aren't type-checked. It only sets the amount — exactly what writing `--squircle-amt` yourself does — and applies no corner shape of its own, so it never reshapes a corner no `squircle-*` utility claimed.
 
 ### Mixing squircled and rounded corners
 
@@ -137,7 +137,7 @@ Two things make that work. A `squircle-*` utility only shapes the corners it set
 
 Note that a corner reclaimed by `rounded-*` uses the plain radius, not the corrected one — the correction exists only to make a squircle look the same size as a rounded corner, so a genuinely round corner doesn't want it.
 
-The reset accepts the same values the `squircle-*` utilities do — theme keys and arbitrary lengths like `rounded-tl-[3px]`. Tailwind's own `rounded-*` is looser, so a corner named with a paren ref (`rounded-tl-(--my-radius)`) or a non-length arbitrary still gets its radius from Tailwind but keeps its squircle shape. Use a theme key there, as everywhere else in this package.
+The reset accepts the same values the `squircle-*` utilities do: theme keys and any arbitrary value, including CSS variables like `rounded-tl-(--my-radius)`. So any corner Tailwind's own `rounded-*` rounds takes its shape back.
 
 ### What does `squircle-amt-*` control?
 
@@ -189,7 +189,13 @@ Individual elements can still override with `squircle-amt-*` classes.
 
 #### Referencing a runtime CSS variable
 
-Paren refs like `squircle-(--my-radius)` or `squircle-amt-(--my-amt)` are intentionally rejected (poor things). Tailwind can't distinguish them from unit-typo brackets like `squircle-amt-[1em]` at the validation level, so allowing one means allowing the other. Thread the var through a theme key instead (or, y'know, fork this repo, or tell me I'm wrong, and maybe I'll change):
+Pass the variable the way you would to `rounded-*`:
+
+```html
+<div class="squircle-(--hero-radius) squircle-amt-(--hero-squircle-amt)">…</div>
+```
+
+Tailwind can't tell an untyped variable from any other bracket value, so accepting variables means arbitrary values aren't type-checked: a typo like `squircle-amt-[1em]` produces a class with a value the browser can't use, instead of no class. To keep the check, thread the variable through a theme key:
 
 ```css
 @theme {
@@ -802,7 +808,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
    --squircle-amt yourself does. It applies no corner-shape of its own, so it
    never reshapes corners that no squircle-* utility claimed. */
 @utility squircle-amt-* {
-  --squircle-amt: --value(--squircle-amt-*, number, [number]);
+  --squircle-amt: --value(--squircle-amt-*, number, [number], [*]);
 }
 
 @utility squircle-none {
@@ -817,9 +823,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-* {
-  border-radius: --value(--radius-*, [length]);
+  border-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-radius: var(--squircle-r);
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -842,10 +848,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-t-* {
-  border-top-left-radius: --value(--radius-*, [length]);
-  border-top-right-radius: --value(--radius-*, [length]);
+  border-top-left-radius: --value(--radius-*, [length], [*]);
+  border-top-right-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-top-left-radius: var(--squircle-r);
     border-top-right-radius: var(--squircle-r);
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
@@ -868,10 +874,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-r-* {
-  border-top-right-radius: --value(--radius-*, [length]);
-  border-bottom-right-radius: --value(--radius-*, [length]);
+  border-top-right-radius: --value(--radius-*, [length], [*]);
+  border-bottom-right-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-top-right-radius: var(--squircle-r);
     border-bottom-right-radius: var(--squircle-r);
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
@@ -894,10 +900,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-b-* {
-  border-bottom-left-radius: --value(--radius-*, [length]);
-  border-bottom-right-radius: --value(--radius-*, [length]);
+  border-bottom-left-radius: --value(--radius-*, [length], [*]);
+  border-bottom-right-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-bottom-left-radius: var(--squircle-r);
     border-bottom-right-radius: var(--squircle-r);
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
@@ -920,10 +926,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-l-* {
-  border-top-left-radius: --value(--radius-*, [length]);
-  border-bottom-left-radius: --value(--radius-*, [length]);
+  border-top-left-radius: --value(--radius-*, [length], [*]);
+  border-bottom-left-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-top-left-radius: var(--squircle-r);
     border-bottom-left-radius: var(--squircle-r);
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
@@ -948,10 +954,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-s-* {
-  border-start-start-radius: --value(--radius-*, [length]);
-  border-end-start-radius: --value(--radius-*, [length]);
+  border-start-start-radius: --value(--radius-*, [length], [*]);
+  border-end-start-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-start-start-radius: var(--squircle-r);
     border-end-start-radius: var(--squircle-r);
     corner-start-start-shape: superellipse(var(--squircle-amt, 2));
@@ -974,10 +980,10 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-e-* {
-  border-start-end-radius: --value(--radius-*, [length]);
-  border-end-end-radius: --value(--radius-*, [length]);
+  border-start-end-radius: --value(--radius-*, [length], [*]);
+  border-end-end-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     border-start-end-radius: var(--squircle-r);
     border-end-end-radius: var(--squircle-r);
     corner-start-end-shape: superellipse(var(--squircle-amt, 2));
@@ -999,9 +1005,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-tl-* {
-  border-top-left-radius: --value(--radius-*, [length]);
+  border-top-left-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    border-top-left-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-top-left-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1018,9 +1024,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-tr-* {
-  border-top-right-radius: --value(--radius-*, [length]);
+  border-top-right-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    border-top-right-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-top-right-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1037,9 +1043,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-br-* {
-  border-bottom-right-radius: --value(--radius-*, [length]);
+  border-bottom-right-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    border-bottom-right-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-bottom-right-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1056,9 +1062,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-bl-* {
-  border-bottom-left-radius: --value(--radius-*, [length]);
+  border-bottom-left-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    border-bottom-left-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-bottom-left-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1077,9 +1083,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-ss-* {
-  border-start-start-radius: --value(--radius-*, [length]);
+  border-start-start-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    border-start-start-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-start-start-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-start-start-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1096,9 +1102,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-se-* {
-  border-start-end-radius: --value(--radius-*, [length]);
+  border-start-end-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    border-start-end-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-start-end-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-start-end-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1115,9 +1121,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-es-* {
-  border-end-start-radius: --value(--radius-*, [length]);
+  border-end-start-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    border-end-start-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-end-start-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-end-start-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1134,9 +1140,9 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility squircle-ee-* {
-  border-end-end-radius: --value(--radius-*, [length]);
+  border-end-end-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    border-end-end-radius: calc(--value(--radius-*, [length]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-end-end-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-end-end-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -1154,7 +1160,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-* {
-  border-radius: --value(--radius-*, [length]);
+  border-radius: --value(--radius-*, [length], [*]);
   corner-shape: round;
 }
 
@@ -1164,8 +1170,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-t-* {
-  border-top-left-radius: --value(--radius-*, [length]);
-  border-top-right-radius: --value(--radius-*, [length]);
+  border-top-left-radius: --value(--radius-*, [length], [*]);
+  border-top-right-radius: --value(--radius-*, [length], [*]);
   corner-top-left-shape: round;
   corner-top-right-shape: round;
 }
@@ -1176,8 +1182,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-r-* {
-  border-top-right-radius: --value(--radius-*, [length]);
-  border-bottom-right-radius: --value(--radius-*, [length]);
+  border-top-right-radius: --value(--radius-*, [length], [*]);
+  border-bottom-right-radius: --value(--radius-*, [length], [*]);
   corner-top-right-shape: round;
   corner-bottom-right-shape: round;
 }
@@ -1188,8 +1194,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-b-* {
-  border-bottom-left-radius: --value(--radius-*, [length]);
-  border-bottom-right-radius: --value(--radius-*, [length]);
+  border-bottom-left-radius: --value(--radius-*, [length], [*]);
+  border-bottom-right-radius: --value(--radius-*, [length], [*]);
   corner-bottom-left-shape: round;
   corner-bottom-right-shape: round;
 }
@@ -1200,8 +1206,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-l-* {
-  border-top-left-radius: --value(--radius-*, [length]);
-  border-bottom-left-radius: --value(--radius-*, [length]);
+  border-top-left-radius: --value(--radius-*, [length], [*]);
+  border-bottom-left-radius: --value(--radius-*, [length], [*]);
   corner-top-left-shape: round;
   corner-bottom-left-shape: round;
 }
@@ -1212,8 +1218,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-s-* {
-  border-start-start-radius: --value(--radius-*, [length]);
-  border-end-start-radius: --value(--radius-*, [length]);
+  border-start-start-radius: --value(--radius-*, [length], [*]);
+  border-end-start-radius: --value(--radius-*, [length], [*]);
   corner-start-start-shape: round;
   corner-end-start-shape: round;
 }
@@ -1224,8 +1230,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-e-* {
-  border-start-end-radius: --value(--radius-*, [length]);
-  border-end-end-radius: --value(--radius-*, [length]);
+  border-start-end-radius: --value(--radius-*, [length], [*]);
+  border-end-end-radius: --value(--radius-*, [length], [*]);
   corner-start-end-shape: round;
   corner-end-end-shape: round;
 }
@@ -1235,7 +1241,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-tl-* {
-  border-top-left-radius: --value(--radius-*, [length]);
+  border-top-left-radius: --value(--radius-*, [length], [*]);
   corner-top-left-shape: round;
 }
 
@@ -1244,7 +1250,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-tr-* {
-  border-top-right-radius: --value(--radius-*, [length]);
+  border-top-right-radius: --value(--radius-*, [length], [*]);
   corner-top-right-shape: round;
 }
 
@@ -1253,7 +1259,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-br-* {
-  border-bottom-right-radius: --value(--radius-*, [length]);
+  border-bottom-right-radius: --value(--radius-*, [length], [*]);
   corner-bottom-right-shape: round;
 }
 
@@ -1262,7 +1268,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-bl-* {
-  border-bottom-left-radius: --value(--radius-*, [length]);
+  border-bottom-left-radius: --value(--radius-*, [length], [*]);
   corner-bottom-left-shape: round;
 }
 
@@ -1271,7 +1277,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-ss-* {
-  border-start-start-radius: --value(--radius-*, [length]);
+  border-start-start-radius: --value(--radius-*, [length], [*]);
   corner-start-start-shape: round;
 }
 
@@ -1280,7 +1286,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-se-* {
-  border-start-end-radius: --value(--radius-*, [length]);
+  border-start-end-radius: --value(--radius-*, [length], [*]);
   corner-start-end-shape: round;
 }
 
@@ -1289,7 +1295,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-es-* {
-  border-end-start-radius: --value(--radius-*, [length]);
+  border-end-start-radius: --value(--radius-*, [length], [*]);
   corner-end-start-shape: round;
 }
 
@@ -1298,7 +1304,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 }
 
 @utility rounded-ee-* {
-  border-end-end-radius: --value(--radius-*, [length]);
+  border-end-end-radius: --value(--radius-*, [length], [*]);
   corner-end-end-shape: round;
 }
 ```
