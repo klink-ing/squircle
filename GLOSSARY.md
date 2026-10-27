@@ -5,8 +5,8 @@ Corner shapes for Tailwind: superellipse corners that look as round as the `bord
 ## Language
 
 **Strength**:
-How square a superellipse corner is. Higher strength gives a squarer corner at the same CSS radius.
-_Avoid_: Amount, exponent
+How square a superellipse corner is. Higher strength gives a squarer corner at the same CSS radius. Where precision matters, call the value itself the **superellipse exponent**, as MDN does for the argument to `superellipse()`.
+_Avoid_: Amount
 
 **CSS radius**:
 The radius value the author specifies, the distance from a corner's curve center to its edge.

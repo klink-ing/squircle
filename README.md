@@ -92,26 +92,26 @@ The conflicts mirror Tailwind's own `rounded` hierarchy: a later all-corners uti
 
 ### Utilities
 
-| Utility          | Equivalent     | Description                                    |
-| ---------------- | -------------- | ---------------------------------------------- |
-| `squircle-*`     | `rounded-*`    | All corners                                    |
-| `squircle-t-*`   | `rounded-t-*`  | Top corners                                    |
-| `squircle-r-*`   | `rounded-r-*`  | Right corners                                  |
-| `squircle-b-*`   | `rounded-b-*`  | Bottom corners                                 |
-| `squircle-l-*`   | `rounded-l-*`  | Left corners                                   |
-| `squircle-s-*`   | `rounded-s-*`  | Inline-start corners (logical)                 |
-| `squircle-e-*`   | `rounded-e-*`  | Inline-end corners (logical)                   |
-| `squircle-tl-*`  | `rounded-tl-*` | Top-left corner                                |
-| `squircle-tr-*`  | `rounded-tr-*` | Top-right corner                               |
-| `squircle-br-*`  | `rounded-br-*` | Bottom-right corner                            |
-| `squircle-bl-*`  | `rounded-bl-*` | Bottom-left corner                             |
-| `squircle-ss-*`  | `rounded-ss-*` | Start-start corner (logical)                   |
-| `squircle-se-*`  | `rounded-se-*` | Start-end corner (logical)                     |
-| `squircle-es-*`  | `rounded-es-*` | End-start corner (logical)                     |
-| `squircle-ee-*`  | `rounded-ee-*` | End-end corner (logical)                       |
-| `squircle-amt-*` | —              | Strength: how square the corner is (default 2) |
-| `squircle-none`  | `rounded-none` | Remove rounding                                |
-| `squircle-full`  | `rounded-full` | Fully rounded (pill)                           |
+| Utility          | Equivalent     | Description                       |
+| ---------------- | -------------- | --------------------------------- |
+| `squircle-*`     | `rounded-*`    | All corners                       |
+| `squircle-t-*`   | `rounded-t-*`  | Top corners                       |
+| `squircle-r-*`   | `rounded-r-*`  | Right corners                     |
+| `squircle-b-*`   | `rounded-b-*`  | Bottom corners                    |
+| `squircle-l-*`   | `rounded-l-*`  | Left corners                      |
+| `squircle-s-*`   | `rounded-s-*`  | Inline-start corners (logical)    |
+| `squircle-e-*`   | `rounded-e-*`  | Inline-end corners (logical)      |
+| `squircle-tl-*`  | `rounded-tl-*` | Top-left corner                   |
+| `squircle-tr-*`  | `rounded-tr-*` | Top-right corner                  |
+| `squircle-br-*`  | `rounded-br-*` | Bottom-right corner               |
+| `squircle-bl-*`  | `rounded-bl-*` | Bottom-left corner                |
+| `squircle-ss-*`  | `rounded-ss-*` | Start-start corner (logical)      |
+| `squircle-se-*`  | `rounded-se-*` | Start-end corner (logical)        |
+| `squircle-es-*`  | `rounded-es-*` | End-start corner (logical)        |
+| `squircle-ee-*`  | `rounded-ee-*` | End-end corner (logical)          |
+| `squircle-amt-*` | —              | Superellipse exponent (default 2) |
+| `squircle-none`  | `rounded-none` | Remove rounding                   |
+| `squircle-full`  | `rounded-full` | Fully rounded (pill)              |
 
 ### What values are accepted?
 
@@ -271,7 +271,7 @@ The naming follows Panda's own border-radius convention exactly — substitute `
 | `squircleStartEndRadius`    | `squircleStartEnd`    | start-end corner (logical)         |
 | `squircleEndStartRadius`    | `squircleEndStart`    | end-start corner (logical)         |
 | `squircleEndEndRadius`      | `squircleEndEnd`      | end-end corner (logical)           |
-| `squircleAmount`            | `squircleAmt`         | strength (default 2)               |
+| `squircleAmount`            | `squircleAmt`         | superellipse exponent (default 2)  |
 
 All radius utilities resolve through your `radii` theme tokens, so `squircle: "md"` reads the same `--radii-md` your `borderRadius: "md"` does:
 
@@ -375,7 +375,7 @@ import { squircle } from "@klinking/squircle/stylex";
 ```
 
 - `radius` — any value valid for `border-radius` (rem, px, %, a `var(--…)` reference, or a number which StyleX converts to px).
-- `amt` — the strength, how square the corner is. **Defaults to `2`.** Unlike the Tailwind and Panda integrations, this preset does _not_ read `--squircle-amt` from the cascade — pass `amt` explicitly per call site to tune it.
+- `amt` — the superellipse exponent. **Defaults to `2`.** Unlike the Tailwind and Panda integrations, this preset does _not_ read `--squircle-amt` from the cascade — pass `amt` explicitly per call site to tune it.
 
 Browsers without `corner-shape` support fall back to a plain `border-radius` at the same size (the `@supports` block silently drops out).
 
@@ -1376,7 +1376,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
  * must be scaled up to preserve the intended visual size.
  *
  * --radius       The target border-radius (any <length>).
- * --squircle-amt The strength passed to corner-shape.
+ * --squircle-amt The superellipse exponent passed to corner-shape.
  *
  * Parameters are untyped to preserve standard CSS resolution of
  * relative units (em, rem, etc.) — they resolve in the context
@@ -1503,7 +1503,7 @@ import * as stylex from "@stylexjs/stylex";
  * ```
  *
  * If `amt` is omitted, the corrected radius and `corner-shape` use the
- * literal default strength of `2` — pass `amt` explicitly per-call site to
+ * literal default exponent of `2` — pass `amt` explicitly per-call site to
  * tune it. Unlike the Tailwind and Panda integrations, this preset does not
  * read `--squircle-amt`; StyleX's per-call parameter is the only knob.
  *

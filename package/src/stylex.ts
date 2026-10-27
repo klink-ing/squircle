@@ -31,7 +31,7 @@ import * as stylex from "@stylexjs/stylex";
  * ```
  *
  * If `amt` is omitted, the corrected radius and `corner-shape` use the
- * literal default strength of `2` — pass `amt` explicitly per-call site to
+ * literal default exponent of `2` — pass `amt` explicitly per-call site to
  * tune it. Unlike the Tailwind and Panda integrations, this preset does not
  * read `--squircle-amt`; StyleX's per-call parameter is the only knob.
  *

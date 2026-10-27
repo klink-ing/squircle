@@ -10,7 +10,7 @@
  * must be scaled up to preserve the intended visual size.
  *
  * --radius       The target border-radius (any <length>).
- * --squircle-amt The strength passed to corner-shape.
+ * --squircle-amt The superellipse exponent passed to corner-shape.
  *
  * Parameters are untyped to preserve standard CSS resolution of
  * relative units (em, rem, etc.) — they resolve in the context
