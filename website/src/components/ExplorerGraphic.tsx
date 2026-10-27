@@ -1,5 +1,5 @@
-import { useId, useMemo, useRef } from "react";
-import { motion } from "framer-motion";
+import { useId, useMemo } from "react";
+import RadiusComparison from "./RadiusComparison";
 import {
   circleArcPoints,
   correctedRadius,
@@ -8,28 +8,34 @@ import {
   superellipsePoints,
 } from "../math";
 
+// Visibility values may be fractional opacities during transitions.
 export interface ArcStyle {
-  visible: boolean;
-  showFill: boolean;
-  showOutline: boolean;
+  visible: boolean | number;
+  showFill: boolean | number;
+  showOutline: boolean | number;
 }
 
 export interface GraphicState {
   arcRounded: ArcStyle;
   arcSuperellipse: ArcStyle;
   correctionAmount: number; // 0 = uncorrected superellipse, 1 = fully corrected
+  apparentCorrection?: number; // Independent blue-radius motion during the correction beat.
   amount: number;
-  showRefLine: boolean;
-  showMeasurement: boolean;
+  showRefLine: boolean | number;
+  showMeasurement: boolean | number;
   measureArc?: "rounded" | "superellipse" | "corrected";
   measureMode?: "perceived" | "radius";
   measureAngle?: "diagonal" | "edge"; // default: "diagonal"
   zoom: number;
+  radiusComparison?: number;
+  radiusSweep?: number;
+  radiusLabels?: number;
+  apparentRadius?: number;
 }
 
 const BOX = 180;
 const PAD = 10;
-const PAD_EXTRA = 20; // extra padding on top and right for serifs/labels
+const PAD_EXTRA = 40; // reserve room for serifs and radius labels in every scene
 const cornerX = PAD + BOX; // 190
 const cornerY = PAD; // 10
 const DASH = "4 3";
@@ -43,11 +49,18 @@ function arcToSvg(mathX: number, mathY: number, arcR: number) {
 
 function buildCurvePath(points: { x: number; y: number }[]) {
   const first = points[0]!;
+  const last = points[points.length - 1]!;
   return (
-    `M ${cornerX} ${PAD + BOX} L ${first.x} ${first.y} ` +
+    `M ${cornerX} ${Math.max(PAD + BOX, first.y)} L ${first.x} ${first.y} ` +
     pointsToPath(points).slice(2) +
-    ` L ${PAD} ${cornerY}`
+    ` L ${Math.min(PAD, last.x)} ${cornerY}`
   );
+}
+
+function closeCurvePath(path: string, points: { x: number; y: number }[]) {
+  // Once the tangent points pass the box edges, close the fill outside the box.
+  // Returning to the original corners would reverse the visible stroke.
+  return `${path} L ${Math.min(PAD, points[points.length - 1]!.x)} ${Math.max(PAD + BOX, points[0]!.y)} Z`;
 }
 
 export default function ExplorerGraphic({
@@ -60,17 +73,17 @@ export default function ExplorerGraphic({
   measureMode = "radius",
   measureAngle = "diagonal",
   correctionAmount,
+  apparentCorrection = correctionAmount,
   zoom,
+  radiusComparison = 0,
+  radiusSweep = 0,
+  radiusLabels = 0,
+  apparentRadius = 0,
 }: GraphicState) {
   const id = useId();
   const clipCircle = `${id}-clip-circle`;
   const clipSuper = `${id}-clip-super`;
-
-  // Track discrete measurement state changes to decide when to animate vs instant update
-  const measureKey = `${showRefLine}-${showMeasurement}-${measureArc}-${measureMode}-${measureAngle}`;
-  const prevMeasureKey = useRef(measureKey);
-  const isMorphing = prevMeasureKey.current !== measureKey;
-  prevMeasureKey.current = measureKey;
+  const clipBox = `${id}-clip-box`;
 
   const data = useMemo(() => {
     const mathN = Math.pow(2, amount);
@@ -91,6 +104,21 @@ export default function ExplorerGraphic({
     // Paths
     const circlePath = buildCurvePath(circleSvg);
     const superPath = buildCurvePath(superSvg);
+    const circleFillPath = closeCurvePath(circlePath, circleSvg);
+    const superFillPath = closeCurvePath(superPath, superSvg);
+    const superOutlineLength =
+      Math.max(0, PAD + BOX - superSvg[0]!.y) +
+      superSvg.slice(1).reduce((length, point, index) => {
+        const previous = superSvg[index]!;
+        return length + Math.hypot(point.x - previous.x, point.y - previous.y);
+      }, 0) +
+      Math.max(0, superSvg[superSvg.length - 1]!.x - PAD);
+    const superOutlineGap =
+      Math.max(PAD + BOX, superSvg[0]!.y) -
+      cornerY +
+      cornerX -
+      Math.min(PAD, superSvg[superSvg.length - 1]!.x) +
+      1;
 
     // Interior clip: same shape as the curve path, closed
     const circleClip = circlePath + " Z";
@@ -168,6 +196,10 @@ export default function ExplorerGraphic({
       superSvg,
       circlePath,
       superPath,
+      circleFillPath,
+      superFillPath,
+      superOutlineLength,
+      superOutlineGap,
       circleClip,
       superClip,
       superAboveCircle,
@@ -187,19 +219,42 @@ export default function ExplorerGraphic({
     superSvg,
     circlePath,
     superPath,
+    circleFillPath,
+    superFillPath,
+    superOutlineLength,
+    superOutlineGap,
     circleClip,
     superClip,
     superAboveCircle,
     measure,
     refLine,
+    r,
+    superR,
+    mathN,
   } = data;
 
   return (
     <svg
+      role="img"
+      aria-label={
+        radiusComparison > 0
+          ? apparentRadius > 0
+            ? "A smaller blue circular corner matches the magenta superellipse at 45 degrees, comparing CSS and apparent radii."
+            : radiusSweep === 0
+              ? "A vertical dotted radius with a magenta endpoint labeled 1.00."
+              : "CSS and visual radius markers sweeping from vertical to the diagonal."
+          : "Comparison of rounded and superellipse corners"
+      }
       viewBox={`${PAD} ${PAD - PAD_EXTRA} ${BOX + PAD_EXTRA} ${BOX + PAD_EXTRA}`}
+      preserveAspectRatio="xMinYMax meet"
       className="w-full max-w-md"
+      // Preserve annotation space above/right, but crop at the shape's left/bottom edges.
+      style={{ overflow: "visible", clipPath: "inset(-100% -100% 0 0)" }}
     >
       <defs>
+        <clipPath id={clipBox}>
+          <rect x={PAD - 0.85} y={PAD - 0.85} width={BOX + 1.7} height={BOX + 1.7} />
+        </clipPath>
         <clipPath id={clipCircle}>
           <path d={circleClip} />
         </clipPath>
@@ -210,34 +265,30 @@ export default function ExplorerGraphic({
 
       {/* Superellipse and circle — z-order swaps when superellipse crosses circle */}
       {(() => {
-        const isCorrepting = correctionAmount > 0;
-        const superFillColor = isCorrepting
-          ? "var(--color-adjusted-fill)"
-          : "var(--color-squircle-fill)";
-        const superStrokeColor = isCorrepting
-          ? "var(--color-adjusted-border)"
-          : "var(--color-squircle-border)";
+        const correctionPercent =
+          Math.min(1, Math.max(0, correctionAmount)) * (1 - radiusComparison) * 100;
+        const superFillColor = `color-mix(in srgb, var(--color-adjusted-fill) ${correctionPercent}%, var(--color-squircle-fill))`;
+        const superStrokeColor = `color-mix(in srgb, var(--color-adjusted-border) ${correctionPercent}%, var(--color-squircle-border))`;
 
         const superellipseGroup = (
-          <motion.g
-            key="super"
-            animate={{ opacity: arcSuperellipse.visible ? 1 : 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <g style={{ color: superStrokeColor, transition: "color 0.5s" }}>
-              {/* Fill — crossfades in/out */}
-              <motion.path
-                d={`${superPath} L ${PAD} ${PAD + BOX} Z`}
-                style={{ fill: superFillColor, transition: "fill 0.5s" }}
-                stroke="none"
-                animate={{ opacity: arcSuperellipse.showFill ? 1 : 0 }}
-                transition={{ duration: 0.4 }}
+          <g key="super" opacity={Number(arcSuperellipse.visible)}>
+            <g style={{ color: superStrokeColor }}>
+              {/* One persistent shape: fade its fill and solid outline independently. */}
+              <path
+                data-radius-outline="visual"
+                d={superFillPath}
+                style={{ fill: superFillColor }}
+                fillOpacity={Number(arcSuperellipse.showFill)}
+                stroke="currentColor"
+                strokeWidth={1.7}
+                // Keep the fill closed, but leave the left/bottom closure unstroked.
+                strokeDasharray={`${superOutlineLength} ${superOutlineGap}`}
+                strokeOpacity={radiusComparison}
+                strokeLinejoin="round"
+                clipPath={`url(#${clipBox})`}
               />
               {/* Stroke — crossfades in/out */}
-              <motion.g
-                animate={{ opacity: arcSuperellipse.showOutline ? 1 : 0 }}
-                transition={{ duration: 0.4 }}
-              >
+              <g opacity={Number(arcSuperellipse.showOutline)}>
                 <path
                   d={superPath}
                   fill="none"
@@ -263,58 +314,55 @@ export default function ExplorerGraphic({
                   stroke="currentColor"
                   strokeWidth={SERIF_W}
                 />
-              </motion.g>
+              </g>
             </g>
-          </motion.g>
+          </g>
         );
 
-        const circleGroup = (
-          <motion.g
-            key="circle"
-            animate={{ opacity: arcRounded.visible ? 1 : 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            {/* Fill — crossfades in/out */}
-            <motion.path
-              d={`${circlePath} L ${PAD} ${PAD + BOX} Z`}
-              style={{ fill: "var(--color-rounded-fill)" }}
-              stroke="none"
-              animate={{ opacity: arcRounded.showFill ? 1 : 0 }}
-              transition={{ duration: 0.4 }}
-            />
-            {/* Stroke — crossfades in/out */}
-            <motion.g
-              animate={{ opacity: arcRounded.showOutline ? 1 : 0 }}
-              transition={{ duration: 0.4 }}
+        const circleGroup =
+          Number(arcRounded.showFill) > 0 || Number(arcRounded.showOutline) > 0 ? (
+            <g
+              key="circle"
+              data-reference-circle=""
+              opacity={Math.max(0, Number(arcRounded.visible) - radiusComparison)}
             >
+              {/* Fill — crossfades in/out */}
               <path
-                d={circlePath}
-                fill="none"
-                style={{ stroke: "var(--color-rounded-border)" }}
-                strokeWidth={3}
-                strokeDasharray={DASH}
-                strokeDashoffset={0}
-                clipPath={`url(#${clipCircle})`}
+                d={circleFillPath}
+                style={{ fill: "var(--color-rounded-fill)" }}
+                stroke="none"
+                opacity={Number(arcRounded.showFill)}
               />
-              <line
-                x1={circleSvg[0]!.x}
-                y1={circleSvg[0]!.y - SERIF_W / 2}
-                x2={circleSvg[0]!.x - SERIF_LEN}
-                y2={circleSvg[0]!.y - SERIF_W / 2}
-                style={{ stroke: "var(--color-rounded-border)" }}
-                strokeWidth={SERIF_W}
-              />
-              <line
-                x1={circleSvg[circleSvg.length - 1]!.x + SERIF_W / 2}
-                y1={circleSvg[circleSvg.length - 1]!.y}
-                x2={circleSvg[circleSvg.length - 1]!.x + SERIF_W / 2}
-                y2={circleSvg[circleSvg.length - 1]!.y + SERIF_LEN}
-                style={{ stroke: "var(--color-rounded-border)" }}
-                strokeWidth={SERIF_W}
-              />
-            </motion.g>
-          </motion.g>
-        );
+              {/* Stroke — crossfades in/out */}
+              <g opacity={Number(arcRounded.showOutline)}>
+                <path
+                  d={circlePath}
+                  fill="none"
+                  style={{ stroke: "var(--color-rounded-border)" }}
+                  strokeWidth={3}
+                  strokeDasharray={DASH}
+                  strokeDashoffset={0}
+                  clipPath={`url(#${clipCircle})`}
+                />
+                <line
+                  x1={circleSvg[0]!.x}
+                  y1={circleSvg[0]!.y - SERIF_W / 2}
+                  x2={circleSvg[0]!.x - SERIF_LEN}
+                  y2={circleSvg[0]!.y - SERIF_W / 2}
+                  style={{ stroke: "var(--color-rounded-border)" }}
+                  strokeWidth={SERIF_W}
+                />
+                <line
+                  x1={circleSvg[circleSvg.length - 1]!.x + SERIF_W / 2}
+                  y1={circleSvg[circleSvg.length - 1]!.y}
+                  x2={circleSvg[circleSvg.length - 1]!.x + SERIF_W / 2}
+                  y2={circleSvg[circleSvg.length - 1]!.y + SERIF_LEN}
+                  style={{ stroke: "var(--color-rounded-border)" }}
+                  strokeWidth={SERIF_W}
+                />
+              </g>
+            </g>
+          ) : null;
 
         return superAboveCircle ? (
           <>
@@ -331,7 +379,7 @@ export default function ExplorerGraphic({
 
       {/* Animated diagonal line — morphs between reference line and measurement line */}
       {(() => {
-        const visible = showRefLine || (showMeasurement && measure);
+        const visible = Math.max(Number(showRefLine), measure ? Number(showMeasurement) : 0);
         // When measurement is active, use measurement coords; otherwise use reference line
         const useMeasure = showMeasurement && measure;
         const x1 = useMeasure ? measure!.x1 : refLine.x1;
@@ -356,50 +404,63 @@ export default function ExplorerGraphic({
         const lx = nearRight ? midX - 28 : midX + 6;
         const ly = nearTop ? midY + 12 : midY - 6;
 
-        const strokeColor = useMeasure ? `var(${measure!.cssVar})` : "var(--color-rounded-border)";
-
-        const morphTransition = isMorphing
-          ? { type: "spring" as const, stiffness: 200, damping: 25 }
-          : { duration: 0 };
+        const correctionPercent = Math.min(1, Math.max(0, correctionAmount)) * 100;
+        const strokeColor =
+          useMeasure && measureArc === "corrected"
+            ? `color-mix(in srgb, var(--color-adjusted-border) ${correctionPercent}%, var(--color-rounded-border))`
+            : useMeasure
+              ? `var(${measure!.cssVar})`
+              : "var(--color-rounded-border)";
 
         return (
-          <motion.g animate={{ opacity: visible ? 1 : 0 }} transition={{ duration: 0.4 }}>
-            <g style={{ color: strokeColor, transition: "color 0.5s" }}>
+          <g opacity={Number(visible)}>
+            <g style={{ color: strokeColor }}>
               {/* Main diagonal line */}
-              <motion.line
-                animate={{ x1, y1, x2, y2 }}
-                transition={morphTransition}
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
                 stroke="currentColor"
                 strokeWidth={0.75}
                 strokeDasharray="1 4"
                 strokeLinecap="round"
               />
               {/* Perpendicular serif at the end point */}
-              <motion.line
-                animate={{
-                  x1: x2 - serifLen * perpX,
-                  y1: y2 - serifLen * perpY,
-                  x2: x2 + serifLen * perpX,
-                  y2: y2 + serifLen * perpY,
-                }}
-                transition={morphTransition}
+              <line
+                x1={x2 - serifLen * perpX}
+                y1={y2 - serifLen * perpY}
+                x2={x2 + serifLen * perpX}
+                y2={y2 + serifLen * perpY}
                 stroke="currentColor"
                 strokeWidth={0.75}
               />
               {/* Label */}
-              <motion.text
-                animate={{ x: lx, y: ly }}
-                transition={morphTransition}
-                fill="currentColor"
-                fontSize={9}
-                className="text-zinc-400"
-              >
+              <text x={lx} y={ly} fill="currentColor" fontSize={9} className="text-zinc-400">
                 {label}
-              </motion.text>
+              </text>
             </g>
-          </motion.g>
+          </g>
         );
       })()}
+      {radiusComparison > 0 && (
+        <g opacity={radiusComparison} aria-hidden="true">
+          <RadiusComparison
+            radius={r}
+            cssRadius={superR}
+            labelMinX={PAD}
+            exponent={mathN}
+            sweep={radiusSweep}
+            labelOpacity={radiusLabels}
+            apparentProgress={apparentRadius}
+            apparentCorrection={apparentCorrection}
+            cssCorrection={correctionAmount}
+            blueOpacity={Number(arcRounded.visible)}
+            magentaOpacity={Number(arcSuperellipse.visible)}
+            corner={{ x: cornerX, y: cornerY }}
+          />
+        </g>
+      )}
     </svg>
   );
 }
