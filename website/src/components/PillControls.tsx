@@ -105,7 +105,7 @@ export function PillShapeControls({
     shape.continuity === DEFAULT_SHAPE.continuity;
   const defaultLabel = (value: number) => (value === DEFAULT_SHAPE.continuity ? " (default)" : "");
   return (
-    <div className="grid content-start grid-cols-[auto_minmax(0,1fr)_3.5rem] items-center gap-x-3 gap-y-1 text-xs">
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_3.5rem] content-start items-center gap-x-3 gap-y-1 text-xs">
       <label htmlFor={`${idPrefix}-continuity`} className="text-zinc-400">
         continuity
       </label>

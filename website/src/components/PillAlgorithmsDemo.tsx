@@ -552,7 +552,7 @@ export default function PillAlgorithmsDemo() {
           </div>
           <div
             ref={spiralPill}
-            className={`${buttonLabel} relative z-10 squircle-pill bg-demo-squircle text-white`}
+            className={`${buttonLabel} squircle-pill relative z-10 bg-demo-squircle text-white`}
             style={{ ...(shapeStyle(shape) as React.CSSProperties), ...buttonSize }}
           >
             squircle-pill · G{shape.continuity}
@@ -563,7 +563,7 @@ export default function PillAlgorithmsDemo() {
             rounded-full
           </div>
           <div
-            className={`${buttonLabel} relative z-10 pill-fillet bg-demo-plain text-white`}
+            className={`${buttonLabel} pill-fillet relative z-10 bg-demo-plain text-white`}
             style={{ ...filletStyle, ...buttonSize }}
           >
             Hermite blend · G{continuity}
