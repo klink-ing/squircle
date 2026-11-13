@@ -7,7 +7,6 @@ import plugin from "tailwindcss/plugin";
 import { PILL_SIDE_NAMES } from "./pill-css";
 import {
   DEFAULT_AMOUNT_VAR_NAME,
-  DEFAULT_R_VAR_NAME,
   NONE_RADIUS,
   cornerShapeProp,
   squircleFullCssObj,
@@ -31,16 +30,6 @@ export interface SquirclePluginOptions {
    * @deprecated Alias for {@link SquirclePluginOptions.amtVar}; see there.
    */
   "amt-var"?: string;
-  /** CSS custom property name for the intermediate corrected radius (default: "--squircle-r") */
-  /**
-   * @deprecated Set the namespace instead, with `SQUIRCLE_CSS_NAMESPACE` at
-   * build time. This option still works and still wins.
-   */
-  rVar?: string;
-  /**
-   * @deprecated Alias for {@link SquirclePluginOptions.rVar}; see there.
-   */
-  "r-var"?: string;
   /** Class name prefix for utilities (default: "squircle") */
   prefix?: string;
 }
@@ -50,7 +39,6 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
     // eslint-disable-next-line @typescript-eslint/unbound-method
     ({ addUtilities, matchUtilities, theme }) => {
       const amtVar = options.amtVar ?? options["amt-var"] ?? DEFAULT_AMOUNT_VAR_NAME;
-      const rVar = options.rVar ?? options["r-var"] ?? DEFAULT_R_VAR_NAME;
       const prefix = options.prefix ?? "squircle";
       // Drop none/full from the functional values (the v3-compat theme still
       // carries them) — they're registered as static utilities below instead,
@@ -81,7 +69,7 @@ const squircle: ReturnType<typeof plugin.withOptions<SquirclePluginOptions>> =
         matchUtilities(
           {
             [name]: (value: string) =>
-              squircleCssObj(props, value, { amtVar, rVar }) as Record<
+              squircleCssObj(props, value, { amtVar }) as Record<
                 string,
                 string | Record<string, string>
               >,

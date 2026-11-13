@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import squirclePandaPreset from "./panda";
-import { CAMEL_VARIANTS } from "./variants";
+import { resolveCorners, ruleFromObject, type Corner } from "./test-utils";
+import { CAMEL_VARIANTS, correctedRadius } from "./variants";
 
 describe("panda preset shape", () => {
   const preset = squirclePandaPreset();
@@ -51,8 +52,7 @@ describe("panda preset transform output", () => {
     expect(out).toMatchInlineSnapshot(`
       {
         "@supports (corner-shape: superellipse(2))": {
-          "--squircle-r": "calc(var(--radii-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))))",
-          "borderRadius": "var(--squircle-r)",
+          "borderRadius": "calc(var(--radii-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))))",
           "cornerShape": "superellipse(var(--squircle-amt, 2))",
         },
         "borderRadius": "var(--radii-md)",
@@ -60,7 +60,7 @@ describe("panda preset transform output", () => {
     `);
   });
 
-  it("squircleTopLeftRadius (single corner) inlines calc without --squircle-r", () => {
+  it("squircleTopLeftRadius (single corner) writes the corrected radius into its property", () => {
     const out = preset.utilities!.extend!["squircleTopLeftRadius"]!.transform!(radiusToken, {
       token: mockToken,
       raw: "md",
@@ -77,7 +77,7 @@ describe("panda preset transform output", () => {
     `);
   });
 
-  it("squircleTopRadius (multi-prop side) shares --squircle-r across both corners", () => {
+  it("squircleTopRadius (multi-prop side) writes the corrected radius into both corners", () => {
     const out = preset.utilities!.extend!["squircleTopRadius"]!.transform!(radiusToken, {
       token: mockToken,
       raw: "md",
@@ -86,9 +86,8 @@ describe("panda preset transform output", () => {
     expect(out).toMatchInlineSnapshot(`
       {
         "@supports (corner-shape: superellipse(2))": {
-          "--squircle-r": "calc(var(--radii-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))))",
-          "borderTopLeftRadius": "var(--squircle-r)",
-          "borderTopRightRadius": "var(--squircle-r)",
+          "borderTopLeftRadius": "calc(var(--radii-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))))",
+          "borderTopRightRadius": "calc(var(--radii-md) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))))",
           "cornerTopLeftShape": "superellipse(var(--squircle-amt, 2))",
           "cornerTopRightShape": "superellipse(var(--squircle-amt, 2))",
         },
@@ -112,6 +111,73 @@ describe("panda preset transform output", () => {
   });
 });
 
+// Several utilities on one element, applied in order: each corner keeps the
+// radius of the utility that set it last.
+describe("panda preset: combined utilities each keep their own corners' radius", () => {
+  const preset = squirclePandaPreset();
+  const mockToken = Object.assign(() => undefined, { raw: () => undefined }) as any;
+  const apply = (utilities: [property: string, value: string][]) =>
+    utilities.map(([property, value]) =>
+      ruleFromObject(
+        preset.utilities!.extend![property]!.transform!(value, {
+          token: mockToken,
+          raw: value,
+          utils: { colorMix: () => ({ invalid: true, value: "" }) },
+        }) as Record<string, unknown>,
+      ),
+    );
+  const corners = (tl: string, tr: string, br: string, bl: string): Record<Corner, string> => ({
+    tl,
+    tr,
+    br,
+    bl,
+  });
+
+  const COMBINATIONS: [utilities: [string, string][], radii: Record<Corner, string>][] = [
+    [
+      [
+        ["squircleTopRadius", "24px"],
+        ["squircleBottomRadius", "8px"],
+      ],
+      corners("24px", "24px", "8px", "8px"),
+    ],
+    [
+      [
+        ["squircleLeftRadius", "24px"],
+        ["squircleRightRadius", "8px"],
+      ],
+      corners("24px", "8px", "8px", "24px"),
+    ],
+    [
+      [
+        ["squircleStartRadius", "24px"],
+        ["squircleEndRadius", "8px"],
+      ],
+      corners("24px", "8px", "8px", "24px"),
+    ],
+    [
+      [
+        ["squircleRadius", "8px"],
+        ["squircleTopRadius", "24px"],
+      ],
+      corners("24px", "24px", "8px", "8px"),
+    ],
+  ];
+
+  for (const [utilities, radii] of COMBINATIONS) {
+    const label = utilities.map(([property, value]) => `${property}: ${value}`).join(", ");
+    it(`${label} with corner-shape`, () => {
+      const corrected = Object.fromEntries(
+        Object.entries(radii).map(([corner, radius]) => [corner, correctedRadius(radius)]),
+      );
+      expect(resolveCorners(apply(utilities), { supported: true })).toEqual(corrected);
+    });
+    it(`${label} without corner-shape`, () => {
+      expect(resolveCorners(apply(utilities), { supported: false })).toEqual(radii);
+    });
+  }
+});
+
 describe("panda preset options", () => {
   const mockToken = Object.assign(() => "1rem", { raw: () => undefined }) as any;
   const mockArgs = (raw: string) => ({
@@ -131,7 +197,7 @@ describe("panda preset options", () => {
       string,
       string
     >;
-    expect(radiusSupports["--squircle-r"]).toContain("var(--my-amt, 2)");
+    expect(radiusSupports["borderRadius"]).toContain("var(--my-amt, 2)");
     expect(radiusSupports["cornerShape"]).toBe("superellipse(var(--my-amt, 2))");
 
     const amtOut = preset.utilities!.extend!["squircleAmount"]!.transform!(
@@ -144,30 +210,5 @@ describe("panda preset options", () => {
 
     const allOutput = JSON.stringify({ radiusOut, amtOut });
     expect(allOutput).not.toContain("--squircle-amt");
-  });
-
-  it("custom rVar threads through multi-prop side transforms", () => {
-    const preset = squirclePandaPreset({ rVar: "--my-r" });
-    const out = preset.utilities!.extend!["squircleTopRadius"]!.transform!(
-      "1rem",
-      mockArgs("1rem"),
-    ) as Record<string, unknown>;
-    const supports = out["@supports (corner-shape: superellipse(2))"] as Record<string, string>;
-    expect(supports["--my-r"]).toContain("calc(1rem");
-    expect(supports["borderTopLeftRadius"]).toBe("var(--my-r)");
-    expect(supports["borderTopRightRadius"]).toBe("var(--my-r)");
-    expect(JSON.stringify(out)).not.toContain("--squircle-r");
-  });
-
-  it("amtVar and rVar can both be overridden together", () => {
-    const preset = squirclePandaPreset({ amtVar: "--a", rVar: "--r" });
-    const out = preset.utilities!.extend!["squircleRadius"]!.transform!(
-      "1rem",
-      mockArgs("1rem"),
-    ) as Record<string, unknown>;
-    const supports = out["@supports (corner-shape: superellipse(2))"] as Record<string, string>;
-    expect(supports["--r"]).toContain("var(--a, 2)");
-    expect(supports["borderRadius"]).toBe("var(--r)");
-    expect(supports["cornerShape"]).toBe("superellipse(var(--a, 2))");
   });
 });

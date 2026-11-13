@@ -27,21 +27,15 @@ describe("plugin.ts utilities", () => {
       expect(css).toContain("pow(2, -0.5)");
     });
 
-    const usesIntermediateVar = props.length > 1 || suffix === "";
-    if (usesIntermediateVar) {
-      it(`${className} uses --squircle-r intermediate variable`, async () => {
-        const css = await compilePlugin([className]);
-        expect(css).toContain("--squircle-r:");
-        for (const prop of props) {
-          expect(css).toContain(`${prop}: var(--squircle-r)`);
-        }
-      });
-    } else {
-      it(`${className} inlines corrected radius directly`, async () => {
-        const css = await compilePlugin([className]);
-        expect(css).not.toContain("--squircle-r:");
-      });
-    }
+    // No variable shared between utilities: two of them on one element could
+    // only both set it, and then every corner would read whichever won.
+    it(`${className} writes the corrected radius into each property`, async () => {
+      const css = await compilePlugin([className]);
+      expect(css).not.toContain("--squircle-r");
+      for (const prop of props) {
+        expect(css).toContain(`${prop}: calc(`);
+      }
+    });
 
     it(`${className} snapshot`, async () => {
       const css = await compilePlugin([className]);
@@ -186,27 +180,6 @@ describe("plugin.ts custom options", () => {
     const css = await compilePlugin(["squircle-amt-[3]"], "amt-var: --se-amt;");
     expect(css).toContain("--se-amt: 3");
     expect(css).not.toContain("corner-shape:");
-  });
-
-  it("custom r-var changes the intermediate CSS variable name", async () => {
-    const css = await compilePlugin(["squircle-md"], "r-var: --se-r;");
-    expect(css).toContain("--se-r: calc(");
-    expect(css).toContain("border-radius: var(--se-r)");
-    expect(css).not.toContain("--squircle-r");
-  });
-
-  it("custom r-var applies to multi-prop side variants", async () => {
-    const css = await compilePlugin(["squircle-t-md"], "r-var: --se-r;");
-    expect(css).toContain("--se-r: calc(");
-    expect(css).toContain("border-top-left-radius: var(--se-r)");
-    expect(css).toContain("border-top-right-radius: var(--se-r)");
-  });
-
-  it("single-prop corner variants don't emit the intermediate var at all", async () => {
-    const css = await compilePlugin(["squircle-tl-md"], "r-var: --se-r;");
-    expect(css).not.toContain("--se-r");
-    expect(css).not.toContain("--squircle-r");
-    expect(css).toContain("border-top-left-radius: calc(");
   });
 
   it("both options together", async () => {

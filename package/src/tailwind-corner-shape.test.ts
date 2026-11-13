@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createCompiler, VARIANTS } from "./test-utils";
-import { cornerShapeProp } from "./variants";
+import { createCompiler, parseRules, resolveCorners, VARIANTS, type Corner } from "./test-utils";
+import { cornerShapeProp, correctedRadius } from "./variants";
 
 const { compileCss, compilePlugin } = createCompiler(import.meta.dirname);
 const paths = [
@@ -46,6 +46,64 @@ describe("squircle utilities only reshape the corners they own", () => {
         expect(css).not.toContain("corner-top-right-shape:");
         expect(css).not.toContain("corner-bottom");
       });
+    });
+  }
+});
+
+// A squircled corner takes the corrected radius only where `corner-shape` is
+// supported; a round one takes the plain radius everywhere.
+const squircled = (radius: string) => ({ supported: correctedRadius(radius), fallback: radius });
+const round = (radius: string) => ({ supported: radius, fallback: radius });
+type Expected = Record<Corner, { supported: string; fallback: string }>;
+
+// Corners are listed top-left, top-right, bottom-right, bottom-left, and the
+// logical variants read as left-to-right text.
+const COMBINATIONS: [classes: string[], expected: Expected][] = [
+  [
+    ["squircle-t-[24px]", "squircle-b-[8px]"],
+    { tl: squircled("24px"), tr: squircled("24px"), br: squircled("8px"), bl: squircled("8px") },
+  ],
+  [
+    ["squircle-l-[24px]", "squircle-r-[8px]"],
+    { tl: squircled("24px"), tr: squircled("8px"), br: squircled("8px"), bl: squircled("24px") },
+  ],
+  [
+    ["squircle-s-[24px]", "squircle-e-[8px]"],
+    { tl: squircled("24px"), tr: squircled("8px"), br: squircled("8px"), bl: squircled("24px") },
+  ],
+  [
+    ["squircle-[8px]", "squircle-t-[24px]"],
+    { tl: squircled("24px"), tr: squircled("24px"), br: squircled("8px"), bl: squircled("8px") },
+  ],
+  [
+    ["squircle-[8px]", "squircle-tl-[24px]"],
+    { tl: squircled("24px"), tr: squircled("8px"), br: squircled("8px"), bl: squircled("8px") },
+  ],
+  [
+    ["squircle-t-[24px]", "squircle-br-[16px]", "squircle-bl-[8px]"],
+    { tl: squircled("24px"), tr: squircled("24px"), br: squircled("16px"), bl: squircled("8px") },
+  ],
+  [
+    ["squircle-t-[24px]", "rounded-b-[8px]"],
+    { tl: squircled("24px"), tr: squircled("24px"), br: round("8px"), bl: round("8px") },
+  ],
+];
+
+describe("combined utilities each keep their own corners' radius", () => {
+  for (const [pathName, compile] of paths) {
+    describe(pathName, () => {
+      for (const [classes, expected] of COMBINATIONS) {
+        for (const supported of [true, false]) {
+          const branch = supported ? "with corner-shape" : "without corner-shape";
+          it(`${classes.join(" ")} ${branch}`, async () => {
+            const rules = parseRules(await compile(classes));
+            const want = Object.fromEntries(
+              Object.entries(expected).map(([c, v]) => [c, supported ? v.supported : v.fallback]),
+            );
+            expect(resolveCorners(rules, { supported })).toEqual(want);
+          });
+        }
+      }
     });
   }
 });

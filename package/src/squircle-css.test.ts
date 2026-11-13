@@ -32,22 +32,15 @@ describe("squircle.css utilities", () => {
       expect(css).toContain("pow(2, -0.5)");
     });
 
-    const usesIntermediateVar = props.length > 1 || suffix === "";
-    if (usesIntermediateVar) {
-      it(`${className} uses --squircle-r intermediate variable`, async () => {
-        const css = await compileCss([className]);
-        expect(css).toContain("--squircle-r:");
-        for (const prop of props) {
-          expect(css).toContain(`${prop}: var(--squircle-r)`);
-        }
-      });
-    } else {
-      it(`${className} inlines calc directly`, async () => {
-        const css = await compileCss([className]);
-        expect(css).not.toContain("--squircle-r:");
-        expect(css).toContain(`${props[0]}: calc(`);
-      });
-    }
+    // No variable shared between utilities: two of them on one element could
+    // only both set it, and then every corner would read whichever won.
+    it(`${className} writes the corrected radius into each property`, async () => {
+      const css = await compileCss([className]);
+      expect(css).not.toContain("--squircle-r");
+      for (const prop of props) {
+        expect(css).toContain(`${prop}: calc(`);
+      }
+    });
 
     it(`${className} snapshot`, async () => {
       const css = await compileCss([className]);
