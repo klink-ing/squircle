@@ -72,11 +72,11 @@ function generateCss(): string {
 
   blocks.push(`\
 /* ── Squircle utilities ─────────────────────────────────────── */
-/* squircle-amt-[n] sets the superellipse amount (default ${DEFAULT_AMT})    */
+/* squircle-amt-[n] sets the strength (default ${DEFAULT_AMT})               */
 /* squircle-* mirrors rounded-* variants: t, r, b, l, s, e, tl, tr, br, bl, ss, se, es, ee */
 /* squircle-*-none and squircle-*-full are static, matching rounded-none and rounded-full */
 
-/* squircle-amt-[n] only sets the amount — the same thing writing
+/* squircle-amt-[n] only sets the strength — the same thing writing
    --squircle-amt yourself does. It applies no corner-shape of its own, so it
    never reshapes corners that no squircle-* utility claimed. */
 @utility squircle-amt-* {

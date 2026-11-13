@@ -103,6 +103,13 @@ export function observePillShadows(
     // back into ::before: it must always compute the live CSS shadow source.
     const updates: [HTMLElement, string, number][] = [];
     for (const [el, state] of watched) {
+      // A pill that isn't rendered (in a display: none or
+      // content-visibility: hidden subtree) draws no shadow, and the browser
+      // keeps no style for it, so reading its ::before recomputes that from
+      // scratch: across a page of closed menus and folders, seconds a frame
+      // after any change. Leave it as it is. Its ResizeObserver entry, or
+      // the change to the document that shows it, refreshes it once drawn.
+      if (el.checkVisibility?.() === false) continue;
       const shadow = view.getComputedStyle(el, "::before").boxShadow || "none";
       const zoom = el.currentCSSZoom ?? 1;
       if (shadow !== state.shadow || zoom !== state.zoom) {
