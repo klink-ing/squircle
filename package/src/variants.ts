@@ -151,17 +151,15 @@ export const PILL_CLIP_VAR_NAME: string = pillVar("clip");
 /** What the standalone stylesheet hangs its rules off, so it works without Tailwind. */
 export const PILL_ATTRIBUTE: string = `data-${CSS_NAMESPACE}-pill`;
 /**
- * The shared amount and radius properties, from the same namespace as
- * everything else. At the default namespace these are the documented
- * `--squircle-amt` and `--squircle-r`, unchanged.
+ * The shared amount property, from the same namespace as everything else. At
+ * the default namespace this is the documented `--squircle-amt`, unchanged.
  *
- * The `amtVar` and `rVar` plugin options still override them and take
- * precedence, but are deprecated: they predate the namespace and only ever
- * reached utilities the plugins emit, never the paint worklet, which names the
- * properties it reads in a static `inputProperties` list.
+ * The `amtVar` plugin option still overrides it and takes precedence, but is
+ * deprecated: it predates the namespace and only ever reached utilities the
+ * plugins emit, never the paint worklet, which names the properties it reads
+ * in a static `inputProperties` list.
  */
 export const DEFAULT_AMOUNT_VAR_NAME: string = coreVar("amt");
-export const DEFAULT_R_VAR_NAME: string = coreVar("r");
 /** Static value for `squircle-full`; matches Tailwind's `rounded-full`. */
 export const FULL_RADIUS = "calc(infinity * 1px)" as const;
 /** The stadium radius, held to the pill's max radius when one is set. */
@@ -243,12 +241,6 @@ export function variantEntries(): [string, string[]][] {
   return Object.entries(VARIANTS).filter(
     (entry): entry is [string, string[]] => !isComment(entry[1]),
   );
-}
-
-export function usesIntermediateVar(suffix: string): boolean {
-  const entry = VARIANTS[suffix];
-  if (!entry || isComment(entry)) return false;
-  return suffix === "" || entry.length > 1;
 }
 
 /**
@@ -358,31 +350,25 @@ export type CssLikeObject = Record<
 export interface SquircleCssObjOptions {
   /** Override the `--squircle-amt` variable name (default `--squircle-amt`). */
   amtVar?: string;
-  /** Override the intermediate corrected-radius variable name (default `--squircle-r`). */
-  rVar?: string;
   /**
    * Output property name case. `kebab` (default) emits `border-radius`-style keys
    * for Tailwind plugins and raw CSS. `camel` emits `borderRadius`-style keys
    * for Panda/StyleX/CSS-in-JS callers.
    */
   case?: "kebab" | "camel";
-  /**
-   * When false, never emit the `--squircle-r` intermediate variable: the corrected
-   * `calc(...)` is inlined into each property. Defaults to the same heuristic
-   * Tailwind uses (true for all-corners and multi-prop sides, false for single
-   * corners). Pass `false` for callers that prefer flat output (StyleX cannot
-   * read a custom property set in the same rule it's used in without a separate
-   * declaration cycle, so the inlined form is more portable).
-   */
-  useIntermediateVar?: boolean;
 }
 
 /**
  * Build the framework-agnostic CSS-in-JS object for one squircle utility.
  * Returns the same shape Tailwind's `matchUtilities` consumes, with an
  * `@supports` block that gates the corrected radius behind `corner-shape`
- * support. Used by the Tailwind plugin, the static-CSS generator, the Panda
- * preset, and the StyleX helpers.
+ * support. Used by the Tailwind plugin, the static-CSS generator and the Panda
+ * preset.
+ *
+ * The corrected radius is written into each property rather than shared
+ * through a custom property: an element can carry several of these utilities
+ * at once, `squircle-t-lg squircle-b-sm` say, and they could only all set the
+ * same property, leaving every corner that read it with whichever value won.
  */
 export function squircleCssObj(
   props: string[],
@@ -390,15 +376,9 @@ export function squircleCssObj(
   options: SquircleCssObjOptions = {},
 ): CssLikeObject {
   const amtVar = options.amtVar ?? DEFAULT_AMOUNT_VAR_NAME;
-  const rVar = options.rVar ?? DEFAULT_R_VAR_NAME;
   const keyCase = options.case ?? "kebab";
-  const useIntermediate =
-    options.useIntermediateVar ?? (props.length > 1 || props[0] === "border-radius");
-
-  const amtCss = `var(${amtVar}, ${DEFAULT_AMT})`;
-  const rCss = `var(${rVar})`;
   const cornerShape = getCornerShape(amtVar);
-  const corrected = correctedRadius(radius, amtCss);
+  const corrected = correctedRadius(radius, `var(${amtVar}, ${DEFAULT_AMT})`);
 
   const propKey = (p: string) => (keyCase === "camel" ? toCamel(p) : p);
 
@@ -406,12 +386,7 @@ export function squircleCssObj(
   for (const p of props) fallback[propKey(p)] = radius;
 
   const supportsBlock: Record<string, string> = {};
-  if (useIntermediate) {
-    supportsBlock[rVar] = corrected;
-    for (const p of props) supportsBlock[propKey(p)] = rCss;
-  } else {
-    for (const p of props) supportsBlock[propKey(p)] = corrected;
-  }
+  for (const p of props) supportsBlock[propKey(p)] = corrected;
   for (const p of props) supportsBlock[propKey(cornerShapeProp(p))] = cornerShape;
 
   return {

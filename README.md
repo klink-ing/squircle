@@ -212,15 +212,14 @@ Tailwind resolves the theme key, which reads your underlying CSS variable — yo
 
 ### JS plugin options
 
-If you installed via the JS plugin, three options tune the emitted output:
+If you installed via the JS plugin, two options tune the emitted output:
 
 | Option    | Default            | Effect                                                             |
 | --------- | ------------------ | ------------------------------------------------------------------ |
 | `prefix`  | `"squircle"`       | Class prefix. `prefix: "sq"` → `sq-md`, `sq-t-lg`                  |
 | `amt-var` | `"--squircle-amt"` | CSS variable name for the `K` parameter passed to `superellipse()` |
-| `r-var`   | `"--squircle-r"`   | CSS variable name for the intermediate corrected-radius variable   |
 
-All three are exposed as kebab-case inside the `@plugin` block and as camelCase (`amtVar`, `rVar`) when requiring the plugin from JavaScript.
+Both are exposed as kebab-case inside the `@plugin` block and as camelCase (`amtVar`) when requiring the plugin from JavaScript.
 
 </details>
 
@@ -306,14 +305,13 @@ The preset also registers a `_squircleSupported` condition mapped to `@supports 
 />
 ```
 
-### 4. (Optional) customize CSS variable names
+### 4. (Optional) customize the CSS variable name
 
-If you've already standardized on different variable names — say your design system uses `--corner-amt` everywhere — pass them when calling the preset:
+If you've already standardized on a different variable name — say your design system uses `--corner-amt` everywhere — pass it when calling the preset:
 
 ```ts
 squirclePreset({
   amtVar: "--corner-amt", // default: --squircle-amt
-  rVar: "--corner-r", // default: --squircle-r
 });
 ```
 
@@ -417,7 +415,7 @@ import { squircle } from "@klinking/squircle/stylex";
 
 ### Notes
 
-- **No CSS-variable knobs.** The Tailwind and Panda integrations expose `amtVar` / `rVar` because they emit static `@supports` blocks the cascade can override. StyleX's preset is per-call parametric instead — there's nothing to rename.
+- **No CSS-variable knobs.** The Tailwind and Panda integrations expose `amtVar` because they emit static `@supports` blocks the cascade can override. StyleX's preset is per-call parametric instead — there's nothing to rename.
 - **Static analysis.** The 15-variant table is a single statically-analyzable `stylex.create({ … })` literal, so your StyleX bundler picks it up the same way it picks up your own create calls. The literal is generated from a template — see `package/scripts/generate-stylex.ts`.
 - **Optional peer.** `@stylexjs/stylex` is an _optional_ peer dependency on `@klinking/squircle` — installing the package without StyleX doesn't pull it in.
 
@@ -646,8 +644,7 @@ So `.squircle-md` compiles to roughly:
 .squircle-md {
   border-radius: 0.375rem; /* fallback: matches rounded-md visually */
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(0.375rem * (1 - pow(2, -0.5)) / (1 - pow(2, -0.25)));
-    border-radius: var(--squircle-r); /* ≈ 0.690rem, corrected */
+    border-radius: calc(0.375rem * (1 - pow(2, -0.5)) / (1 - pow(2, -0.25))); /* ≈ 0.690rem, corrected */
     corner-shape: superellipse(2);
   }
 }
@@ -663,15 +660,15 @@ See the [interactive demo](https://dogmar.github.io/squircle) for a visual expla
 
 ### Support matrix
 
-| Feature                                                                    | Used for                                       | Support                                                        |
-| -------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------- |
-| [`corner-shape: superellipse()`](https://caniuse.com/?search=corner-shape) | The squircle shape itself                      | New; fallback to plain `border-radius` in unsupported browsers |
-| [`@supports`](https://caniuse.com/css-supports-api)                        | Gating the correction                          | Universal for years                                            |
-| [`pow()` / `calc()`](https://caniuse.com/?search=pow)                      | The correction math                            | Widely supported (Safari 16.4+, Chrome 112+, Firefox 118+)     |
-| [Logical properties](https://caniuse.com/css-logical-props)                | `squircle-s/e/ss/se/es/ee-*`                   | Widely supported                                               |
-| [CSS `@function`](https://caniuse.com/?search=%40function)                 | Optional `squircle-radius()` helper            | Experimental; Chrome flag only                                 |
-| [CSS custom properties](https://caniuse.com/css-variables)                 | Theme tokens, `--squircle-amt`, `--squircle-r` | Universal                                                      |
-| [CSS Paint API](https://caniuse.com/css-paint-api)                         | `squircle-pill` shape and border               | Chromium only; fallback to `rounded-full` elsewhere            |
+| Feature                                                                    | Used for                            | Support                                                        |
+| -------------------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------- |
+| [`corner-shape: superellipse()`](https://caniuse.com/?search=corner-shape) | The squircle shape itself           | New; fallback to plain `border-radius` in unsupported browsers |
+| [`@supports`](https://caniuse.com/css-supports-api)                        | Gating the correction               | Universal for years                                            |
+| [`pow()` / `calc()`](https://caniuse.com/?search=pow)                      | The correction math                 | Widely supported (Safari 16.4+, Chrome 112+, Firefox 118+)     |
+| [Logical properties](https://caniuse.com/css-logical-props)                | `squircle-s/e/ss/se/es/ee-*`        | Widely supported                                               |
+| [CSS `@function`](https://caniuse.com/?search=%40function)                 | Optional `squircle-radius()` helper | Experimental; Chrome flag only                                 |
+| [CSS custom properties](https://caniuse.com/css-variables)                 | Theme tokens, `--squircle-amt`      | Universal                                                      |
+| [CSS Paint API](https://caniuse.com/css-paint-api)                         | `squircle-pill` shape and border    | Chromium only; fallback to `rounded-full` elsewhere            |
 
 The Tailwind utilities depend on rows 1–4 and row 6. Only `corner-shape` itself is "new" — everything else is shipped broadly. The standalone `@function` helper is the only genuinely experimental piece.
 
@@ -705,7 +702,7 @@ Both are first-class — at least for the Tailwind CSS utilities, which are ~100
 
 - You want upgrades when the formula tightens, the value validation changes, or the utility surface grows.
 - You're using the Panda CSS preset or StyleX preset — those are JS modules, so copy/paste isn't practical.
-- You want Tailwind's JS plugin form (custom `prefix`, `amt-var`, `r-var`) or the `tailwind-merge` conflict config.
+- You want Tailwind's JS plugin form (custom `prefix`, `amt-var`) or the `tailwind-merge` conflict config.
 - You want the standalone [`squircle-radius()`](#css-function-squircle-radius) CSS function.
 
 ## FAQ
@@ -825,8 +822,7 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
 @utility squircle-* {
   border-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-    border-radius: var(--squircle-r);
+    border-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-shape: superellipse(var(--squircle-amt, 2));
   }
 }
@@ -851,9 +847,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-top-left-radius: --value(--radius-*, [length], [*]);
   border-top-right-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-    border-top-left-radius: var(--squircle-r);
-    border-top-right-radius: var(--squircle-r);
+    border-top-left-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-top-right-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -877,9 +872,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-top-right-radius: --value(--radius-*, [length], [*]);
   border-bottom-right-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-    border-top-right-radius: var(--squircle-r);
-    border-bottom-right-radius: var(--squircle-r);
+    border-top-right-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-bottom-right-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-top-right-shape: superellipse(var(--squircle-amt, 2));
     corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -903,9 +897,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-bottom-left-radius: --value(--radius-*, [length], [*]);
   border-bottom-right-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-    border-bottom-left-radius: var(--squircle-r);
-    border-bottom-right-radius: var(--squircle-r);
+    border-bottom-left-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-bottom-right-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
     corner-bottom-right-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -929,9 +922,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-top-left-radius: --value(--radius-*, [length], [*]);
   border-bottom-left-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-    border-top-left-radius: var(--squircle-r);
-    border-bottom-left-radius: var(--squircle-r);
+    border-top-left-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-bottom-left-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-top-left-shape: superellipse(var(--squircle-amt, 2));
     corner-bottom-left-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -957,9 +949,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-start-start-radius: --value(--radius-*, [length], [*]);
   border-end-start-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-    border-start-start-radius: var(--squircle-r);
-    border-end-start-radius: var(--squircle-r);
+    border-start-start-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-end-start-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-start-start-shape: superellipse(var(--squircle-amt, 2));
     corner-end-start-shape: superellipse(var(--squircle-amt, 2));
   }
@@ -983,9 +974,8 @@ If you'd rather not add a dependency, copy the source directly. Click to expand 
   border-start-end-radius: --value(--radius-*, [length], [*]);
   border-end-end-radius: --value(--radius-*, [length], [*]);
   @supports (corner-shape: superellipse(2)) {
-    --squircle-r: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
-    border-start-end-radius: var(--squircle-r);
-    border-end-end-radius: var(--squircle-r);
+    border-start-end-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
+    border-end-end-radius: calc(--value(--radius-*, [length], [*]) * (1 - pow(2, -0.5)) / (1 - pow(2, -1 * pow(2, -1 * var(--squircle-amt, 2)))));
     corner-start-end-shape: superellipse(var(--squircle-amt, 2));
     corner-end-end-shape: superellipse(var(--squircle-amt, 2));
   }
