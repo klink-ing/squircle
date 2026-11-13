@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/env.d.ts",
+    "src/components/GuidedExplorer.tsx",
+    "src/components/ExplorerGraphic.tsx",
+    "src/components/FreeExplorer.tsx",
+    "src/components/tour/**/*",
+    "vite.config.ts"
+  ],
+  "exclude": ["dist", "examples", "styled-system"]
+}

@@ -1,0 +1,198 @@
+.tour-root {
+  padding-block: 1rem 3rem;
+  font-variant-numeric: tabular-nums;
+}
+.tour-root input,
+.tour-root select {
+  font-variant-numeric: tabular-nums;
+}
+.tour-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: center;
+}
+.tour-graphic {
+  width: 100%;
+  max-width: 23rem;
+  justify-self: start;
+  align-self: start;
+  min-width: 0;
+}
+.tour-graphic svg {
+  display: block;
+}
+.tour-content {
+  position: relative;
+  min-width: 0;
+  overflow-x: clip;
+  overflow-clip-margin: 0.5rem;
+}
+/* Match Tailwind's base layer so its important [hidden] rule can be overridden. */
+@layer base {
+  /* Hidden slides stay measurable for line splitting, outside normal flow and accessibility. */
+  .tour-content [data-tour-panel][hidden] {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+.tour-content h2 {
+  font-size: clamp(1.8rem, 4vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.12;
+  margin-block: 0 1.25rem;
+  overflow-wrap: anywhere;
+}
+.tour-copy {
+  font-size: clamp(1.1rem, 2.4vw, 1.375rem);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.tour-copy code {
+  font-size: 0.87em;
+  background: #27272a;
+  padding: 1px 4px;
+  border-radius: 4px;
+  box-decoration-break: clone;
+}
+.tour-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+}
+.tour-navigation span {
+  color: #a1a1aa;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+.tour-root button,
+.tour-transport select {
+  min-height: 3rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.5rem;
+  background: #27272a;
+  color: #f4f4f5;
+  cursor: pointer;
+  font: inherit;
+}
+.tour-navigation button {
+  max-width: 60%;
+  font-size: 1rem;
+}
+.tour-navigation button:first-child {
+  padding-left: 0;
+  background: transparent;
+}
+.tour-root button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tour-root :focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 4px;
+}
+.tour-strength {
+  margin-block: 1.25rem;
+}
+.tour-strength-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #a1a1aa;
+}
+.tour-strength-label label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.tour-strength-label button {
+  min-height: 2rem;
+  padding: 0.25rem 0 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #a1a1aa;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.tour-strength-label button:hover:not(:disabled) {
+  color: #f4f4f5;
+}
+.tour-strength output {
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+}
+.tour-strength input,
+.tour-transport input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 3rem;
+  margin: 0;
+}
+.tour-strength input {
+  height: 2rem;
+}
+.tour-explore {
+  align-items: start;
+}
+.tour-return {
+  margin-top: 1.5rem;
+}
+.tour-explore input[type="range"] {
+  flex: 1 1 8rem;
+  min-width: 0;
+  min-height: 2.75rem;
+}
+.tour-explore input[type="text"] {
+  min-height: 2.75rem;
+}
+.tour-explore tr[aria-current="true"] {
+  background: color-mix(in srgb, var(--color-squircle-border) 12%, transparent);
+  font-weight: 600;
+}
+.tour-explore .overflow-x-auto {
+  max-width: 100%;
+}
+.tour-transport {
+  margin-top: 2rem;
+  padding: 1rem;
+  border: 1px solid #3f3f46;
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  font-size: 0.875rem;
+}
+.tour-transport summary {
+  cursor: pointer;
+  min-height: 2rem;
+}
+.tour-transport p {
+  margin-block: 0.75rem;
+}
+.tour-transport-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.tour-transport select {
+  max-width: 100%;
+}
+@media (min-width: 768px) {
+  .tour-layout {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(2rem, 4vw, 3rem);
+  }
+}

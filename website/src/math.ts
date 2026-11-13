@@ -40,6 +40,11 @@ export function correctedRadius(r: number, n: number): number {
   return (r * (1 - Math.pow(2, -0.5))) / (1 - Math.pow(2, -1 / n));
 }
 
+/** Radius of the circle sharing a superellipse's edges and diagonal point. */
+export function apparentRadius(cssRadius: number, n: number): number {
+  return cssRadius / correctedRadius(1, n);
+}
+
 /**
  * Bevel depth for a circle of radius r.
  * For a superellipse |x|^n + |y|^n = r^n, the tangent line x+y=k
