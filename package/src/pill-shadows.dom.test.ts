@@ -136,6 +136,23 @@ describe("resolved pill shadows", () => {
     expect(added.style.getPropertyValue(PILL_RESOLVED_SHADOW_VAR_NAME)).toBe("");
   });
 
+  it("leaves pills that aren't rendered alone until they are drawn", async () => {
+    let rendered = false;
+    pill.checkVisibility = () => rendered;
+    controller = observePillShadows();
+    await settle();
+    expect(spy).not.toHaveBeenCalledWith(pill, "::before");
+    expect(reach(pill)).toBe("");
+    document.body.className = "changed";
+    await settle();
+    expect(spy).not.toHaveBeenCalledWith(pill, "::before");
+    rendered = true;
+    pill.parentElement!.setAttribute("open", "");
+    await settle();
+    expect(spy).toHaveBeenCalledWith(pill, "::before");
+    expect(reach(pill)).toBe("4px");
+  });
+
   it("restores existing inline values and cancels queued work on disconnect", async () => {
     pill.style.setProperty(PILL_SHADOW_REACH_VAR_NAME, "2px", "important");
     controller = observePillShadows();
